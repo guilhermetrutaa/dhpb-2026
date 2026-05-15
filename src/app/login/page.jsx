@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import Image from 'next/image'
 import { Poppins } from 'next/font/google';
-import { signInWithEmailAndPassword } from 'firebase/auth'
+import { signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence } from 'firebase/auth'
 import { doc, getDoc } from 'firebase/firestore'
 import { auth, db } from '@/lib/firebase'
 import { useRouter } from 'next/navigation'
@@ -16,6 +16,7 @@ const poppins = Poppins({
 const Page = () => {
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
+  const [lembrar, setLembrar] = useState(true)
   const [erro, setErro] = useState('')
   const [carregando, setCarregando] = useState(false)
   const router = useRouter()
@@ -26,6 +27,7 @@ const Page = () => {
     setCarregando(true)
 
     try {
+      await setPersistence(auth, lembrar ? browserLocalPersistence : browserSessionPersistence)
       const credencial = await signInWithEmailAndPassword(auth, email, senha)
       let tipo = 'estudante'
       try {
@@ -96,6 +98,21 @@ const Page = () => {
                     required
                     className="block w-full rounded-2xl border border-neutral-300 p-4 pl-6 text-sm text-neutral-900 placeholder-neutral-400 shadow-sm focus:border-[#82181A] focus:ring-1 focus:ring-[#82181A] outline-none"
                   />
+                </div>
+
+                <div className="flex items-center justify-between px-1 text-sm">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={lembrar}
+                      onChange={(e) => setLembrar(e.target.checked)}
+                      className="h-4 w-4 rounded border-neutral-300 text-[#82181A] focus:ring-[#82181A]"
+                    />
+                    <span className="text-neutral-700">Lembrar conta</span>
+                  </label>
+                  <a href="/recuperar-senha" className="font-semibold text-[#82181A] hover:underline">
+                    Esqueci minha senha
+                  </a>
                 </div>
 
                 {erro && (

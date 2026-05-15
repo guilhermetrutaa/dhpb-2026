@@ -198,7 +198,7 @@ function QuestaoContent() {
                 <div key={alt.letra} className={classe} onClick={() => handleSelectAlt(alt.letra)}>
                   <div className='w-8 h-8 rounded-full bg-[#82181A]/10 flex items-center justify-center font-bold text-[#82181A] text-sm mr-3'>{alt.letra}</div>
                   <p className='text-gray-800'>{alt.texto}</p>
-                  {locked && <span className='text-xs text-neutral-400 ml-auto'>Peso: {alt.peso}</span>}
+                  
                 </div>
               )
             })}

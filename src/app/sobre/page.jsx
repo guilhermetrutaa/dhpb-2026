@@ -313,7 +313,7 @@ const Page = () => {
       <footer className="bg-white mt-20 py-8">
                 <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center md:items-start space-y-6 md:space-y-0">
                     <div className="flex flex-col items-center space-y-4">
-                        <img src="/Logo.svg" alt="Logo DHPB" className="h-12" />
+                        <img src="/logo.svg" alt="Logo DHPB" className="h-12" />
                         <div className="flex space-x-4">
                             <a href="https://www.instagram.com/oficialdhpb/" target="_blank" rel="noopener noreferrer" className='text-[#000]'>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-instagram" viewBox="0 0 16 16">
