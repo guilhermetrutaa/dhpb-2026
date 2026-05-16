@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react'
 import Image from 'next/image'
 import { Poppins } from 'next/font/google'
-import { doc, getDoc, updateDoc, arrayUnion, setDoc, collection, query, where, getDocs, onSnapshot } from 'firebase/firestore'
+import { doc, getDoc, updateDoc, arrayUnion, setDoc, collection, query, where, getDocs, deleteDoc, onSnapshot } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -13,192 +13,270 @@ const poppins = Poppins({
   weight: ['400', '500', '600', '700'],
 })
 
-function SingleTeamView({ equipeId, authUser, userData, logout }) {
+function SingleTeamView({ equipeId, authUser, userData }) {
   const [equipe, setEquipe] = useState(null)
   const [carregando, setCarregando] = useState(true)
-  const [emailMembro, setEmailMembro] = useState('')
-  const [papelMembro, setPapelMembro] = useState('')
+  const [slotInputs, setSlotInputs] = useState({})
   const [erro, setErro] = useState('')
   const [sucesso, setSucesso] = useState('')
-  const [adicionando, setAdicionando] = useState(false)
 
   useEffect(() => {
     if (!equipeId) return
-    const carregar = async () => {
-      try {
-        const snap = await getDoc(doc(db, 'equipes', equipeId))
-        if (snap.exists()) setEquipe({ id: snap.id, ...snap.data() })
-      } catch {} finally { setCarregando(false) }
-    }
-    carregar()
+    setCarregando(true)
+    const unsub = onSnapshot(doc(db, 'equipes', equipeId), (snap) => {
+      if (snap.exists()) setEquipe({ id: snap.id, ...snap.data() })
+      setCarregando(false)
+    })
+    return () => unsub()
   }, [equipeId])
 
   const membrosAtivos = equipe?.membros?.filter((m) => m.status === 'ativo') || []
-  const isCriador = authUser?.uid === equipe?.criadorUid
-  const isProfessor = userData?.tipo === 'professor'
 
-  const slots = () => {
-    if (!equipe) return { professor: 0, aluno: 0, responsavel: 0, totalRestante: 0 }
-    const p = membrosAtivos.filter((m) => m.papel === 'professor_orientador').length
-    const r = membrosAtivos.filter((m) => m.papel === 'responsavel').length
-    const a = membrosAtivos.filter((m) => m.papel === 'aluno').length
+  const professorMembro = membrosAtivos.find(m => m.papel === 'professor_orientador')
+  const alunosMembros = membrosAtivos.filter(m => m.papel === 'aluno')
+  const responsavelMembro = membrosAtivos.find(m => m.papel === 'responsavel')
+
+  const currentUserMembro = membrosAtivos.find(m => m.uid === authUser?.uid)
+  const currentUserPapel = currentUserMembro?.papel
+  const podeAddMembro = currentUserPapel === 'professor_orientador' || currentUserPapel === 'responsavel'
+
+  const slotsDisponiveis = () => {
+    if (!equipe) return { professor: 0, aluno: 0, responsavel: 0, total: 0 }
+    const p = membrosAtivos.filter(m => m.papel === 'professor_orientador').length
+    const r = membrosAtivos.filter(m => m.papel === 'responsavel').length
+    const a = membrosAtivos.filter(m => m.papel === 'aluno').length
     const t = membrosAtivos.length
-    if (isProfessor) return { professor: 0, responsavel: 1 - r, aluno: 3 - a - (1 - r), totalRestante: 4 - t }
-    return { professor: 1 - p, responsavel: 0, aluno: 2 - a, totalRestante: 4 - t }
+    if (userData?.tipo === 'professor') return { professor: 0, responsavel: 1 - r, aluno: 2 - a, total: 4 - t }
+    return { professor: 1 - p, responsavel: 1 - r, aluno: 2 - a, total: 4 - t }
   }
 
-  const s = slots()
-
-  const handleAdicionar = async (e) => {
-    e.preventDefault()
+  const handleAddSlot = async (slotKey, papel) => {
+    const data = slotInputs[slotKey]
+    if (!data?.email?.trim()) { setErro('Digite o email do participante.'); return }
+    if (slotsDisponiveis().total <= 0) { setErro('Equipe já está completa.'); return }
     setErro('')
     setSucesso('')
-    if (!emailMembro.trim()) { setErro('Digite o email do membro.'); return }
-    if (s.totalRestante <= 0) { setErro('Equipe já está completa (4 membros).'); return }
-
-    let papel = papelMembro
-    if (!papel) {
-      if (isProfessor) papel = s.responsavel > 0 ? 'responsavel' : 'aluno'
-      else if (s.professor > 0) papel = 'professor_orientador'
-      else papel = 'aluno'
-    }
-    if (papel === 'professor_orientador' && s.professor <= 0) { setErro('Limite de professores orientadores atingido.'); return }
-    if (papel === 'responsavel' && s.responsavel <= 0) { setErro('Limite de responsáveis atingido.'); return }
-    if (papel === 'aluno' && s.aluno <= 0) { setErro('Limite de alunos atingido.'); return }
-
-    setAdicionando(true)
     try {
-      const usersSnap = await getDocs(query(collection(db, 'users'), where('email', '==', emailMembro.trim())))
+      const usersSnap = await getDocs(query(collection(db, 'users'), where('email', '==', data.email.trim())))
       if (usersSnap.empty) { setErro('Usuário com este email não encontrado.'); return }
       const userDoc = usersSnap.docs[0]
-      if (membrosAtivos.some((m) => m.uid === userDoc.id)) { setErro('Este usuário já é membro da equipe.'); return }
+      if (membrosAtivos.some(m => m.uid === userDoc.id)) { setErro('Este usuário já é membro da equipe.'); return }
 
+      const nome = `${userDoc.data().nome || ''} ${userDoc.data().sobrenome || ''}`.trim()
       await updateDoc(doc(db, 'equipes', equipeId), {
-        membros: arrayUnion({
-          uid: userDoc.id,
-          nome: `${userDoc.data().nome || ''} ${userDoc.data().sobrenome || ''}`.trim(),
-          email: emailMembro.trim(),
-          papel,
-          status: 'ativo',
-        }),
+        membros: arrayUnion({ uid: userDoc.id, nome, email: data.email.trim(), papel, status: 'ativo' }),
       })
-
-      await setDoc(doc(db, 'users', userDoc.id, 'participacoes', equipe.edicaoId), {
-        equipeId,
-        papel,
-      })
-      await setDoc(doc(db, 'membro-index', btoa(emailMembro.trim()).replace(/=+$/, '') + '_' + equipe.edicaoId), {
+      await setDoc(doc(db, 'users', userDoc.id, 'participacoes', equipe.edicaoId), { equipeId, papel })
+      await setDoc(doc(db, 'membro-index', btoa(data.email.trim()).replace(/=+$/, '') + '_' + equipe.edicaoId), {
         equipeId, papel, uid: userDoc.id,
       })
 
-      setSucesso('Membro adicionado com sucesso!')
-      setEmailMembro('')
-      setPapelMembro('')
+      setSucesso(`${nome} adicionado como ${papel === 'professor_orientador' ? 'Professor Orientador' : papel === 'responsavel' ? 'Responsável' : 'Estudante'}!`)
+      setSlotInputs(prev => ({ ...prev, [slotKey]: {} }))
       setTimeout(() => setSucesso(''), 3000)
-      const snap = await getDoc(doc(db, 'equipes', equipeId))
-      if (snap.exists()) setEquipe({ id: snap.id, ...snap.data() })
     } catch (err) {
       setErro('Erro: ' + (err.code || err.message || 'Erro ao adicionar membro.'))
-    } finally { setAdicionando(false) }
+    }
   }
 
-  if (carregando) return <p className="text-[#82181A] text-lg text-center pt-20">Carregando equipe...</p>
-  if (!equipe) return <p className="text-[#82181A] text-lg text-center pt-20">Equipe não encontrada.</p>
+  const s = slotsDisponiveis()
+
+  const slotConfig = [
+    { key: 'professor', papel: 'professor_orientador', label: 'Orientador', membro: professorMembro, podeAdd: podeAddMembro && s.professor > 0 },
+  ]
+
+  slotConfig.push(
+    { key: 'resp', papel: 'responsavel', label: 'Responsável', membro: responsavelMembro, podeAdd: podeAddMembro && s.responsavel > 0 },
+  )
+
+  const totalAlunoSlots = 2
+  for (let i = 0; i < totalAlunoSlots; i++) {
+    const membro = alunosMembros[i] || null
+    const dentroDoLimite = i < alunosMembros.length + s.aluno
+    const podeAdd = podeAddMembro && !membro && dentroDoLimite
+    slotConfig.push({ key: `aluno${i}`, papel: 'aluno', label: 'Estudante', membro, podeAdd })
+  }
+
+  if (carregando) return <p className="text-[#82181A] text-lg text-center py-20">Carregando equipe...</p>
+  if (!equipe) return <p className="text-[#82181A] text-lg text-center py-20">Equipe não encontrada.</p>
+
+  const formatarModalidade = equipe.modalidade?.replaceAll('_', ' ') || '(selecionada na inscrição)'
+
+  const podeRemover = currentUserPapel === 'professor_orientador' || currentUserPapel === 'responsavel'
+
+  const handleRemoverMembro = async (membro) => {
+    if (!window.confirm(`Tem certeza que deseja remover ${membro.nome} da equipe?`)) return
+    setErro('')
+    setSucesso('')
+    try {
+      await updateDoc(doc(db, 'equipes', equipeId), {
+        membros: membrosAtivos.filter(m => m.uid !== membro.uid)
+      })
+      await deleteDoc(doc(db, 'users', membro.uid, 'participacoes', equipe.edicaoId))
+      await deleteDoc(doc(db, 'membro-index', btoa(membro.email).replace(/=+$/, '') + '_' + equipe.edicaoId))
+      setSucesso(`${membro.nome} removido da equipe!`)
+      setTimeout(() => setSucesso(''), 3000)
+    } catch (err) {
+      setErro('Erro ao remover membro: ' + (err.message || 'Erro desconhecido'))
+    }
+  }
+
+  const placeholderSlot = (slot) => {
+    if (slot.papel === 'professor_orientador') return 'professor orientador'
+    if (slot.papel === 'responsavel') return 'responsável'
+    return 'estudante'
+  }
+
+  const textoSlotVazio = (slot) => (
+    <span className="inline-flex items-center gap-1">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" className="bi bi-arrow-right-short" viewBox="0 0 16 16">
+        <path fillRule="evenodd" d="M4 8a.5.5 0 0 1 .5-.5h5.793L8.146 5.354a.5.5 0 1 1 .708-.708l3 3a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708-.708L10.293 8.5H4.5A.5.5 0 0 1 4 8"/>
+      </svg>
+      <span>
+        {slot.papel === 'professor_orientador'
+          ? 'Orientador A equipe não possui um professor orientador!'
+          : `${slot.label} A equipe falta integrantes! Insira os dados do participante.`}
+      </span>
+    </span>
+  )
+
+  const nomeMembro = (membro) => membro.nome
 
   return (
-    <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
-      <div className='lg:col-span-2 space-y-6'>
-        <div className='bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg p-8'>
-          <h2 className='text-2xl font-bold text-[#82181A] mb-6'>Minha Equipe</h2>
-          <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
-            <div className='space-y-4'>
-              <div><p className='text-xs text-neutral-500 uppercase tracking-wide'>Nome</p><p className='text-lg font-semibold'>{equipe.nome}</p></div>
-              <div><p className='text-xs text-neutral-500 uppercase tracking-wide'>ID</p><p className='text-sm font-mono text-[#82181A]'>{equipe.id}</p></div>
-              <div><p className='text-xs text-neutral-500 uppercase tracking-wide'>Escola</p><p className='text-lg font-semibold'>{equipe.escola}</p></div>
-            </div>
-            <div className='space-y-4'>
-              <div><p className='text-xs text-neutral-500 uppercase tracking-wide'>Modalidade</p><p className='text-lg font-semibold capitalize'>{equipe.modalidade?.replace('_', ' ')}</p></div>
-              <div><p className='text-xs text-neutral-500 uppercase tracking-wide'>Criador</p><p className='text-lg font-semibold'>{equipe.criadorNome}</p></div>
-              <div><p className='text-xs text-neutral-500 uppercase tracking-wide'>Membros</p><p className='text-lg font-semibold'>{membrosAtivos.length}/4</p></div>
-            </div>
-          </div>
-        </div>
+    <div className="w-full flex justify-center items-center">
+      <section className="w-full max-w-[85rem] min-h-[540px] px-7 py-9 sm:px-12 sm:py-12 md:min-h-[675px] md:px-[86px] md:pt-[54px] md:pb-[76px]">
+        <div className="mx-auto w-full max-w-[692px]">
+          <h1 className="text-[2.65rem] font-bold leading-[1.13] text-white sm:text-[3.1rem] md:text-[3.35rem]">
+            Tela de montagem<br />da equipe
+          </h1>
 
-        
-
-        <div className='bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg p-8'>
-          <h2 className='text-2xl font-bold text-[#82181A] mb-6'>Membros</h2>
-          {membrosAtivos.length === 0 ? <p className="text-neutral-500">Nenhum membro.</p> : (
-            <div className='space-y-3'>
-              {membrosAtivos.map((m, i) => (
-                <div key={i} className='border border-neutral-200 rounded-xl p-4 flex items-center justify-between'>
-                  <div><p className='font-semibold'>{m.nome}</p><p className='text-sm text-neutral-500'>{m.email}</p></div>
-                  <span className={`text-xs px-3 py-1 rounded-full font-medium ${
-                    m.papel === 'professor_orientador' ? 'bg-blue-100 text-blue-700'
-                    : m.papel === 'responsavel' ? 'bg-green-100 text-green-700'
-                    : 'bg-amber-100 text-amber-700'
-                  }`}>
-                    {m.papel === 'professor_orientador' ? 'Professor Orientador' : m.papel === 'responsavel' ? 'Responsável' : 'Aluno'}
-                  </span>
+          <div className="mt-7 w-full overflow-hidden bg-[#5f5f5f]">
+            <div className="grid gap-8 px-5 pb-12 pt-4 text-white sm:grid-cols-[1.35fr_1fr] sm:gap-10 md:px-6 md:pb-[58px]">
+              <div className="flex flex-col justify-between gap-8">
+                <div>
+                  <p className="text-[13px] leading-tight text-white/80">Equipe #</p>
+                  <p className="text-[13px] leading-tight text-white/80">{equipe.id}</p>
                 </div>
-              ))}
+                <h2 className="text-[1.35rem] font-medium leading-tight text-white sm:text-[1.55rem]">
+                  {equipe.nome || 'Nome da equipe'}
+                </h2>
+              </div>
+
+              <div className="space-y-3 pt-10 text-[13px] leading-tight text-white/80 sm:max-w-[180px]">
+                <div>
+                  <p className="text-white">Escola:</p>
+                  <p>{equipe.escola || '(escola da inscrição)'}</p>
+                </div>
+                <div>
+                  <p className="text-white">Responsável:</p>
+                  <p>{equipe.criadorNome || '(dono da conta)'}</p>
+                </div>
+                <div>
+                  <p className="text-white">Modalidade:</p>
+                  <p className="capitalize">{formatarModalidade}</p>
+                </div>
+              </div>
+            </div>
+
+            {slotConfig.map((slot) => (
+              <div key={slot.key}>
+                {slot.membro ? (
+                  <>
+                    <div className="bg-[#8f0000] px-5 py-[13px] text-[12px] font-semibold leading-tight text-white">
+                      <p className="flex items-center gap-4">
+                        <span aria-hidden="true" className="inline-flex items-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-check-lg" viewBox="0 0 16 16">
+                            <path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425z"/>
+                          </svg>
+                        </span>
+                        <span>{nomeMembro(slot.membro)} ({slot.membro.email})</span>
+                        {podeRemover && (
+                          <button
+                            onClick={() => handleRemoverMembro(slot.membro)}
+                            className="ml-auto text-[10px] underline hover:text-white/70"
+                          >
+                            Remover
+                          </button>
+                        )}
+                      </p>
+                    </div>
+                    <div className="bg-[#650000] px-5 py-[10px] text-[11px] font-semibold leading-tight text-white">
+                      <p>
+                        <span className="inline-flex items-center gap-3">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-right" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M1 8a.5.5 0 0 1 .5-.5h11.793l-3.147-3.146a.5.5 0 0 1 .708-.708l4 4a.5.5 0 0 1 0 .708l-4 4a.5.5 0 0 1-.708-.708L13.293 8.5H1.5A.5.5 0 0 1 1 8"/>
+                          </svg>
+                          <span>Tudo certo! {nomeMembro(slot.membro)} {slot.membro.uid === equipe.criadorUid ? 'já criou uma conta!' : 'já faz parte da equipe.'}</span>
+                        </span>
+                      </p>
+                    </div>
+                  </>
+                ) : slot.podeAdd ? (
+                  <>
+                    <form
+                      onSubmit={(event) => {
+                        event.preventDefault()
+                        handleAddSlot(slot.key, slot.papel)
+                      }}
+                      className="grid gap-3 bg-[#bfbfbf] px-5 py-[10px] sm:grid-cols-2 sm:gap-8"
+                    >
+                      <label className="flex min-w-0 items-center gap-2">
+                        <span aria-hidden="true" className="text-[18px] font-bold leading-none text-[#ffe15a]">!</span>
+                        <input
+                          placeholder={`Nome do ${placeholderSlot(slot)}`}
+                          value={slotInputs[slot.key]?.nome || ''}
+                          onChange={(e) => setSlotInputs(prev => ({
+                            ...prev, [slot.key]: { ...prev[slot.key], nome: e.target.value }
+                          }))}
+                          className="h-[20px] min-w-0 flex-1 rounded-[3px] bg-[#e7e7e7] px-2 text-[10px] italic leading-none text-[#555] outline-none placeholder:text-[#aaa]"
+                        />
+                      </label>
+                      <label className="flex min-w-0 items-center gap-2">
+                        <span aria-hidden="true" className="text-[18px] font-bold leading-none text-[#ffe15a]">!</span>
+                        <input
+                          placeholder={`Email do ${placeholderSlot(slot)}`}
+                          value={slotInputs[slot.key]?.email || ''}
+                          onChange={(e) => setSlotInputs(prev => ({
+                            ...prev, [slot.key]: { ...prev[slot.key], email: e.target.value }
+                          }))}
+                          className="h-[20px] min-w-0 flex-1 rounded-[3px] bg-[#e7e7e7] px-2 text-[10px] italic leading-none text-[#555] outline-none placeholder:text-[#aaa]"
+                        />
+                      </label>
+                      <button type="submit" className="sr-only">Adicionar integrante</button>
+                    </form>
+                    <div className="bg-[#4f4f4f] px-5 py-[10px] text-[11px] font-semibold leading-tight text-white">
+                      <p>{textoSlotVazio(slot)}</p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="bg-[#bfbfbf] px-5 py-[10px] text-[11px] font-semibold leading-tight text-white">
+                      <p>Vaga disponível</p>
+                    </div>
+                    <div className="bg-[#4f4f4f] px-5 py-[10px] text-[11px] font-semibold leading-tight text-white">
+                      <p>{textoSlotVazio(slot)}</p>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {s.total === 0 && (
+            <div className="mt-7 text-center">
+              <a
+                href={`/sala-de-equipe?equipeId=${equipeId}`}
+                className="inline-block bg-white px-8 py-3 text-sm font-semibold text-[#830000] transition-colors hover:bg-gray-100"
+              >
+                Sala de Equipe
+              </a>
             </div>
           )}
+
+          {erro && <p className="mt-4 bg-white/90 px-4 py-2 text-sm font-medium text-[#82181A]">{erro}</p>}
+          {sucesso && <p className="mt-4 bg-white/90 px-4 py-2 text-sm font-medium text-[#82181A]">{sucesso}</p>}
         </div>
-      </div>
-
-      <div className='space-y-6'>
-        <div className='bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg p-8'>
-          <h2 className='text-xl font-bold text-[#82181A] mb-4'>Progresso</h2>
-          <div className='flex items-center gap-2 mb-2'>
-            <div className='flex-1 bg-neutral-200 rounded-full h-3'>
-              <div className='bg-[#82181A] h-3 rounded-full transition-all' style={{ width: `${(membrosAtivos.length / 4) * 100}%` }} />
-            </div>
-            <span className='text-sm font-bold'>{membrosAtivos.length}/4</span>
-          </div>
-          <p className='text-xs text-neutral-500'>{s.totalRestante > 0 ? `Faltam ${s.totalRestante} membro(s)` : 'Equipe completa!'}</p>
-        </div>
-
-        {membrosAtivos.length === 4 && (
-          <a href={`/sala-de-equipe?equipeId=${equipeId}`}
-            className='block w-full bg-[#a71f22] text-[#fff] font-medium text-center py-4 rounded-xl hover:bg-[#82181A] transition-colors cursor-pointer text-lg'>
-            Sala de Equipe
-          </a>
-        )}
-
-        {isCriador && s.totalRestante > 0 && (
-          <div className='bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg p-8'>
-            <h2 className='text-xl font-bold text-[#82181A] mb-4'>Adicionar Membro</h2>
-            <form onSubmit={handleAdicionar} className='space-y-4'>
-              <div>
-                <label className="block text-sm font-medium text-neutral-900 mb-1">Email</label>
-                <input type="email" placeholder="email@exemplo.com" value={emailMembro} onChange={(e) => setEmailMembro(e.target.value)} required
-                  className="block w-full rounded-lg border border-neutral-300 p-3 text-sm outline-none focus:border-[#82181A] focus:ring-1 focus:ring-[#82181A]" />
-              </div>
-              {s.totalRestante > 0 && (
-                <div>
-                  <label className="block text-sm font-medium text-neutral-900 mb-1">Papel</label>
-                  <select value={papelMembro} onChange={(e) => setPapelMembro(e.target.value)}
-                    className="block w-full rounded-lg border border-neutral-300 p-3 text-sm outline-none focus:border-[#82181A] focus:ring-1 focus:ring-[#82181A]">
-                    <option value="">Selecionar automaticamente</option>
-                    {isProfessor ? (
-                      <>{s.responsavel > 0 && <option value="responsavel">Responsável</option>}{s.aluno > 0 && <option value="aluno">Aluno</option>}</>
-                    ) : (
-                      <>{s.professor > 0 && <option value="professor_orientador">Professor Orientador</option>}{s.aluno > 0 && <option value="aluno">Aluno</option>}</>
-                    )}
-                  </select>
-                </div>
-              )}
-              {erro && <p className="text-red-600 text-xs">{erro}</p>}
-              {sucesso && <p className="text-green-600 text-xs">{sucesso}</p>}
-              <button type="submit" disabled={adicionando}
-                className="w-full bg-[#82181A] py-3 font-semibold text-white cursor-pointer hover:bg-[#631214] transition-colors rounded-lg disabled:opacity-50">
-                {adicionando ? 'Adicionando...' : 'Adicionar'}
-              </button>
-            </form>
-          </div>
-        )}
-      </div>
+      </section>
     </div>
   )
 }
@@ -206,6 +284,7 @@ function SingleTeamView({ equipeId, authUser, userData, logout }) {
 function MultiTeamView({ authUser, userData, edicoes }) {
   const [equipes, setEquipes] = useState([])
   const [carregando, setCarregando] = useState(true)
+  const [multiSlotInputs, setMultiSlotInputs] = useState({})
 
   useEffect(() => {
     if (!authUser) return
@@ -216,23 +295,27 @@ function MultiTeamView({ authUser, userData, edicoes }) {
     const carregarTudo = async () => {
       const mapa = new Map()
 
-      const pSnap = await getDocs(query(collection(db, 'users', authUser.uid, 'participacoes')))
-      for (const pDoc of pSnap.docs) {
+      const [pSnap, minhasSnap] = await Promise.all([
+        getDocs(query(collection(db, 'users', authUser.uid, 'participacoes'))),
+        getDocs(query(collection(db, 'equipes'), where('criadorUid', '==', authUser.uid))),
+      ])
+
+      const teamPromises = pSnap.docs.map(async (pDoc) => {
         const pData = pDoc.data()
         try {
           const eSnap = await getDoc(doc(db, 'equipes', pData.equipeId))
           if (eSnap.exists()) {
-            mapa.set(eSnap.id, {
+            return {
               id: eSnap.id,
               edicaoNome: edMap[pDoc.id]?.nome || 'Edição',
               ...eSnap.data(),
-            })
+            }
           }
         } catch {}
-      }
-
-      const qMinhas = query(collection(db, 'equipes'), where('criadorUid', '==', authUser.uid))
-      const minhasSnap = await getDocs(qMinhas)
+        return null
+      })
+      const teams = (await Promise.all(teamPromises)).filter(Boolean)
+      teams.forEach(t => mapa.set(t.id, t))
       for (const doc_ of minhasSnap.docs) {
         if (!mapa.has(doc_.id)) {
           mapa.set(doc_.id, {
@@ -253,93 +336,224 @@ function MultiTeamView({ authUser, userData, edicoes }) {
   if (carregando) return <p className="text-[#82181A] text-lg text-center pt-20">Carregando equipes...</p>
 
   return (
-    <div className='max-w-5xl mx-auto'>
-      <div className='flex flex-col sm:flex-row items-center justify-between gap-4 mb-8'>
-        <h1 className='text-2xl font-bold text-[#fff]'>Minhas Equipes</h1>
-        <a
-          href="/criar-equipe"
-          className='bg-[#82181A] text-[#fff] font-semibold px-6 py-3 rounded-lg hover:bg-[#631214] transition-colors cursor-pointer inline-block'
-        >
-          Criar Nova Equipe
-        </a>
-      </div>
+    <div className="w-full flex justify-center items-center">
+      <section className="w-full max-w-[85rem] min-h-[540px] px-7 py-9 sm:px-12 sm:py-12 md:min-h-[675px] md:px-[86px] md:pt-[54px] md:pb-[76px]">
+        <div className="mx-auto w-full max-w-[692px]">
+          <h1 className="text-[2.65rem] font-bold leading-[1.13] text-white sm:text-[3.1rem] md:text-[3.35rem] text-center">
+            Minhas Equipes
+          </h1>
 
-      {equipes.length === 0 ? (
-        <div className='bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg p-12 text-center'>
-          <p className='text-neutral-500 text-lg'>Você não participa de nenhuma equipe ainda.</p>
-          <a
-            href="/criar-equipe"
-            className='mt-4 bg-[#82181A] text-[#fff] font-semibold px-6 py-3 rounded-lg hover:bg-[#631214] transition-colors cursor-pointer inline-block'
-          >
-            Criar Primeira Equipe
-          </a>
-        </div>
-      ) : (
-        <div className='space-y-6'>
-          {equipes.map((equipe) => {
-            const membrosAtivos = equipe.membros?.filter((m) => m.status === 'ativo') || []
-            return (
-              <div key={equipe.id} className='bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg p-8'>
-                <div className='flex flex-col sm:flex-row items-start justify-between gap-4 mb-6'>
-                  <div>
-                    <p className='text-xs text-neutral-500 uppercase tracking-wide mb-1'>{equipe.edicaoNome}</p>
-                    <h2 className='text-xl font-bold text-[#82181A]'>{equipe.nome}</h2>
-                  </div>
-                  <div className='text-right'>
-                    <p className='text-xs text-neutral-500'>ID: <span className='font-mono text-[#82181A] text-sm'>{equipe.id}</span></p>
-                    <p className='text-xs text-neutral-500 mt-1'>Membros: {membrosAtivos.length}/4</p>
-                  </div>
-                </div>
+          <div className="mt-10 text-center">
+            <a href="/criar-equipe"
+              className="inline-block bg-white px-8 py-3 text-sm font-semibold text-[#830000] transition-colors hover:bg-gray-100">
+              Criar Nova Equipe
+            </a>
+          </div>
 
-                <div className='grid grid-cols-1 md:grid-cols-2 gap-4 mb-6'>
-                  <div className='border border-neutral-200 rounded-xl p-4'>
-                    <p className='text-xs text-neutral-500 uppercase tracking-wide mb-1'>Escola</p>
-                    <p className='font-semibold'>{equipe.escola}</p>
-                  </div>
-                  <div className='border border-neutral-200 rounded-xl p-4'>
-                    <p className='text-xs text-neutral-500 uppercase tracking-wide mb-1'>Criador</p>
-                    <p className='font-semibold'>{equipe.criadorNome}</p>
-                  </div>
-                </div>
+          {equipes.length === 0 ? (
+            <p className="text-white/80 text-center mt-16 text-lg">Você não participa de nenhuma equipe ainda.</p>
+          ) : (
+            <div className="mt-8 space-y-8">
+              {equipes.map((equipe) => {
+                const membrosAtivos = equipe.membros?.filter((m) => m.status === 'ativo') || []
+                const formatarModalidade = equipe.modalidade?.replaceAll('_', ' ') || '(selecionada na inscrição)'
+                const memberRole = equipe.membros?.find(m => m.uid === authUser?.uid)?.papel
+                const podeAddMembro = memberRole === 'professor_orientador' || memberRole === 'responsavel'
+                const podeRemover = podeAddMembro
+                const papelOrdem = { 'professor_orientador': 0, 'responsavel': 1, 'aluno': 2 }
+                const membrosOrdenados = [...membrosAtivos].sort((a, b) => papelOrdem[a.papel] - papelOrdem[b.papel])
+                const emptySlots = 4 - membrosAtivos.length
 
-                <div>
-                  <p className='text-sm font-semibold text-neutral-700 mb-3'>Membros</p>
-                  <div className='space-y-2'>
-                    {membrosAtivos.map((m, i) => (
-                      <div key={i} className='border border-neutral-200 rounded-xl p-3 flex items-center justify-between'>
-                        <div>
-                          <p className='font-semibold text-sm'>{m.nome}</p>
-                          <p className='text-xs text-neutral-500'>{m.email}</p>
+                const handleRemoverMembro = async (membro) => {
+                  if (!window.confirm(`Tem certeza que deseja remover ${membro.nome} da equipe?`)) return
+                  try {
+                    await updateDoc(doc(db, 'equipes', equipe.id), {
+                      membros: membrosAtivos.filter(m => m.uid !== membro.uid)
+                    })
+                    await deleteDoc(doc(db, 'users', membro.uid, 'participacoes', equipe.edicaoId))
+                    await deleteDoc(doc(db, 'membro-index', btoa(membro.email).replace(/=+$/, '') + '_' + equipe.edicaoId))
+                    setEquipes(prev => prev.map(eq =>
+                      eq.id === equipe.id ? { ...eq, membros: eq.membros.filter(m => m.uid !== membro.uid) } : eq
+                    ))
+                  } catch (err) {
+                    alert('Erro ao remover membro: ' + (err.message || 'Erro desconhecido'))
+                  }
+                }
+
+                const handleAddMembroMulti = async (papel, data) => {
+                  if (!data?.email?.trim()) return
+                  try {
+                    const usersSnap = await getDocs(query(collection(db, 'users'), where('email', '==', data.email.trim())))
+                    if (usersSnap.empty) { alert('Usuário com este email não encontrado.'); return }
+                    const userDoc = usersSnap.docs[0]
+                    if (membrosAtivos.some(m => m.uid === userDoc.id)) { alert('Este usuário já é membro da equipe.'); return }
+
+                    const nome = `${userDoc.data().nome || ''} ${userDoc.data().sobrenome || ''}`.trim()
+                    const novoMembro = { uid: userDoc.id, nome, email: data.email.trim(), papel, status: 'ativo' }
+                    await updateDoc(doc(db, 'equipes', equipe.id), {
+                      membros: arrayUnion(novoMembro),
+                    })
+                    await setDoc(doc(db, 'users', userDoc.id, 'participacoes', equipe.edicaoId), { equipeId: equipe.id, papel })
+                    await setDoc(doc(db, 'membro-index', btoa(data.email.trim()).replace(/=+$/, '') + '_' + equipe.edicaoId), {
+                      equipeId: equipe.id, papel, uid: userDoc.id,
+                    })
+                    setMultiSlotInputs(prev => ({ ...prev, [equipe.id]: {} }))
+                    setEquipes(prev => prev.map(eq =>
+                      eq.id === equipe.id ? { ...eq, membros: [...(eq.membros || []), novoMembro] } : eq
+                    ))
+                  } catch (err) {
+                    alert('Erro ao adicionar: ' + (err.message || 'Erro desconhecido'))
+                  }
+                }
+
+                const determinarProximoPapel = () => {
+                  if (!membrosAtivos.some(m => m.papel === 'professor_orientador')) return 'professor_orientador'
+                  if (!membrosAtivos.some(m => m.papel === 'responsavel')) return 'responsavel'
+                  return 'aluno'
+                }
+
+                const nextPapel = emptySlots > 0 ? determinarProximoPapel() : null
+                const nextPapelLabel = nextPapel === 'professor_orientador' ? 'orientador' : nextPapel === 'responsavel' ? 'responsável' : 'estudante'
+                const multiInput = multiSlotInputs[equipe.id] || {}
+
+                return (
+                  <React.Fragment key={equipe.id}>
+                    <div className="mt-7 w-full overflow-hidden bg-[#5f5f5f]">
+                      <div className="grid gap-8 px-5 pb-12 pt-4 text-white sm:grid-cols-[1.35fr_1fr] sm:gap-10 md:px-6 md:pb-[58px]">
+                        <div className="flex flex-col justify-between gap-8">
+                          <div>
+                            <p className="text-[13px] leading-tight text-white/80">Equipe #</p>
+                            <p className="text-[13px] leading-tight text-white/80">{equipe.id}</p>
+                          </div>
+                          <h2 className="text-[1.35rem] font-medium leading-tight text-white sm:text-[1.55rem]">
+                            {equipe.nome || 'Nome da equipe'}
+                          </h2>
                         </div>
-                        <span className={`text-xs px-3 py-1 rounded-full font-medium ${
-                          m.papel === 'professor_orientador' ? 'bg-blue-100 text-blue-700'
-                          : m.papel === 'responsavel' ? 'bg-green-100 text-green-700'
-                          : 'bg-amber-100 text-amber-700'
-                        }`}>
-                          {m.papel === 'professor_orientador' ? 'Professor Orientador'
-                            : m.papel === 'responsavel' ? 'Responsável' : 'Aluno'}
-                        </span>
+                        <div className="space-y-3 pt-10 text-[13px] leading-tight text-white/80 sm:max-w-[180px]">
+                          <div>
+                            <p className="text-white">Escola:</p>
+                            <p>{equipe.escola || '(escola da inscrição)'}</p>
+                          </div>
+                          <div>
+                            <p className="text-white">Responsável:</p>
+                            <p>{equipe.criadorNome || '(dono da conta)'}</p>
+                          </div>
+                          <div>
+                            <p className="text-white">Modalidade:</p>
+                            <p className="capitalize">{formatarModalidade}</p>
+                          </div>
+                        </div>
                       </div>
-                    ))}
-                  </div>
 
-                  <div className='mt-4 pt-4 border-t border-neutral-200'>
-                    {membrosAtivos.length < 4 ? (
-                      <a href={`/montagem-equipe?equipeId=${equipe.id}`} className='text-[#82181A] font-semibold text-sm hover:underline'>
-                        Gerenciar Membros →
-                      </a>
-                    ) : (
-                      <a href={`/sala-de-equipe?equipeId=${equipe.id}`} className='block w-full bg-[#a71f22] text-[#fff] font-medium text-center py-4 rounded-xl hover:bg-[#82181A] transition-colors cursor-pointer text-lg'>
-                        Sala de Equipe
-                      </a>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )
-          })}
+                      {membrosOrdenados.map((m, i) => (
+                        <div key={i}>
+                          <div className="bg-[#8f0000] px-5 py-[13px] text-[12px] font-semibold leading-tight text-white">
+                            <p className="flex items-center gap-4">
+                              <span aria-hidden="true" className="inline-flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-check-lg" viewBox="0 0 16 16">
+                                  <path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425z"/>
+                                </svg>
+                              </span>
+                              <span>{m.nome} ({m.email})</span>
+                              {podeRemover && (
+                                <button
+                                  onClick={() => handleRemoverMembro(m)}
+                                  className="ml-auto text-[10px] underline hover:text-white/70"
+                                >
+                                  Remover
+                                </button>
+                              )}
+                            </p>
+                          </div>
+                          <div className="bg-[#650000] px-5 py-[10px] text-[11px] font-semibold leading-tight text-white">
+                            <p>
+                              <span className="inline-flex items-center gap-3">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-right" viewBox="0 0 16 16">
+                                  <path fill-rule="evenodd" d="M1 8a.5.5 0 0 1 .5-.5h11.793l-3.147-3.146a.5.5 0 0 1 .708-.708l4 4a.5.5 0 0 1 0 .708l-4 4a.5.5 0 0 1-.708-.708L13.293 8.5H1.5A.5.5 0 0 1 1 8"/>
+                                </svg>
+                                <span>Tudo certo! {m.nome} {m.uid === equipe.criadorUid ? 'já criou uma conta!' : 'já faz parte da equipe.'}</span>
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+
+                      {emptySlots > 0 && podeAddMembro ? (
+                        <div>
+                          <form
+                            onSubmit={(e) => { e.preventDefault(); handleAddMembroMulti(nextPapel, multiInput) }}
+                            className="grid gap-3 bg-[#bfbfbf] px-5 py-[10px] sm:grid-cols-2 sm:gap-8"
+                          >
+                            <label className="flex min-w-0 items-center gap-2">
+                              <span aria-hidden="true" className="text-[18px] font-bold leading-none text-[#ffe15a]">!</span>
+                              <input
+                                placeholder={`Nome do ${nextPapelLabel}`}
+                                value={multiInput.nome || ''}
+                                onChange={(e) => setMultiSlotInputs(prev => ({ ...prev, [equipe.id]: { ...prev[equipe.id], nome: e.target.value } }))}
+                                className="h-[20px] min-w-0 flex-1 rounded-[3px] bg-[#e7e7e7] px-2 text-[10px] italic leading-none text-[#555] outline-none placeholder:text-[#aaa]"
+                              />
+                            </label>
+                            <label className="flex min-w-0 items-center gap-2">
+                              <span aria-hidden="true" className="text-[18px] font-bold leading-none text-[#ffe15a]">!</span>
+                              <input
+                                placeholder={`Email do ${nextPapelLabel}`}
+                                value={multiInput.email || ''}
+                                onChange={(e) => setMultiSlotInputs(prev => ({ ...prev, [equipe.id]: { ...prev[equipe.id], email: e.target.value } }))}
+                                className="h-[20px] min-w-0 flex-1 rounded-[3px] bg-[#e7e7e7] px-2 text-[10px] italic leading-none text-[#555] outline-none placeholder:text-[#aaa]"
+                              />
+                            </label>
+                            <button type="submit" className="sr-only">Adicionar integrante</button>
+                          </form>
+                          <div className="bg-[#4f4f4f] px-5 py-[10px] text-[11px] font-semibold leading-tight text-white">
+                            <p>
+                              <span className="inline-flex items-center gap-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" className="bi bi-arrow-right-short" viewBox="0 0 16 16">
+                                  <path fillRule="evenodd" d="M4 8a.5.5 0 0 1 .5-.5h5.793L8.146 5.354a.5.5 0 1 1 .708-.708l3 3a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708-.708L10.293 8.5H4.5A.5.5 0 0 1 4 8"/>
+                                </svg>
+                                <span>A equipe falta integrantes!</span>
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+                      ) : emptySlots > 0 ? (
+                        Array.from({ length: emptySlots }).map((_, i) => (
+                          <div key={`empty-${i}`}>
+                            <div className="bg-[#bfbfbf] px-5 py-[10px] text-[11px] font-semibold leading-tight text-white">
+                              <p>Vaga disponível</p>
+                            </div>
+                            <div className="bg-[#4f4f4f] px-5 py-[10px] text-[11px] font-semibold leading-tight text-white">
+                              <p>
+                                <span className="inline-flex items-center gap-1">
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" className="bi bi-arrow-right-short" viewBox="0 0 16 16">
+                                    <path fillRule="evenodd" d="M4 8a.5.5 0 0 1 .5-.5h5.793L8.146 5.354a.5.5 0 1 1 .708-.708l3 3a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708-.708L10.293 8.5H4.5A.5.5 0 0 1 4 8"/>
+                                  </svg>
+                                  <span>A equipe falta integrantes!</span>
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+                        ))
+                      ) : null}
+
+                    </div>
+
+                    <div className="mt-7 text-center">
+                      {membrosAtivos.length === 4 ? (
+                        <a href={`/sala-de-equipe?equipeId=${equipe.id}`}
+                          className="inline-block bg-white px-8 py-3 text-sm font-semibold text-[#830000] transition-colors hover:bg-gray-100">
+                          Sala de Equipe
+                        </a>
+                      ) : !podeAddMembro && (
+                        <p className="text-white/60 text-sm">Aguardando os administradores completarem a equipe.</p>
+                      )}
+                    </div>
+                  </React.Fragment>
+                )
+              })}
+            </div>
+          )}
         </div>
-      )}
+      </section>
     </div>
   )
 }
@@ -376,11 +590,13 @@ function MontagemEquipeForm() {
           <button onClick={logout} className='border-[#82181A] border-[3px] text-[#82181A] font-medium px-6 py-2 hover:bg-[#82181A] hover:text-[#fff] transition-colors cursor-pointer whitespace-nowrap'>Sair</button>
         </header>
 
-        <main style={{ backgroundImage: 'url(/bg-dhpb.svg)' }} className='w-full min-h-screen bg-cover bg-center px-4 py-8'>
+        <main style={{ backgroundImage: 'url(/bg-dhpb.svg)' }} className='w-full bg-cover bg-center px-4 pb-8 sm:px-6 md:px-8'>
           {equipeId ? (
-            <SingleTeamView equipeId={equipeId} authUser={authUser} userData={userData} logout={logout} />
+            <SingleTeamView equipeId={equipeId} authUser={authUser} userData={userData} />
           ) : (
-            <MultiTeamView authUser={authUser} userData={userData} logout={logout} edicoes={edicoes} />
+            <div className="py-12">
+              <MultiTeamView authUser={authUser} userData={userData} edicoes={edicoes} />
+            </div>
           )}
         </main>
 

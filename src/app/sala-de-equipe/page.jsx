@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react'
 import Image from 'next/image'
 import { Poppins } from 'next/font/google'
-import { doc, getDoc, collection, query, orderBy, onSnapshot } from 'firebase/firestore'
+import { doc, getDoc, getDocs, collection, query, orderBy } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -23,7 +23,6 @@ function SalaEquipeContent() {
   const [edicaoNome, setEdicaoNome] = useState('')
   const [fases, setFases] = useState([])
   const [carregando, setCarregando] = useState(true)
-  const membrosAtivos = equipe?.membros?.filter((m) => m.status === 'ativo') || []
 
   useEffect(() => {
     if (!loading && !authUser) router.push('/login')
@@ -43,15 +42,10 @@ function SalaEquipeContent() {
         const edSnap = await getDoc(doc(db, 'edicoes', team.edicaoId))
         if (edSnap.exists()) setEdicaoNome(edSnap.data().nome || '')
 
-        const unsub = onSnapshot(
-          query(collection(db, 'edicoes', team.edicaoId, 'fases'), orderBy('dataInicio', 'asc')),
-          (snap) => {
-            setFases(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
-            setCarregando(false)
-          },
-          () => { setCarregando(false) }
+        const fSnap = await getDocs(
+          query(collection(db, 'edicoes', team.edicaoId, 'fases'), orderBy('dataInicio', 'asc'))
         )
-        return () => unsub()
+        setFases(fSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
       } catch {} finally { setCarregando(false) }
     }
 
@@ -60,6 +54,54 @@ function SalaEquipeContent() {
 
   if (loading || !authUser) {
     return <div className={`${poppins.className} w-full min-h-screen flex items-center justify-center`}><p className="text-[#82181A] text-lg">Carregando...</p></div>
+  }
+
+  const formatarData = (data, fallback) => {
+    if (!data) return fallback
+    const partes = data.split('-')
+    if (partes.length !== 3) return data
+    return `${partes[2]}/${partes[1]}/${partes[0]}`
+  }
+
+  const niveisAprovacao = ['fase1', 'fase2', 'fase3', 'fase4']
+  const fasesVisiveis = fases.slice(0, 4)
+  const quantidadeFases = fasesVisiveis.length
+  const timelineGridClass = {
+    1: 'max-w-[220px] grid-cols-1',
+    2: 'max-w-[500px] sm:grid-cols-2',
+    3: 'max-w-[780px] sm:grid-cols-2 lg:grid-cols-3',
+    4: 'max-w-[1060px] sm:grid-cols-2 lg:grid-cols-4',
+  }[quantidadeFases] || 'max-w-[1060px] sm:grid-cols-2 lg:grid-cols-4'
+  const linhaTimelineClass = {
+    2: 'left-[23%] right-[23%]',
+    3: 'left-[15%] right-[15%]',
+    4: 'left-[11%] right-[11%]',
+  }[quantidadeFases] || ''
+  const linhaTimelineVisibilidade = quantidadeFases === 2 ? 'hidden sm:block' : 'hidden lg:block'
+
+  const faseEstaAcessivel = (fase, index) => {
+    if (!fase || !equipe) return false
+    const status = fase.status || 'pendente'
+    const aprovadoAteIndex = niveisAprovacao.indexOf(equipe.aprovadoAte || 'fase1')
+
+    return (status === 'aberta' || status === 'correcao') && (index === 0 || aprovadoAteIndex >= index)
+  }
+
+  const faseStatus = (fase, index) => {
+    if (!fase) return { texto: 'Indisponível.', classe: 'text-neutral-400' }
+
+    const status = fase.status || 'pendente'
+    const aprovadoAteIndex = niveisAprovacao.indexOf(equipe?.aprovadoAte || 'fase1')
+
+    if (status === 'aberta' || status === 'correcao') {
+      return { texto: 'Em andamento...', classe: 'text-black' }
+    }
+
+    if (status === 'finalizada' && (index === 0 || aprovadoAteIndex >= index)) {
+      return { texto: 'Participou e foi aprovada.', classe: 'text-[#009a22]' }
+    }
+
+    return { texto: 'Indisponível.', classe: 'text-neutral-400' }
   }
 
   return (
@@ -80,98 +122,72 @@ function SalaEquipeContent() {
           <button onClick={logout} className='border-[#82181A] border-[3px] text-[#82181A] font-medium px-6 py-2 hover:bg-[#82181A] hover:text-[#fff] transition-colors cursor-pointer whitespace-nowrap'>Sair</button>
         </header>
 
-        <main style={{ backgroundImage: 'url(/bg-dhpb.svg)' }} className='w-full min-h-screen bg-cover bg-center px-4 py-8'>
-          <div className='max-w-5xl mx-auto'>
+        <main style={{ backgroundImage: 'url(/bg-dhpb.svg)' }} className='w-full bg-cover bg-center px-5 py-8 md:px-12 md:py-14'>
+          <section className='mx-auto min-h-[680px] w-full max-w-[1180px] bg-white px-6 pb-16 pt-12 md:min-h-[1040px] md:px-14 md:pt-20'>
             {carregando ? (
-              <div className='flex items-center justify-center py-20'>
-                <div className='bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg px-10 py-6'>
-                  <p className="text-[#82181A] text-lg font-medium">Carregando...</p>
-                </div>
+              <div className='flex min-h-[360px] items-center justify-center'>
+                <p className="text-lg font-medium text-[#82181A]">Carregando...</p>
               </div>
             ) : !equipe ? (
-              <div className='flex items-center justify-center py-20'>
-                <div className='bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg px-10 py-6'>
-                  <p className="text-[#82181A] text-lg font-medium">Equipe não encontrada.</p>
-                </div>
+              <div className='flex min-h-[360px] items-center justify-center'>
+                <p className="text-lg font-medium text-[#82181A]">Equipe não encontrada.</p>
               </div>
             ) : (
-              <div className='space-y-6'>
-                {/* Cabeçalho */}
-                <div className='bg-white rounded-2xl shadow-md p-6 md:p-8'>
-                  <p className='text-sm text-neutral-400 font-medium mb-1'>{edicaoNome || 'Edição'}</p>
-                  <h1 className='text-xl md:text-2xl font-bold text-[#82181A]'>
-                    Sala de Prova — {equipe.nome}
+              <>
+                <div className='text-center'>
+                  <h1 className='text-4xl font-semibold leading-tight text-[#82181A] md:text-[4rem]'>
+                    {edicaoNome || 'Nome Edição'}
                   </h1>
-                  <p className='text-sm text-neutral-500 mt-2'>
-                    {equipe.escola} · {membrosAtivos?.length || 0} membro(s)
+                  <p className='mt-4 text-2xl font-medium leading-tight text-black md:text-[2rem]'>
+                    Sala de prova da equipe {equipe.nome || 'NOME'}
                   </p>
                 </div>
 
-                {/* Fases */}
-                <div>
-                  <h2 className='text-sm font-semibold text-neutral-500 mb-3 uppercase tracking-wide'>Fases</h2>
+                {fases.length === 0 ? (
+                  <div className='mx-auto mt-24 max-w-[620px] text-center'>
+                    <p className='text-xl font-medium text-neutral-500'>
+                      Ainda não há nenhuma fase cadastrada.
+                    </p>
+                  </div>
+                ) : (
+                  <div className={`relative mx-auto mt-24 ${timelineGridClass}`}>
+                    {quantidadeFases > 1 && (
+                      <div className={`absolute top-[56px] h-[9px] bg-[#8d0000] ${linhaTimelineClass} ${linhaTimelineVisibilidade}`} />
+                    )}
 
-                  {fases.length === 0 ? (
-                    <div className='bg-white rounded-2xl shadow-md p-10 text-center'>
-                      <p className='text-neutral-500'>Nenhuma fase cadastrada para esta edição.</p>
-                    </div>
-                  ) : (
-                    <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4'>
-                      {fases.map((fase, idx) => {
-                        const st = fase.status || 'pendente'
-
-                        const statusLabel = {
-                          aberta: { text: 'Aberta', bg: 'bg-green-100 text-green-700' },
-                          correcao: { text: 'Correção', bg: 'bg-blue-100 text-blue-700' },
-                          finalizada: { text: 'Finalizada', bg: 'bg-neutral-200 text-neutral-500' },
-                          pendente: { text: 'Pendente', bg: 'bg-amber-100 text-amber-700' },
-                          fechada: { text: 'Pendente', bg: 'bg-amber-100 text-amber-700' },
-                        }[st] || { text: st, bg: 'bg-neutral-100 text-neutral-500' }
-
-                        const faseNum = idx + 1
-                        const nivelAprov = `fase${faseNum}`
-                        const aprovado = faseNum === 1 || (equipe?.aprovadoAte && (faseNum === 2 || ['fase2', 'fase3', 'fase4'].includes(equipe.aprovadoAte)) && nivelAprov <= (equipe.aprovadoAte || 'fase1'))
-                        const aprovNiveis = ['fase1', 'fase2', 'fase3', 'fase4']
-                        const acessivel = (st === 'aberta' || st === 'correcao') && (faseNum === 1 || (equipe?.aprovadoAte && aprovNiveis.indexOf(equipe.aprovadoAte) >= idx))
+                    <div className={`relative z-10 grid gap-10 lg:gap-8 ${timelineGridClass}`}>
+                      {fasesVisiveis.map((fase, index) => {
+                        const numeroFase = index + 1
+                        const status = faseStatus(fase, index)
+                        const acessivel = faseEstaAcessivel(fase, index)
+                        const dataInicio = formatarData(fase.dataInicio, 'xx/xx/2025')
+                        const dataFim = formatarData(fase.dataFim, 'yy/yy/2025')
 
                         return (
-                          <div
-                            key={fase.id}
-                            className={`bg-white rounded-2xl shadow-md overflow-hidden ${acessivel ? 'ring-2 ring-[#82181A]' : 'opacity-60'}`}
-                          >
-                            <div className='p-5'>
-                              <div className='flex items-center justify-between mb-3'>
-                                <span className='text-xs text-neutral-400 font-medium'>Status:</span>
-                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${statusLabel.bg}`}>
-                                  {statusLabel.text}
-                                </span>
-                              </div>
-                              <h3 className='text-base font-bold text-[#82181A] mb-3'>{fase.nome}</h3>
-                              <div className='text-sm space-y-1'>
-                                <p><span className='text-neutral-400'>Início:</span> <span className='font-medium'>{fase.dataInicio?.split('-').reverse().join('/')}</span></p>
-                                <p><span className='text-neutral-400'>Fim:</span> <span className='font-medium'>{fase.dataFim?.split('-').reverse().join('/')}</span></p>
-                              </div>
-                            </div>
-                            {acessivel && (
-                              <button onClick={() => router.push(`/resumo-fase?faseId=${fase.id}&edicaoId=${equipe.edicaoId}&equipeId=${equipe.id}`)}
-                              className='w-full bg-[#82181A] text-white text-sm font-semibold py-2.5 hover:bg-[#631214] transition-colors cursor-pointer'>
-                                Acessar Prova
-                              </button>
-                            )}
-                            {st === 'finalizada' && (
-                              <div className='w-full bg-neutral-400 text-white text-sm font-semibold py-2.5 text-center'>
-                                Finalizada
-                              </div>
-                            )}
+                          <div key={fase.id || `fase-${numeroFase}`} className='flex flex-col items-start'>
+                            <button
+                              type='button'
+                              disabled={!acessivel}
+                              onClick={() => router.push(`/resumo-fase?faseId=${fase.id}&edicaoId=${equipe.edicaoId}&equipeId=${equipe.id}`)}
+                              className={`h-[126px] w-full bg-[#f5dddd] px-4 py-7 text-center transition-transform rounded-[5px] ${acessivel ? 'cursor-pointer hover:-translate-y-1' : 'cursor-default'}`}
+                            >
+                              <span className='block text-[1.1rem] font-semibold uppercase text-black'>{fase.nome || `Fase ${numeroFase}`}</span>
+                              <span className='mt-4 block text-[0.8rem] font-medium text-black'>
+                                {dataInicio} a {dataFim}
+                              </span>
+                            </button>
+                            <p className={`mt-6 max-w-[180px] text-[0.95rem] font-medium leading-snug ${status.classe}`}>
+                              {status.texto}
+                            </p>
                           </div>
                         )
                       })}
                     </div>
-                  )}
-                </div>
-              </div>
+                  </div>
+                )}
+              </>
             )}
-          </div>
+          </section>
         </main>
 
         <footer className="w-full pt-12 md:pt-10 pb-10">

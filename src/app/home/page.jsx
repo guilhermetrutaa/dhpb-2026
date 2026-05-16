@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { Poppins } from 'next/font/google';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { doc, onSnapshot, where, setDoc, updateDoc, collection, query, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, collection, query, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 const poppins = Poppins({
@@ -14,7 +14,7 @@ const poppins = Poppins({
 });
 
 const Page = () => {
-  const { authUser, userData, loading, logout, edicoes } = useAuth()
+  const { authUser, userData, loading, logout, edicoes, refreshUserData } = useAuth()
   const router = useRouter()
   const [equipes, setEquipes] = useState({})
   const [showAvatares, setShowAvatares] = useState(false)
@@ -35,6 +35,7 @@ const Page = () => {
   const trocarAvatar = async (src) => {
     try {
       await updateDoc(doc(db, 'users', authUser.uid), { avatar: src })
+      await refreshUserData()
       setShowAvatares(false)
     } catch {}
   }
@@ -47,17 +48,14 @@ const Page = () => {
 
   useEffect(() => {
     if (!authUser) return
-    const unsub = onSnapshot(
-      query(collection(db, 'users', authUser.uid, 'participacoes')),
-      (snap) => {
+    ;(async () => {
+      try {
+        const snap = await getDocs(query(collection(db, 'users', authUser.uid, 'participacoes')))
         const mapa = {}
-        snap.docs.forEach((d) => {
-          mapa[d.id] = d.data()
-        })
+        snap.docs.forEach((d) => { mapa[d.id] = d.data() })
         setEquipes(mapa)
-      }
-    )
-    return () => unsub()
+      } catch {}
+    })()
   }, [authUser])
 
   const handleEdicaoClick = async (edicaoId) => {

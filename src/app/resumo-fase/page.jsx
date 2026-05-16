@@ -68,9 +68,13 @@ function ResumoFaseContent() {
 
   useEffect(() => {
     if (!faseId) return
-    const q = query(collection(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes'), orderBy('numero', 'asc'))
-    const unsub = onSnapshot(q, (snap) => setQuestoes(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
-    return () => unsub()
+    ;(async () => {
+      try {
+        const q = query(collection(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes'), orderBy('numero', 'asc'))
+        const snap = await getDocs(q)
+        setQuestoes(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      } catch {}
+    })()
   }, [faseId, edicaoId])
 
   useEffect(() => {

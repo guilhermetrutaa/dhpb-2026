@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
-import { doc, getDoc, onSnapshot, collection, query, orderBy } from 'firebase/firestore'
+import { doc, getDoc, getDocs, collection, query, orderBy } from 'firebase/firestore'
 import { auth, db } from '@/lib/firebase'
 import { useRouter } from 'next/navigation'
 
@@ -30,39 +30,27 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (!authUser) return
 
-    const unsubSnapshot = onSnapshot(
-      doc(db, 'users', authUser.uid),
-      (snap) => {
-        if (snap.exists()) {
-          setUserData(snap.data())
-        } else {
-          setUserData({})
-        }
-        setLoading(false)
-      },
-      async () => {
-        try {
-          const snap = await getDoc(doc(db, 'users', authUser.uid))
-          if (snap.exists()) {
-            setUserData(snap.data())
-          } else {
-            setUserData({})
-          }
-        } catch {
-          setUserData({})
-        }
-        setLoading(false)
+    ;(async () => {
+      try {
+        const snap = await getDoc(doc(db, 'users', authUser.uid))
+        if (snap.exists()) setUserData(snap.data())
+        else setUserData({})
+      } catch {
+        setUserData({})
       }
-    )
-
-    return () => unsubSnapshot()
+      setLoading(false)
+    })()
   }, [authUser])
 
   useEffect(() => {
     if (!authUser) return
-    const q = query(collection(db, 'edicoes'), orderBy('createdAt', 'desc'))
-    const unsub = onSnapshot(q, (snap) => setEdicoes(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
-    return () => unsub()
+    ;(async () => {
+      try {
+        const q = query(collection(db, 'edicoes'), orderBy('createdAt', 'desc'))
+        const snap = await getDocs(q)
+        setEdicoes(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      } catch {}
+    })()
   }, [authUser])
 
   const logout = async () => {
@@ -70,8 +58,16 @@ export function AuthProvider({ children }) {
     router.push('/')
   }
 
+  const refreshUserData = async () => {
+    if (!authUser) return
+    try {
+      const snap = await getDoc(doc(db, 'users', authUser.uid))
+      if (snap.exists()) setUserData(snap.data())
+    } catch {}
+  }
+
   return (
-    <AuthContext.Provider value={{ authUser, userData, loading, logout, edicoes }}>
+    <AuthContext.Provider value={{ authUser, userData, loading, logout, edicoes, refreshUserData }}>
       {children}
     </AuthContext.Provider>
   )
