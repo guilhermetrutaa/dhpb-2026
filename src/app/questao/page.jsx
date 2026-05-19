@@ -194,7 +194,7 @@ function DocumentBlock({ bloco, title, preview = false }) {
   }
 
   return (
-    <div className={`mx-auto bg-white/45 p-5 text-left leading-relaxed text-neutral-800 ${preview ? 'max-h-[220px] max-w-[640px] overflow-hidden text-sm' : 'max-w-[820px] text-base'}`}>
+    <div className={`mx-auto bg-[#FFF9E6] p-5 text-left leading-relaxed text-neutral-800 ${preview ? 'max-h-[220px]  overflow-hidden text-sm' : 'max-w-[820px] text-base'}`}>
       <div dangerouslySetInnerHTML={{ __html: bloco.conteudo }} />
     </div>
   )
@@ -216,7 +216,7 @@ function DocumentPreviewCard({ documento, index, onOpen }) {
           onOpen()
         }
       }}
-      className="group relative mx-auto block w-full max-w-[1160px] cursor-pointer rounded-[14px] bg-[#F9E6E6] px-5 py-7 text-left outline-none transition-transform hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-[#82181A] sm:px-8 md:min-h-[360px]"
+      className="group relative mx-auto block w-full  cursor-pointer rounded-[14px] bg-[#F9E6E6] px-5 py-7 text-left outline-none transition-transform hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-[#82181A] sm:px-8 md:min-h-[360px]"
     >
       <span className="absolute left-5 top-5 text-xs font-semibold text-[#9B2426] sm:left-6">
         Documento {String(index + 1).padStart(3, '0')}
@@ -224,12 +224,12 @@ function DocumentPreviewCard({ documento, index, onOpen }) {
 
       <div className="mx-auto w-full max-w-[760px] pt-2">
         {documento.titulo && (
-          <h2 className="text-[1.8rem] font-semibold leading-tight text-[#82181A] md:text-[2.35rem]">
+          <h2 className="text-[1.8rem] font-medium leading-tight text-[#82181A] md:text-[2.35rem]">
             {documento.titulo}
           </h2>
         )}
         {documento.subtitulo && (
-          <p className="mt-1 text-[1.25rem] font-medium italic leading-tight text-[#82181A] md:text-[1.65rem]">
+          <p className="mt-1 text-[1rem] font-light italic leading-tight text-[#82181A] md:text-[1.65rem]">
             {documento.subtitulo}
           </p>
         )}
@@ -263,15 +263,15 @@ function DocumentModal({ documento, index, onClose }) {
       aria-label={documento.titulo ? `Documento ${documento.titulo}` : `Documento ${index + 1}`}
       onClick={onClose}
     >
-      <div className="mx-auto min-h-full w-full max-w-[1220px]">
+      <div className="mx-auto min-h-full w-full">
         <div
-          className="relative rounded-[14px] bg-[#F9E6E6] px-5 py-8 shadow-2xl sm:px-9 md:px-14 md:py-12"
+          className="relative rounded-[14px] bg-[#F8E6E6] px-5 py-8 shadow-2xl sm:px-9 md:px-14 md:py-12"
           onClick={(event) => event.stopPropagation()}
         >
           <button
             type="button"
             onClick={onClose}
-            className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/75 text-2xl leading-none text-[#82181A] transition-colors hover:bg-white"
+            className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center5 text-2xl leading-none text-[#000] transition-colors cursor-pointer"
             aria-label="Fechar documento"
           >
             &times;
@@ -283,12 +283,12 @@ function DocumentModal({ documento, index, onClose }) {
 
           <div className="mx-auto mt-2 w-full max-w-[840px]">
             {documento.titulo && (
-              <h2 className="text-[2rem] font-semibold leading-tight text-[#82181A] md:text-[2.6rem]">
+              <h2 className="text-[2rem] font-medium leading-tight text-[#82181A] md:text-[2.6rem]">
                 {documento.titulo}
               </h2>
             )}
             {documento.subtitulo && (
-              <p className="mt-2 text-[1.3rem] font-medium italic text-[#82181A] md:text-[1.75rem]">
+              <p className="mt-2 text-[1rem] font-light italic text-[#82181A] md:text-[1.75rem]">
                 {documento.subtitulo}
               </p>
             )}
@@ -514,12 +514,9 @@ function QuestaoContent() {
               <QuestionArrow href={prevHref} direction="left" />
             </div>
             <div className="text-center">
-              <h1 className="text-[1.85rem] font-semibold leading-none text-[#82181A] md:text-[2.25rem]">
+              <h1 className="text-[1.85rem] font-light leading-none text-[#82181A] md:text-[2.25rem]">
                 {qNumero} / Questão
               </h1>
-              <p className="mt-3 text-xs font-medium uppercase tracking-[0.16em] text-[#82181A]/60">
-                {respostaStatus === 'entregue' ? 'Entregue' : respostaStatus === 'rascunho' ? 'Rascunho' : 'Pendente'}
-              </p>
             </div>
             <div className="justify-self-end">
               <QuestionArrow href={nextHref} direction="right" />
@@ -539,14 +536,14 @@ function QuestaoContent() {
             </div>
           )}
 
-          <div className="mx-auto max-w-[760px] px-5 pt-14 text-left md:pt-20">
+          <div className="mx-auto text-center px-5 pt-14 md:pt-20">
             <div
               className="text-[1rem] font-medium leading-relaxed text-[#2F2F2F] [&_p]:mb-4"
               dangerouslySetInnerHTML={{ __html: questao.instrucao }}
             />
           </div>
 
-          <div className="mx-auto mt-12 max-w-[760px] px-4">
+          <div className="mx-auto mt-12 max-w-screen px-4">
             <div>
               {questao.alternativas?.map((alt, index) => {
                 const selecionada = selectedAlt === alt.letra
@@ -561,7 +558,7 @@ function QuestaoContent() {
                     type="button"
                     disabled={lockedQuestion}
                     onClick={() => handleSelectAlt(alt.letra)}
-                    className={`grid w-full grid-cols-[40px_1fr] gap-4 px-4 py-3 text-left text-[0.98rem] leading-snug text-[#333] transition-colors ${rowState} ${lockedQuestion ? 'cursor-default' : 'cursor-pointer'}`}
+                    className={`grid w-full grid-cols-[40px_1fr] gap-4 px-4 py-10 text-left text-[0.98rem] leading-snug text-[#333] transition-colors ${rowState} ${lockedQuestion ? 'cursor-default' : 'cursor-pointer'}`}
                   >
                     <span className="pt-[1px] text-right font-medium">{alt.letra})</span>
                     <span>{alt.texto}</span>
@@ -575,14 +572,14 @@ function QuestaoContent() {
                 <button
                   type="button"
                   onClick={() => handleSalvar('rascunho')}
-                  className="min-w-[190px] rounded-full bg-[#FFD0D0] px-6 py-3 text-sm font-medium uppercase text-[#2F2F2F] transition-colors hover:bg-[#FFC0C0]"
+                  className="min-w-[190px] rounded-full bg-[#FFD0D0] px-6 py-3 text-sm font-medium uppercase text-[#2F2F2F] transition-colors hover:bg-[#FFC0C0] cursor-pointer"
                 >
                   Salvar rascunho
                 </button>
                 <button
                   type="button"
                   onClick={() => { if (confirm('Tem certeza? Não será possível alterar depois.')) handleSalvar('entregue') }}
-                  className="min-w-[210px] rounded-full bg-[#FF9D9D] px-6 py-3 text-sm font-medium uppercase text-[#2F2F2F] transition-colors hover:bg-[#FF8B8B]"
+                  className="min-w-[210px] rounded-full bg-[#FF9D9D] px-6 py-3 text-sm font-medium uppercase text-[#2F2F2F] transition-colors hover:bg-[#FF8B8B] cursor-pointer"
                 >
                   Entregar questão
                 </button>
