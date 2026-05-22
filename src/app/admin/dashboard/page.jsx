@@ -1,9 +1,9 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Poppins } from 'next/font/google'
 import { useRouter } from 'next/navigation'
-import { collection, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, onSnapshot, orderBy, query, getDocs } from 'firebase/firestore'
+import { collection, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, orderBy, query, getDocs } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { db, auth } from '@/lib/firebase'
 import Image from 'next/image'
@@ -188,12 +188,14 @@ const Page = () => {
     else { setAutenticado(true); setVerificando(false) }
   }, [router])
 
-  useEffect(() => {
+  const carregarEdicoes = useCallback(async () => {
     if (!autenticado) return
     const q = query(collection(db, 'edicoes'), orderBy('createdAt', 'desc'))
-    const unsub = onSnapshot(q, (snap) => setEdicoes(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
-    return () => unsub()
+    const snap = await getDocs(q)
+    setEdicoes(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
   }, [autenticado])
+
+  useEffect(() => { carregarEdicoes() }, [carregarEdicoes])
 
   const carregarFases = async (edId) => {
     try {
@@ -214,7 +216,7 @@ const Page = () => {
     setCriando(true)
     try {
       await addDoc(collection(db, 'edicoes'), { nome: novoNome.trim(), createdAt: serverTimestamp() })
-      setNovoNome(''); setSucesso('Edição criada!')
+      setNovoNome(''); setSucesso('Edição criada!'); await carregarEdicoes()
       setTimeout(() => setSucesso(''), 3000)
     } catch { setErro('Erro ao criar.') }
     finally { setCriando(false) }

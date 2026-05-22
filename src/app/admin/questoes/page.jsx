@@ -1,9 +1,9 @@
 'use client'
 
-import React, { useState, useEffect, Suspense, useRef } from 'react'
+import React, { useState, useEffect, Suspense, useRef, useCallback } from 'react'
 import { Poppins } from 'next/font/google'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { collection, addDoc, deleteDoc, doc, updateDoc, getDoc, getDocs, onSnapshot, query, orderBy } from 'firebase/firestore'
+import { collection, addDoc, deleteDoc, doc, updateDoc, getDoc, getDocs, query, orderBy } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import Image from 'next/image'
 import { useEditor, EditorContent } from '@tiptap/react'
@@ -617,12 +617,14 @@ function QuestoesForm() {
     carregar()
   }, [autenticado, faseId, edicaoId])
 
-  useEffect(() => {
+  const carregarQuestoes = useCallback(async () => {
     if (!faseId) return
     const q = query(collection(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes'), orderBy('numero', 'asc'))
-    const unsub = onSnapshot(q, (snap) => setQuestoes(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
-    return () => unsub()
+    const snap = await getDocs(q)
+    setQuestoes(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
   }, [faseId, edicaoId])
+
+  useEffect(() => { carregarQuestoes() }, [carregarQuestoes])
 
   const handleSalvarTarefa = async () => {
     try {
@@ -653,7 +655,7 @@ function QuestoesForm() {
       } else {
         await addDoc(collection(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes'), { ...dados, createdAt: new Date().toISOString() })
       }
-      limparForm()
+      limparForm(); await carregarQuestoes()
     } catch { setErro('Erro ao salvar questão.') }
     finally { setSalvando(false) }
   }
@@ -671,7 +673,7 @@ function QuestoesForm() {
 
   const handleDeletarQuestao = async (qId) => {
     if (editandoId === qId) limparForm()
-    try { await deleteDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes', qId)) } catch {}
+    try { await deleteDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes', qId)); await carregarQuestoes() } catch {}
   }
 
   if (!autenticado || carregando) {
