@@ -332,7 +332,7 @@ function RichTextEditor({ value, onChange, placeholder, minH = '300px' }) {
             if (event.shiftKey) { ed.chain().focus().liftListItem('listItem').run() } else { ed.chain().focus().sinkListItem('listItem').run() }
             return true
           }
-          if (!event.shiftKey) { view.dispatch(view.state.tr.insertText('\t')); return true }
+          if (!event.shiftKey) { view.dispatch(view.state.tr.insertText('\u00A0\u00A0\u00A0\u00A0')); return true }
         }
         if (event.key === 'k' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); const url = window.prompt('URL:'); if (url) ed.chain().focus().setLink({ href: url, target: '_blank' }).run(); return true }
         if (event.key === 'S' && event.shiftKey && (event.ctrlKey || event.metaKey)) { event.preventDefault(); ed.chain().focus().toggleStrike().run(); return true }
@@ -583,8 +583,15 @@ function QuestoesForm() {
   const [documentos, setDocumentos] = useState([])
   const [erro, setErro] = useState('')
   const [salvando, setSalvando] = useState(false)
+  const [editandoId, setEditandoId] = useState(null)
   const [tarefaTitulo, setTarefaTitulo] = useState('')
   const [tarefaUrl, setTarefaUrl] = useState('')
+
+  const limparForm = () => {
+    setNumero(''); setInstrucao(''); setComentario('')
+    setAlternativas([{ letra: 'A', texto: '', peso: 0 }, { letra: 'B', texto: '', peso: 0 }, { letra: 'C', texto: '', peso: 0 }, { letra: 'D', texto: '', peso: 0 }])
+    setDocumentos([]); setEditandoId(null); setErro('')
+  }
 
   useEffect(() => {
     const admin = localStorage.getItem('admin-authenticated')
@@ -632,23 +639,38 @@ function QuestoesForm() {
     if (!numero || !instrucao.trim()) { setErro('Número e instrução são obrigatórios.'); return }
     if (alternativas.some((a) => !a.texto.trim())) { setErro('Todas as alternativas devem ter texto.'); return }
     setSalvando(true)
+    const dados = {
+      numero: parseInt(numero),
+      instrucao: instrucao.trim(),
+      comentario: comentario.trim(),
+      alternativas,
+      documentos,
+      updatedAt: new Date().toISOString(),
+    }
     try {
-      await addDoc(collection(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes'), {
-        numero: parseInt(numero),
-        instrucao: instrucao.trim(),
-        comentario: comentario.trim(),
-        alternativas,
-        documentos,
-        createdAt: new Date().toISOString(),
-      })
-      setNumero(''); setInstrucao(''); setComentario('')
-      setAlternativas([{ letra: 'A', texto: '', peso: 0 }, { letra: 'B', texto: '', peso: 0 }, { letra: 'C', texto: '', peso: 0 }, { letra: 'D', texto: '', peso: 0 }])
-      setDocumentos([])
+      if (editandoId) {
+        await updateDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes', editandoId), dados)
+      } else {
+        await addDoc(collection(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes'), { ...dados, createdAt: new Date().toISOString() })
+      }
+      limparForm()
     } catch { setErro('Erro ao salvar questão.') }
     finally { setSalvando(false) }
   }
 
+  const handleEditarQuestao = (q) => {
+    setNumero(String(q.numero))
+    setInstrucao(q.instrucao || '')
+    setComentario(q.comentario || '')
+    setAlternativas(q.alternativas || [{ letra: 'A', texto: '', peso: 0 }, { letra: 'B', texto: '', peso: 0 }, { letra: 'C', texto: '', peso: 0 }, { letra: 'D', texto: '', peso: 0 }])
+    setDocumentos(q.documentos || [])
+    setEditandoId(q.id)
+    setErro('')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   const handleDeletarQuestao = async (qId) => {
+    if (editandoId === qId) limparForm()
     try { await deleteDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes', qId)) } catch {}
   }
 
@@ -683,7 +705,14 @@ function QuestoesForm() {
           </div>
 
           <div className='bg-white rounded-xl shadow-md p-6'>
-            <h2 className='text-lg font-bold text-[#82181A] mb-4'>Nova Questão</h2>
+            <div className='flex items-center justify-between mb-4'>
+              <h2 className='text-lg font-bold text-[#82181A]'>{editandoId ? 'Editar Questão' : 'Nova Questão'}</h2>
+              {editandoId && (
+                <button type="button" onClick={limparForm} className='text-xs text-neutral-500 hover:text-[#82181A] font-semibold cursor-pointer'>
+                  Cancelar edição
+                </button>
+              )}
+            </div>
             <form onSubmit={handleCriarQuestao} className='space-y-4'>
               <input type="number" min="1" max="10" placeholder="Número (1-10)" value={numero} onChange={(e) => setNumero(e.target.value)} required
                 className="w-full md:w-48 rounded-lg border border-neutral-300 p-3 text-sm outline-none focus:border-[#82181A]" />
@@ -718,9 +747,16 @@ function QuestoesForm() {
               <BlocoEditor blocos={documentos} setBlocos={setDocumentos} />
 
               {erro && <p className="text-red-600 text-sm">{erro}</p>}
-              <button type="submit" disabled={salvando} className="bg-[#82181A] text-white font-semibold px-8 py-3 rounded-lg hover:bg-[#631214] disabled:opacity-50 cursor-pointer">
-                {salvando ? 'Salvando...' : 'Criar Questão'}
-              </button>
+              <div className='flex items-center gap-3'>
+                <button type="submit" disabled={salvando} className="bg-[#82181A] text-white font-semibold px-8 py-3 rounded-lg hover:bg-[#631214] disabled:opacity-50 cursor-pointer">
+                  {salvando ? 'Salvando...' : editandoId ? 'Atualizar Questão' : 'Criar Questão'}
+                </button>
+                {editandoId && (
+                  <button type="button" onClick={limparForm} className='text-sm text-neutral-500 hover:text-[#82181A] font-semibold cursor-pointer'>
+                    Cancelar
+                  </button>
+                )}
+              </div>
             </form>
           </div>
 
@@ -731,12 +767,15 @@ function QuestoesForm() {
             ) : (
               <div className='space-y-2'>
                 {questoes.map((q) => (
-                  <div key={q.id} className='border border-neutral-200 rounded-lg p-4 flex items-center justify-between'>
-                    <div>
+                  <div key={q.id} className={`border rounded-lg p-4 flex items-center justify-between ${editandoId === q.id ? 'border-[#82181A] bg-[#82181A]/5' : 'border-neutral-200'}`}>
+                    <div className='flex-1 min-w-0 mr-4'>
                       <p className='font-semibold text-sm'>Questão {q.numero}</p>
-                      <p className='text-xs text-neutral-500 line-clamp-1'>{q.instrucao?.replace(/<[^>]*>/g, '').substring(0, 80)}...</p>
+                      <p className='text-xs text-neutral-500 truncate'>{q.instrucao?.replace(/<[^>]*>/g, '').substring(0, 80)}...</p>
                     </div>
-                    <button onClick={() => handleDeletarQuestao(q.id)} className='text-red-600 text-xs font-semibold hover:underline cursor-pointer'>Excluir</button>
+                    <div className='flex items-center gap-2 shrink-0'>
+                      <button onClick={() => handleEditarQuestao(q)} className='text-[#82181A] text-xs font-semibold hover:underline cursor-pointer'>Editar</button>
+                      <button onClick={() => handleDeletarQuestao(q.id)} className='text-red-600 text-xs font-semibold hover:underline cursor-pointer'>Excluir</button>
+                    </div>
                   </div>
                 ))}
               </div>

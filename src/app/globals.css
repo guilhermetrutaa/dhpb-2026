@@ -30,6 +30,7 @@ body {
   font-size: 0.95rem;
   line-height: 1.7;
   color: #1a1a1a;
+  white-space: pre-wrap;
   min-height: 150px;
 }
 

@@ -195,7 +195,7 @@ function DocumentBlock({ bloco, title, preview = false }) {
 
   return (
     <div className={`mx-auto bg-[#FFF9E6] p-5 text-left leading-relaxed text-neutral-800 ${preview ? 'max-h-[220px]  overflow-hidden text-sm' : 'max-w-[820px] text-base'}`}>
-      <div dangerouslySetInnerHTML={{ __html: bloco.conteudo }} />
+      <div className="tiptap-editor" dangerouslySetInnerHTML={{ __html: bloco.conteudo }} />
     </div>
   )
 }
@@ -556,7 +556,7 @@ function QuestaoContent() {
 
           <div className="mx-auto text-center px-5 pt-14 md:pt-20">
             <div
-              className="text-[1rem] font-medium leading-relaxed text-[#2F2F2F] [&_p]:mb-4"
+              className="tiptap-editor text-[1rem] font-medium leading-relaxed text-[#2F2F2F] [&_p]:mb-4"
               dangerouslySetInnerHTML={{ __html: questao.instrucao }}
             />
           </div>
@@ -613,7 +613,7 @@ function QuestaoContent() {
             {(fase?.status === 'finalizada' || fase?.status === 'correcao') && questao?.comentario && (
               <div className="mt-8 rounded-r-2xl border-l-4 border-green-500 bg-green-50 p-6">
                 <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-green-700">Comentário da questão</p>
-                <div className="text-sm text-neutral-700" dangerouslySetInnerHTML={{ __html: questao.comentario }} />
+                <div className="tiptap-editor text-sm text-neutral-700" dangerouslySetInnerHTML={{ __html: questao.comentario }} />
               </div>
             )}
 
