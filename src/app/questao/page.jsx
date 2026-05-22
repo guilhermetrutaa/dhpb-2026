@@ -4,7 +4,7 @@ import React, { Suspense, useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Poppins } from 'next/font/google'
-import { doc as firestoreDoc, getDoc, onSnapshot, setDoc } from 'firebase/firestore'
+import { doc as firestoreDoc, getDoc, getDocs, onSnapshot, setDoc, collection, query, orderBy } from 'firebase/firestore'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { db } from '@/lib/firebase'
@@ -359,10 +359,22 @@ function QuestaoContent() {
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
   const [activeDocumentIndex, setActiveDocumentIndex] = useState(null)
+  const [allQuestaoIds, setAllQuestaoIds] = useState([])
 
   useEffect(() => {
     if (!loading && !authUser) router.push('/login')
   }, [loading, authUser, router])
+
+  useEffect(() => {
+    if (!faseId || !edicaoId) return
+    ;(async () => {
+      try {
+        const q = query(collection(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes'), orderBy('numero', 'asc'))
+        const snap = await getDocs(q)
+        setAllQuestaoIds(snap.docs.map(d => d.id))
+      } catch {}
+    })()
+  }, [faseId, edicaoId])
 
   useEffect(() => {
     if (!authUser) return
@@ -373,6 +385,11 @@ function QuestaoContent() {
           setErro('Dados da questão incompletos.')
           return
         }
+
+        setSelectedAlt(null)
+        setRespostaStatus('pendente')
+        setMensagem('')
+        setErro('')
 
         const [qSnap, fSnap, rSnap] = await Promise.all([
           getDoc(firestoreDoc(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes', questaoId)),
@@ -475,8 +492,9 @@ function QuestaoContent() {
   }
 
   const qNumero = questao?.numero || 0
-  const qPrevId = sp.get('prevId') || ''
-  const qNextId = sp.get('nextId') || ''
+  const currentIdx = allQuestaoIds.indexOf(questaoId)
+  const qPrevId = currentIdx > 0 ? allQuestaoIds[currentIdx - 1] : ''
+  const qNextId = currentIdx < allQuestaoIds.length - 1 ? allQuestaoIds[currentIdx + 1] : ''
   const prevHref = qPrevId ? `/questao?questaoId=${qPrevId}&faseId=${faseId}&edicaoId=${edicaoId}&equipeId=${equipeId}` : ''
   const nextHref = qNextId ? `/questao?questaoId=${qNextId}&faseId=${faseId}&edicaoId=${edicaoId}&equipeId=${equipeId}` : ''
   const activeDocument = activeDocumentIndex !== null ? questao?.documentos?.[activeDocumentIndex] : null

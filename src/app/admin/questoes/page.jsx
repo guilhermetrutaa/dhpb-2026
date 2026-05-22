@@ -6,50 +6,357 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { collection, addDoc, deleteDoc, doc, updateDoc, getDoc, getDocs, onSnapshot, query, orderBy } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import Image from 'next/image'
+import { useEditor, EditorContent } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import Underline from '@tiptap/extension-underline'
+import TextAlign from '@tiptap/extension-text-align'
+import LinkExtension from '@tiptap/extension-link'
+import Placeholder from '@tiptap/extension-placeholder'
+import TaskList from '@tiptap/extension-task-list'
+import TaskItem from '@tiptap/extension-task-item'
+import Highlight from '@tiptap/extension-highlight'
+import { TextStyle } from '@tiptap/extension-text-style'
+import { Color } from '@tiptap/extension-color'
+import { FontFamily } from '@tiptap/extension-font-family'
+import Superscript from '@tiptap/extension-superscript'
+import Subscript from '@tiptap/extension-subscript'
+import { Table } from '@tiptap/extension-table'
+import { TableRow } from '@tiptap/extension-table-row'
+import { TableCell } from '@tiptap/extension-table-cell'
+import { TableHeader } from '@tiptap/extension-table-header'
+
+const FONT_SIZES = ['8','9','10','11','12','14','16','18','20','22','24','26','28','36','42','48','72']
+const FONT_FAMILIES = [
+  { label: 'Arial', value: 'Arial' },
+  { label: 'Times New Roman', value: '"Times New Roman",serif' },
+  { label: 'Courier New', value: '"Courier New",monospace' },
+  { label: 'Georgia', value: 'Georgia,serif' },
+  { label: 'Verdana', value: 'Verdana,sans-serif' },
+]
+const TEXT_COLORS = ['#000000','#434343','#666666','#999999','#b7b7b7','#ffffff','#980000','#ff0000','#ff9900','#ffff00','#00ff00','#00ffff','#4a86e8','#0000ff','#9900ff','#ff00ff']
+const HIGHLIGHT_COLORS = ['#ffff00','#00ff00','#00ffff','#ff9900','#ff00ff','#ff0000','#ffffff','#000000']
+
+const FontSize = TextStyle.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      fontSize: { default: null, parseHTML: el => el.style.fontSize?.replace(/['"]+/g,''), renderHTML: attrs => attrs.fontSize ? { style: `font-size:${attrs.fontSize}` } : {} },
+    }
+  },
+  addCommands() {
+    return {
+      setFontSize: fs => ({ chain }) => chain().setMark('textStyle', { fontSize: fs }).run(),
+      unsetFontSize: () => ({ chain }) => chain().setMark('textStyle', { fontSize: null }).removeEmptyTextStyle().run(),
+    }
+  },
+})
 
 const poppins = Poppins({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
 })
 
-function RichTextEditor({ value, onChange, placeholder, minH = '120px' }) {
-  const txtRef = useRef(null)
+function Tb({ onClick, active, title, children, disabled, small }) {
+  return (
+    <button type="button" onMouseDown={e => { e.preventDefault(); onClick?.() }}
+      className={`rounded cursor-pointer transition-colors flex items-center justify-center ${small ? 'p-1' : 'p-1.5'} ${disabled ? 'opacity-30 cursor-not-allowed' : active ? 'bg-[#82181A] text-white' : 'text-neutral-600 hover:bg-neutral-200 hover:text-neutral-800'}`}
+      title={title} disabled={disabled}
+    >{children}</button>
+  )
+}
+const Sep = () => <span className="w-px h-5 bg-neutral-300 mx-1 shrink-0" />
 
-  const wrap = (antes, depois = '') => {
-    const el = txtRef.current
-    if (!el) return
-    const start = el.selectionStart
-    const end = el.selectionEnd
-    const selected = value.substring(start, end) || 'texto'
-    const novo = value.substring(0, start) + antes + selected + depois + value.substring(end)
-    onChange?.(novo)
-    setTimeout(() => {
-      el.focus()
-      el.setSelectionRange(start + antes.length, start + antes.length + selected.length)
-    }, 0)
-  }
+function ColorPicker({ label, colors, value, onChange, allowNone }) {
+  const [open, setOpen] = useState(false)
+
+  useOnClickOutside(open, () => setOpen(false))
 
   return (
-    <div className='border border-neutral-300 rounded-lg overflow-hidden'>
-      <div className='flex flex-wrap gap-1 p-2 bg-neutral-50 border-b border-neutral-200'>
-        <button type="button" onClick={() => wrap('<b>', '</b>')} className='px-2 py-1 text-sm font-bold rounded hover:bg-neutral-200 cursor-pointer'>B</button>
-        <button type="button" onClick={() => wrap('<i>', '</i>')} className='px-2 py-1 text-sm italic rounded hover:bg-neutral-200 cursor-pointer'>I</button>
-        <button type="button" onClick={() => wrap('<u>', '</u>')} className='px-2 py-1 text-sm underline rounded hover:bg-neutral-200 cursor-pointer'>U</button>
-        <span className='w-px bg-neutral-300 mx-1' />
-        <button type="button" onClick={() => wrap('<h2>', '</h2>')} className='px-2 py-1 text-sm font-bold rounded hover:bg-neutral-200 cursor-pointer'>H2</button>
-        <button type="button" onClick={() => wrap('<h3>', '</h3>')} className='px-2 py-1 text-sm font-bold rounded hover:bg-neutral-200 cursor-pointer'>H3</button>
-        <span className='w-px bg-neutral-300 mx-1' />
-        <button type="button" onClick={() => wrap('<p>', '</p>')} className='px-2 py-1 text-sm rounded hover:bg-neutral-200 cursor-pointer'>¶</button>
-        <button type="button" onClick={() => { const url = prompt('URL:'); if (url) wrap(`<a href="${url}" target="_blank">`, '</a>') }} className='px-2 py-1 text-sm rounded hover:bg-neutral-200 cursor-pointer'>🔗</button>
+    <div className="relative">
+      <button type="button" onMouseDown={e => { e.preventDefault(); setOpen(!open) }}
+        className="flex items-center gap-1 px-1.5 py-1 text-xs border border-neutral-300 rounded bg-white hover:bg-neutral-100 cursor-pointer"
+        title={label}
+      >
+        <span className="flex flex-col items-center gap-px">
+          <span className={`w-4 h-3 rounded-sm border ${value ? 'border-neutral-400' : 'border-neutral-300'}`} style={{ background: value || 'transparent' }} />
+          <span className="w-4 h-[3px] rounded-sm" style={{ background: value || '#ccc' }} />
+        </span>
+        <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="6 9 12 15 18 9" /></svg>
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-neutral-200 rounded-xl shadow-xl p-3 min-w-[196px]">
+            {allowNone && (
+              <button type="button" onMouseDown={e => { e.preventDefault(); onChange(null); setOpen(false) }}
+                className="w-full text-left text-xs text-neutral-500 px-2 py-1.5 rounded hover:bg-neutral-100 mb-1 cursor-pointer"
+              >Nenhum</button>
+            )}
+            <div className="grid grid-cols-8 gap-1.5">
+              {colors.map(c => (
+                <button key={c} type="button" onMouseDown={e => { e.preventDefault(); onChange(c); setOpen(false) }}
+                  className={`w-6 h-6 rounded-md border-2 cursor-pointer hover:scale-110 transition-transform ${c === value ? 'border-neutral-900 scale-110' : 'border-neutral-200 hover:border-neutral-400'}`}
+                  style={{ background: c }}
+                  title={c}
+                />
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function useOnClickOutside(active, handler) {
+  const savedHandler = useRef(handler)
+  savedHandler.current = handler
+  useEffect(() => {
+    if (!active) return
+    const listener = (e) => { if (!e.defaultPrevented) savedHandler.current() }
+    document.addEventListener('mousedown', listener)
+    return () => document.removeEventListener('mousedown', listener)
+  }, [active])
+}
+
+function MenuBar({ editor }) {
+  if (!editor) return null
+
+  const addLink = () => { const url = window.prompt('URL:'); if (url) editor.chain().focus().setLink({ href: url, target: '_blank' }).run() }
+  const addTable = () => {
+    const cols = parseInt(window.prompt('Colunas:', '3')) || 3
+    const rows = parseInt(window.prompt('Linhas:', '3')) || 3
+    editor.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run()
+  }
+
+  const headingDepth = () => { for (let d = 1; d <= 6; d++) { if (editor.isActive('heading', { level: d })) return d } return 0 }
+  const hDepth = headingDepth()
+  const isTableActive = editor.isActive('table')
+  const currentFontSize = editor.getAttributes('textStyle').fontSize || '16'
+  const currentFontFamily = editor.getAttributes('textStyle').fontFamily || ''
+  const textColor = editor.getAttributes('textStyle').color || '#000'
+
+  return (
+    <div className="sticky top-0 z-10 bg-white border-b border-neutral-200 shadow-sm">
+      {/* Row 1 — Text formatting */}
+      <div className="flex flex-wrap items-center gap-1 px-2 py-1.5 border-b border-neutral-100">
+        <Tb onClick={() => editor.chain().focus().undo().run()} title="Desfazer (Ctrl+Z)">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+        </Tb>
+        <Tb onClick={() => editor.chain().focus().redo().run()} title="Refazer (Ctrl+Shift+Z)">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg>
+        </Tb>
+        <Sep />
+
+        {/* Paragraph style */}
+        <select value={hDepth} onChange={e => { const v = parseInt(e.target.value); v === 0 ? editor.chain().focus().setParagraph().run() : editor.chain().focus().toggleHeading({ level: v }).run() }}
+          className="text-xs border border-neutral-300 rounded px-1.5 py-1 bg-white cursor-pointer outline-none focus:border-[#82181A]" title="Estilo de parágrafo">
+          <option value={0}>Normal</option>
+          <option value={2}>Título 2</option>
+          <option value={3}>Título 3</option>
+          <option value={4}>Título 4</option>
+        </select>
+
+        {/* Font size */}
+        <select value={currentFontSize} onChange={e => editor.chain().focus().setFontSize(e.target.value).run()}
+          className="text-xs border border-neutral-300 rounded px-1 py-1 bg-white cursor-pointer outline-none focus:border-[#82181A] w-14" title="Tamanho da fonte">
+          {FONT_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+
+        {/* Font family */}
+        <select value={currentFontFamily} onChange={e => editor.chain().focus().setFontFamily(e.target.value).run()}
+          className="text-xs border border-neutral-300 rounded px-1 py-1 bg-white cursor-pointer outline-none focus:border-[#82181A] max-w-28" title="Fonte">
+          <option value="">Fonte</option>
+          {FONT_FAMILIES.map(f => <option key={f.value} value={f.value} style={{ fontFamily: f.value }}>{f.label}</option>)}
+        </select>
+
+        <Sep />
+
+        <Tb onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')} title="Negrito (Ctrl+B)">
+          <b className="text-sm font-bold">B</b>
+        </Tb>
+        <Tb onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive('italic')} title="Itálico (Ctrl+I)">
+          <i className="text-sm italic">I</i>
+        </Tb>
+        <Tb onClick={() => editor.chain().focus().toggleUnderline().run()} active={editor.isActive('underline')} title="Sublinhado (Ctrl+U)">
+          <u className="text-sm underline">U</u>
+        </Tb>
+        <Tb onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive('strike')} title="Tachado (Ctrl+Shift+S)">
+          <s className="text-sm">S</s>
+        </Tb>
+        <Tb onClick={() => editor.chain().focus().toggleSuperscript().run()} active={editor.isActive('superscript')} title="Sobrescrito">
+          <sup className="text-xs">x²</sup>
+        </Tb>
+        <Tb onClick={() => editor.chain().focus().toggleSubscript().run()} active={editor.isActive('subscript')} title="Subscrito">
+          <sub className="text-xs">x₂</sub>
+        </Tb>
+
+        <Sep />
+
+        <ColorPicker label="Cor do texto" colors={TEXT_COLORS} value={textColor} onChange={c => editor.chain().focus().setColor(c).run()} />
+        <ColorPicker label="Cor de destaque" colors={HIGHLIGHT_COLORS} value={editor.getAttributes('highlight').color || ''} onChange={c => c ? editor.chain().focus().toggleHighlight({ color: c }).run() : editor.chain().focus().toggleHighlight().run()} allowNone />
+
+        <Sep />
+
+        <Tb onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()} title="Limpar formatação">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L11 21H7"/><path d="m11 3 6 6"/></svg>
+        </Tb>
       </div>
-      <textarea
-        ref={txtRef}
-        value={value}
-        onChange={(e) => onChange?.(e.target.value)}
-        placeholder={placeholder || 'Digite aqui...'}
-        className='w-full p-4 text-sm outline-none resize-y font-sans'
-        style={{ minHeight: minH }}
-      />
+
+      {/* Row 2 — Block / alignment / insert */}
+      <div className="flex flex-wrap items-center gap-1 px-2 py-1.5">
+        <Tb onClick={() => editor.chain().focus().setTextAlign('left').run()} active={editor.isActive({ textAlign: 'left' })} title="Alinhar à esquerda" small>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><line x1="3" y1="6" x2="15" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="15" y2="18"/></svg>
+        </Tb>
+        <Tb onClick={() => editor.chain().focus().setTextAlign('center').run()} active={editor.isActive({ textAlign: 'center' })} title="Centralizar" small>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/></svg>
+        </Tb>
+        <Tb onClick={() => editor.chain().focus().setTextAlign('right').run()} active={editor.isActive({ textAlign: 'right' })} title="Alinhar à direita" small>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><line x1="9" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="9" y1="18" x2="21" y2="18"/></svg>
+        </Tb>
+        <Tb onClick={() => editor.chain().focus().setTextAlign('justify').run()} active={editor.isActive({ textAlign: 'justify' })} title="Justificar" small>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </Tb>
+
+        <Sep />
+
+        <Tb onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive('bulletList')} title="Lista com marcadores" small>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>
+        </Tb>
+        <Tb onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive('orderedList')} title="Lista numerada" small>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><path d="M4 6h1v4"/><path d="M4 10h2"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg>
+        </Tb>
+        <Tb onClick={() => editor.chain().focus().toggleTaskList().run()} active={editor.isActive('taskList')} title="Lista de tarefas" small>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        </Tb>
+
+        <Sep />
+
+        <Tb onClick={() => editor.chain().focus().sinkListItem('listItem').run()} disabled={!editor.can().sinkListItem('listItem')} title="Aumentar recuo (Tab)" small>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><polyline points="8 8 12 12 8 16"/><line x1="16" y1="8" x2="16" y2="16"/></svg>
+        </Tb>
+        <Tb onClick={() => editor.chain().focus().liftListItem('listItem').run()} disabled={!editor.can().liftListItem('listItem')} title="Diminuir recuo (Shift+Tab)" small>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><polyline points="16 8 12 12 8 16"/><line x1="8" y1="8" x2="8" y2="16"/></svg>
+        </Tb>
+
+        <Sep />
+
+        <Tb onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive('blockquote')} title="Citação" small>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/></svg>
+        </Tb>
+        <Tb onClick={() => editor.chain().focus().toggleCodeBlock().run()} active={editor.isActive('codeBlock')} title="Bloco de código" small>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        </Tb>
+        <Tb onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Linha horizontal" small>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><line x1="3" y1="12" x2="21" y2="12"/></svg>
+        </Tb>
+
+        <Sep />
+
+        <Tb onClick={addTable} active={isTableActive} title="Inserir tabela" small>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M3 3h18v18H3z"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>
+        </Tb>
+        {isTableActive && (
+          <>
+            <Tb onClick={() => editor.chain().focus().addColumnBefore().run()} title="Adicionar coluna à esquerda" small>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="9" x2="8" y2="9"/><line x1="3" y1="15" x2="8" y2="15"/></svg>
+            </Tb>
+            <Tb onClick={() => editor.chain().focus().addColumnAfter().run()} title="Adicionar coluna à direita" small>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="16" y1="9" x2="21" y2="9"/><line x1="16" y1="15" x2="21" y2="15"/></svg>
+            </Tb>
+            <Tb onClick={() => editor.chain().focus().addRowBefore().run()} title="Adicionar linha acima" small>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="9" y1="3" x2="9" y2="8"/><line x1="15" y1="3" x2="15" y2="8"/></svg>
+            </Tb>
+            <Tb onClick={() => editor.chain().focus().addRowAfter().run()} title="Adicionar linha abaixo" small>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="9" y1="16" x2="9" y2="21"/><line x1="15" y1="16" x2="15" y2="21"/></svg>
+            </Tb>
+            <Tb onClick={() => editor.chain().focus().deleteColumn().run()} title="Excluir coluna" small>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="10" y1="3" x2="10" y2="8"/><line x1="14" y1="3" x2="14" y2="8"/></svg>
+            </Tb>
+            <Tb onClick={() => editor.chain().focus().deleteRow().run()} title="Excluir linha" small>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="10" x2="8" y2="10"/><line x1="3" y1="14" x2="8" y2="14"/></svg>
+            </Tb>
+            <Tb onClick={() => editor.chain().focus().deleteTable().run()} title="Excluir tabela" small>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M3 3h18v18H3z"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </Tb>
+          </>
+        )}
+
+        <Sep />
+
+        <Tb onClick={addLink} active={editor.isActive('link')} title="Inserir link (Ctrl+K)" small>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        </Tb>
+        {editor.isActive('link') && (
+          <Tb onClick={() => editor.chain().focus().unsetLink().run()} title="Remover link" small>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          </Tb>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function RichTextEditor({ value, onChange, placeholder, minH = '300px' }) {
+  const editorRef = useRef(null)
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({ placeholder: false, codeBlock: false }),
+      Underline,
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      LinkExtension.configure({ openOnClick: false }),
+      Placeholder.configure({ placeholder: placeholder || '' }),
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      Highlight.configure({ multicolor: true }),
+      TextStyle,
+      FontSize,
+      Color,
+      FontFamily,
+      Superscript,
+      Subscript,
+      Table.configure({ resizable: true }),
+      TableRow,
+      TableCell,
+      TableHeader,
+    ],
+    content: value || '',
+    onUpdate: ({ editor: ed }) => onChange?.(ed.getHTML()),
+    editorProps: {
+      attributes: { class: 'tiptap-editor focus:outline-none px-4 py-3', style: `min-height: ${minH}` },
+      handleKeyDown: (view, event) => {
+        const ed = editorRef.current
+        if (!ed) return false
+        if (event.key === 'Tab') {
+          if (ed.isActive('listItem') || ed.isActive('bulletList') || ed.isActive('orderedList') || ed.isActive('taskList')) {
+            if (event.shiftKey) { ed.chain().focus().liftListItem('listItem').run() } else { ed.chain().focus().sinkListItem('listItem').run() }
+            return true
+          }
+          if (!event.shiftKey) { view.dispatch(view.state.tr.insertText('\t')); return true }
+        }
+        if (event.key === 'k' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); const url = window.prompt('URL:'); if (url) ed.chain().focus().setLink({ href: url, target: '_blank' }).run(); return true }
+        if (event.key === 'S' && event.shiftKey && (event.ctrlKey || event.metaKey)) { event.preventDefault(); ed.chain().focus().toggleStrike().run(); return true }
+        if (event.key === 'e' && event.shiftKey && (event.ctrlKey || event.metaKey)) {
+          event.preventDefault()
+          const a = ['left','center','right','justify']; const c = ed.getAttributes('paragraph').textAlign || 'left'
+          ed.chain().focus().setTextAlign(a[(a.indexOf(c) + 1) % a.length]).run(); return true
+        }
+        return false
+      },
+    },
+  })
+  editorRef.current = editor
+
+  useEffect(() => {
+    if (!editor) return
+    const c = editor.getHTML()
+    if (value !== c && value !== undefined && value !== null) editor.commands.setContent(value || '')
+  }, [value])
+
+  return (
+    <div className="border border-neutral-300 rounded-lg overflow-hidden bg-white shadow-sm">
+      <MenuBar editor={editor} />
+      <EditorContent editor={editor} />
     </div>
   )
 }

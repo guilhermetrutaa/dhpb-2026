@@ -24,3 +24,84 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* TipTap rich text editor styles */
+.tiptap-editor {
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: #1a1a1a;
+  min-height: 150px;
+}
+
+.tiptap-editor p { margin: 0.5em 0; }
+
+.tiptap-editor h2 { font-size: 1.5rem; font-weight: 700; margin: 1em 0 0.5em; line-height: 1.3; }
+.tiptap-editor h3 { font-size: 1.25rem; font-weight: 600; margin: 0.8em 0 0.4em; line-height: 1.35; }
+.tiptap-editor h4 { font-size: 1.1rem; font-weight: 600; margin: 0.6em 0 0.3em; line-height: 1.4; }
+
+.tiptap-editor ul { list-style-type: disc; padding-left: 1.5em; margin: 0.5em 0; }
+.tiptap-editor ol { list-style-type: decimal; padding-left: 1.5em; margin: 0.5em 0; }
+.tiptap-editor li { margin: 0.2em 0; }
+
+.tiptap-editor blockquote { border-left: 3px solid #d1d5db; padding-left: 1em; margin: 0.5em 0; color: #6b7280; font-style: italic; }
+
+.tiptap-editor a { color: #2563eb; text-decoration: underline; cursor: pointer; }
+
+.tiptap-editor hr { border: none; border-top: 1px solid #d1d5db; margin: 1em 0; }
+
+.tiptap-editor p.is-editor-empty:first-child::before { color: #adb5bd; content: attr(data-placeholder); float: left; height: 0; pointer-events: none; }
+
+.tiptap-editor [style*="text-align: center"] { text-align: center; }
+.tiptap-editor [style*="text-align: right"] { text-align: right; }
+.tiptap-editor [style*="text-align: justify"] { text-align: justify; }
+
+/* Task list */
+.tiptap-editor ul[data-type="taskList"] { list-style: none; padding-left: 0; }
+.tiptap-editor ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 0.5em; }
+.tiptap-editor ul[data-type="taskList"] li > label { flex: 0 0 auto; margin-top: 0.15em; }
+.tiptap-editor ul[data-type="taskList"] li > label input[type="checkbox"] { cursor: pointer; width: 1.1em; height: 1.1em; accent-color: #82181A; }
+.tiptap-editor ul[data-type="taskList"] li > div { flex: 1 1 auto; }
+
+/* Code */
+.tiptap-editor pre { background: #1e1e2e; color: #cdd6f4; font-family: 'Courier New', monospace; padding: 1em; border-radius: 8px; overflow-x: auto; margin: 0.5em 0; font-size: 0.85rem; line-height: 1.5; }
+.tiptap-editor pre code { background: none; color: inherit; padding: 0; font-size: inherit; }
+.tiptap-editor code { background: #f1f5f9; color: #82181A; padding: 0.15em 0.4em; border-radius: 4px; font-size: 0.85em; }
+
+/* Highlight */
+.tiptap-editor mark { padding: 0.1em 0.2em; border-radius: 2px; }
+
+/* Superscript / Subscript */
+.tiptap-editor sup { font-size: 0.75em; vertical-align: super; }
+.tiptap-editor sub { font-size: 0.75em; vertical-align: sub; }
+
+/* Tables */
+.tiptap-editor table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+  overflow: hidden;
+  font-size: 0.9rem;
+}
+.tiptap-editor th,
+.tiptap-editor td {
+  border: 1px solid #d1d5db;
+  padding: 8px 12px;
+  text-align: left;
+  vertical-align: top;
+  min-width: 60px;
+}
+.tiptap-editor th {
+  background: #f9fafb;
+  font-weight: 600;
+  color: #374151;
+}
+.tiptap-editor td {
+  background: #fff;
+}
+.tiptap-editor .selectedCell {
+  background: #fef2f2;
+  outline: 2px solid #82181A;
+}
+
+/* Remove default margin on first child */
+.tiptap-editor > *:first-child { margin-top: 0; }
