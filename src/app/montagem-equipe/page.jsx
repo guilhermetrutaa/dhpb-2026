@@ -14,6 +14,7 @@ const poppins = Poppins({
 })
 
 function SingleTeamView({ equipeId, authUser, userData }) {
+  const router = useRouter()
   const [equipe, setEquipe] = useState(null)
   const [carregando, setCarregando] = useState(true)
   const [slotInputs, setSlotInputs] = useState({})

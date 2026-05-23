@@ -13,6 +13,19 @@ const poppins = Poppins({
   weight: ['400', '500', '600', '700'],
 })
 
+function normalizarNome(nome) {
+  const mapa = { '4':'a','3':'e','1':'i','0':'o','5':'s','8':'b','7':'t','2':'z','6':'g','9':'q' }
+  const acentos = { 'á':'a','à':'a','â':'a','ã':'a','ä':'a','é':'e','è':'e','ê':'e','ë':'e','í':'i','ì':'i','î':'i','ï':'i','ó':'o','ò':'o','ô':'o','õ':'o','ö':'o','ú':'u','ù':'u','û':'u','ü':'u','ç':'c','ñ':'n' }
+  let s = nome.toLowerCase().trim()
+  let r = ''
+  for (const ch of s) {
+    if (acentos[ch]) { r += acentos[ch]; continue }
+    if (ch >= 'a' && ch <= 'z') { r += ch; continue }
+    if (ch >= '0' && ch <= '9') { r += mapa[ch] || ''; continue }
+  }
+  return r
+}
+
 function CriarEquipeForm() {
   const { authUser, userData, loading } = useAuth()
   const router = useRouter()
@@ -156,11 +169,26 @@ function CriarEquipeForm() {
     setCarregando(true)
 
     try {
+      // Check for duplicate team name
+      const nomeNormalized = normalizarNome(nomeEquipe)
+      const dupSnap = await getDocs(query(
+        collection(db, 'equipes'),
+        where('edicaoId', '==', edicaoId),
+        where('nomeNormalized', '==', nomeNormalized)
+      ))
+      if (!dupSnap.empty) {
+        setErro('Já existe uma equipe com nome similar nesta edição.')
+        setCarregando(false)
+        return
+      }
+
       const papelCriador = userData?.tipo === 'professor' ? 'professor_orientador' : 'responsavel'
 
       const equipeRef = await addDoc(collection(db, 'equipes'), {
         edicaoId,
         nome: nomeEquipe.trim(),
+        nomeLower: nomeEquipe.trim().toLowerCase(),
+        nomeNormalized,
         escola: escolaSelecionada.nome,
         escolaId: escolaSelecionada.id,
         tipoEscola,
