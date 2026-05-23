@@ -73,20 +73,20 @@ function CriarEquipeForm() {
       const termoLower = termo.toLowerCase()
       const q = query(
         collection(db, 'escolas'),
-        where('nome', '>=', termoLower),
-        where('nome', '<=', termoLower + '\uf8ff')
+        where('nomeLower', '>=', termoLower),
+        where('nomeLower', '<=', termoLower + '\uf8ff')
       )
       const snap = await getDocs(q)
       let resultados = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 
       if (resultados.length === 0) {
-        const qUpper = query(
+        const qFallback = query(
           collection(db, 'escolas'),
           where('nome', '>=', termo),
           where('nome', '<=', termo + '\uf8ff')
         )
-        const snapUpper = await getDocs(qUpper)
-        resultados = snapUpper.docs.map((d) => ({ id: d.id, ...d.data() }))
+        const snapFallback = await getDocs(qFallback)
+        resultados = snapFallback.docs.map((d) => ({ id: d.id, ...d.data() }))
       }
 
       setSugestoes(resultados)

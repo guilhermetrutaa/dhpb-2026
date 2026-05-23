@@ -24,11 +24,15 @@ function SingleTeamView({ equipeId, authUser, userData }) {
     if (!equipeId) return
     setCarregando(true)
     const unsub = onSnapshot(doc(db, 'equipes', equipeId), (snap) => {
-      if (snap.exists()) setEquipe({ id: snap.id, ...snap.data() })
+      if (!snap.exists()) { router.push('/home'); return }
+      const data = { id: snap.id, ...snap.data() }
+      const aindaMembro = (data.membros || []).some(m => m.uid === authUser?.uid && m.status === 'ativo')
+      if (!aindaMembro) { router.push('/home'); return }
+      setEquipe(data)
       setCarregando(false)
     })
     return () => unsub()
-  }, [equipeId])
+  }, [equipeId, authUser?.uid, router])
 
   const membrosAtivos = equipe?.membros?.filter((m) => m.status === 'ativo') || []
 

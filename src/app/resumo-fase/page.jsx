@@ -44,14 +44,33 @@ function ResumoFaseContent() {
         }
         const fSnap = await getDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId))
         if (fSnap.exists()) setFase({ id: fSnap.id, ...fSnap.data() })
-        if (equipeId) {
-          const eqSnap = await getDoc(doc(db, 'equipes', equipeId))
-          if (eqSnap.exists()) setEquipeNome(eqSnap.data().nome || '')
-        }
       } catch {} finally { setCarregando(false) }
     }
     carregar()
-  }, [authUser, faseId, edicaoId, equipeId])
+  }, [authUser, faseId, edicaoId])
+
+  // Monitor membership in real-time
+  useEffect(() => {
+    if (!authUser || !equipeId) return
+    const unsub = onSnapshot(doc(db, 'equipes', equipeId), (snap) => {
+      if (!snap.exists()) { router.push('/home'); return }
+      const data = snap.data()
+      const aindaMembro = (data.membros || []).some(m => m.uid === authUser.uid && m.status === 'ativo')
+      if (!aindaMembro) router.push('/home')
+    })
+    return () => unsub()
+  }, [authUser, equipeId, router])
+
+  useEffect(() => {
+    if (!authUser || !faseId) return
+    const carregarNome = async () => {
+      if (equipeId) {
+        const eqSnap = await getDoc(doc(db, 'equipes', equipeId))
+        if (eqSnap.exists()) setEquipeNome(eqSnap.data().nome || '')
+      }
+    }
+    carregarNome()
+  }, [authUser, equipeId])
 
   useEffect(() => {
     if (!faseId || !authUser) return

@@ -433,6 +433,18 @@ function QuestaoContent() {
     return () => unsub()
   }, [authUser, faseId, edicaoId, router, userData])
 
+  // Monitor membership in real-time
+  useEffect(() => {
+    if (!authUser || !equipeId) return
+    const unsub = onSnapshot(firestoreDoc(db, 'equipes', equipeId), (snap) => {
+      if (!snap.exists()) { router.push('/home'); return }
+      const data = snap.data()
+      const aindaMembro = (data.membros || []).some(m => m.uid === authUser.uid && m.status === 'ativo')
+      if (!aindaMembro) router.push('/home')
+    })
+    return () => unsub()
+  }, [authUser, equipeId, router])
+
   useEffect(() => {
     if (!mensagem) return
 

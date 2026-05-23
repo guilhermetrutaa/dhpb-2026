@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react'
 import Image from 'next/image'
 import { Poppins } from 'next/font/google'
-import { doc, getDoc, getDocs, collection, query, orderBy } from 'firebase/firestore'
+import { doc, getDoc, getDocs, collection, query, orderBy, onSnapshot } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -31,26 +31,24 @@ function SalaEquipeContent() {
   useEffect(() => {
     if (!authUser || !equipeId) return
 
-    const carregar = async () => {
-      try {
-        const eSnap = await getDoc(doc(db, 'equipes', equipeId))
-        if (!eSnap.exists()) { setCarregando(false); return }
+    const unsub = onSnapshot(doc(db, 'equipes', equipeId), (snap) => {
+      if (!snap.exists()) { router.push('/home'); return }
+      const team = { id: snap.id, ...snap.data() }
+      const aindaMembro = (team.membros || []).some(m => m.uid === authUser.uid && m.status === 'ativo')
+      if (!aindaMembro) { router.push('/home'); return }
+      setEquipe(team)
 
-        const team = { id: eSnap.id, ...eSnap.data() }
-        setEquipe(team)
-
+      const carregarDados = async () => {
         const edSnap = await getDoc(doc(db, 'edicoes', team.edicaoId))
         if (edSnap.exists()) setEdicaoNome(edSnap.data().nome || '')
-
-        const fSnap = await getDocs(
-          query(collection(db, 'edicoes', team.edicaoId, 'fases'), orderBy('dataInicio', 'asc'))
-        )
+        const fSnap = await getDocs(query(collection(db, 'edicoes', team.edicaoId, 'fases'), orderBy('dataInicio', 'asc')))
         setFases(fSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
-      } catch {} finally { setCarregando(false) }
-    }
-
-    carregar()
-  }, [authUser, equipeId])
+        setCarregando(false)
+      }
+      carregarDados()
+    })
+    return () => unsub()
+  }, [authUser, equipeId, router])
 
   if (loading || !authUser) {
     return <div className={`${poppins.className} w-full min-h-screen flex items-center justify-center`}><p className="text-[#82181A] text-lg">Carregando...</p></div>

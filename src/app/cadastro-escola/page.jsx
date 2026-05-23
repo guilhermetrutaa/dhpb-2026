@@ -46,6 +46,7 @@ function CadastroEscolaForm() {
     try {
       const docRef = await addDoc(collection(db, 'escolas'), {
         nome: nome.trim(),
+        nomeLower: nome.trim().toLowerCase(),
         tipo,
         endereco: endereco.trim(),
         criadoPor: authUser.uid,
@@ -82,11 +83,11 @@ function CadastroEscolaForm() {
         <main className='flex flex-col lg:flex-row flex-1'>
           <div className='hidden lg:block lg:w-1/2 bg-[#fff] leading-none'>
             <Image
-              src="/bg-cadastro.svg"
+              src="/bg-cadastro-escola.svg"
               width={800}
               height={100}
               alt="Background"
-              className="w-full h-full object-cover align-middle"
+              className="w-full h-screen object-cover align-middle"
               style={{ display: 'block' }}
             />
           </div>

@@ -65,7 +65,15 @@ const Page = () => {
     }
     let participacao = equipes[edicaoId]
     if (participacao) {
-      router.push(`/montagem-equipe`)
+      try {
+        const eqSnap = await getDoc(doc(db, 'equipes', participacao.equipeId))
+        if (eqSnap.exists()) {
+          const eqData = eqSnap.data()
+          const aindaMembro = (eqData.membros || []).some(m => m.uid === authUser.uid && m.status === 'ativo')
+          if (aindaMembro) { router.push(`/montagem-equipe`); return }
+        }
+      } catch {}
+      router.push(`/criar-equipe?edicaoId=${edicaoId}`)
       return
     }
 
@@ -75,13 +83,20 @@ const Page = () => {
       )
       if (idxSnap.exists()) {
         const idxData = idxSnap.data()
-        await setDoc(doc(db, 'users', authUser.uid, 'participacoes', edicaoId), {
-          equipeId: idxData.equipeId,
-          papel: idxData.papel,
-        })
-        setEquipes((prev) => ({ ...prev, [edicaoId]: { equipeId: idxData.equipeId, papel: idxData.papel } }))
-        router.push(`/montagem-equipe`)
-        return
+        const eqSnap = await getDoc(doc(db, 'equipes', idxData.equipeId))
+        if (eqSnap.exists()) {
+          const eqData = eqSnap.data()
+          const aindaMembro = (eqData.membros || []).some(m => m.uid === authUser.uid && m.status === 'ativo')
+          if (aindaMembro) {
+            await setDoc(doc(db, 'users', authUser.uid, 'participacoes', edicaoId), {
+              equipeId: idxData.equipeId,
+              papel: idxData.papel,
+            })
+            setEquipes((prev) => ({ ...prev, [edicaoId]: { equipeId: idxData.equipeId, papel: idxData.papel } }))
+            router.push(`/montagem-equipe`)
+            return
+          }
+        }
       }
     } catch {}
 
