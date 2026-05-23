@@ -89,14 +89,27 @@ function SalaEquipeContent() {
     if (!fase) return { texto: 'Indisponível.', classe: 'text-neutral-400' }
 
     const status = fase.status || 'pendente'
-    const aprovadoAteIndex = niveisAprovacao.indexOf(equipe?.aprovadoAte || 'fase1')
+    const aprovadoAteIndex = niveisAprovacao.indexOf(equipe?.aprovadoAte || '')
 
     if (status === 'aberta' || status === 'correcao') {
-      return { texto: 'Em andamento...', classe: 'text-black' }
+      if (index === 0 || aprovadoAteIndex >= index) {
+        return { texto: 'Em andamento...', classe: 'text-black' }
+      }
+      return { texto: 'Bloqueado.', classe: 'text-neutral-400' }
     }
 
-    if (status === 'finalizada' && (index === 0 || aprovadoAteIndex >= index)) {
-      return { texto: 'Participou e foi aprovada.', classe: 'text-[#009a22]' }
+    if (status === 'finalizada') {
+      if (aprovadoAteIndex > index) {
+        return { texto: 'Participou e foi aprovada.', classe: 'text-[#009a22]' }
+      }
+      return { texto: 'Participou e não foi aprovada.', classe: 'text-red-600' }
+    }
+
+    if (status === 'pendente') {
+      if (index === 0 || aprovadoAteIndex >= index) {
+        return { texto: 'Aguardando abertura.', classe: 'text-amber-600' }
+      }
+      return { texto: 'Bloqueado.', classe: 'text-neutral-400' }
     }
 
     return { texto: 'Indisponível.', classe: 'text-neutral-400' }
