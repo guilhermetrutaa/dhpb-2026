@@ -14,7 +14,7 @@ const poppins = Poppins({
 })
 
 function EnviarDocumentoContent() {
-  const { authUser, userData, loading, logout } = useAuth()
+  const { authUser, userData, loading } = useAuth()
   const router = useRouter()
   const [arquivo, setArquivo] = useState(null)
   const [tipo, setTipo] = useState('')
@@ -95,20 +95,21 @@ function EnviarDocumentoContent() {
   if (userData?.tipo !== 'professor') return null
 
   return (
+    
     <div className={poppins.className}>
-      <div className='w-full min-h-screen bg-gradient-to-br from-neutral-50 to-neutral-100 text-[#000]'>
+      <div style={{ backgroundImage: 'url(/bg-dhpb.svg)' }} className='w-full min-h-screen text-[#000]'>
         <header className='bg-white shadow-sm border-b border-neutral-200'>
           <div className='max-w-4xl mx-auto px-6 py-4 flex items-center justify-between'>
             <div className='flex items-center gap-4'>
-              <Image src="/logo.svg" width={44} height={44} alt="Logo" />
+              <Image src="/logo.svg" width={100} height={44} alt="Logo" />
               <h1 className='text-lg font-bold text-[#82181A]'>Enviar Documento</h1>
             </div>
-            <button onClick={logout} className='border border-neutral-300 text-neutral-500 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-neutral-100 transition-all cursor-pointer'>Sair</button>
+            <button onClick={() => router.push('/home-professor')} className='border-[#82181A] border-[3px] text-[#82181A] font-medium px-6 py-2 hover:bg-[#82181A] hover:text-[#fff] transition-colors cursor-pointer whitespace-nowrap'>Voltar</button>
           </div>
         </header>
 
-        <main className='max-w-4xl mx-auto px-6 py-10'>
-          <div className='bg-white rounded-2xl shadow-sm border border-neutral-200 p-8 space-y-6'>
+        <main className='max-w-4xl mx-auto px-6 py-10' >
+          <div className='bg-white  border-neutral-200 p-8 space-y-6'>
             <div>
               <h2 className='text-xl font-bold text-[#82181A] mb-2'>Comprovação de Vínculo</h2>
               <p className='text-sm text-neutral-500'>
@@ -162,7 +163,7 @@ function EnviarDocumentoContent() {
                 {sucesso && <p className='text-sm text-green-600'>{sucesso}</p>}
 
                 <button onClick={handleEnviar} disabled={salvando || !base64}
-                  className='bg-[#82181A] text-white font-semibold px-8 py-3 rounded-xl hover:bg-[#631214] transition-all disabled:opacity-50 cursor-pointer'>
+                  className='bg-[#82181A] text-white font-semibold px-8 py-3 hover:bg-[#631214] transition-all disabled:opacity-50 cursor-pointer'>
                   {salvando ? 'Enviando...' : 'Enviar Documento'}
                 </button>
 

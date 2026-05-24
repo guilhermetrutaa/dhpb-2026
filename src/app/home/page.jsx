@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { Poppins } from 'next/font/google';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { doc, getDoc, setDoc, updateDoc, collection, query, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 const poppins = Poppins({
@@ -19,6 +19,7 @@ const Page = () => {
   const [equipes, setEquipes] = useState({})
   const [showAvatares, setShowAvatares] = useState(false)
   const [abaAvatar, setAbaAvatar] = useState('avatares')
+  const [erro, setErro] = useState('')
   const avatares = ['/avatar.svg', '/avatar2.svg', '/avatar3.svg', '/avatar4.svg', '/avatar5.svg']
   const cidades = [
     { src: '/cidades-avatar/joaopessoa.svg', nome: 'João Pessoa' },
@@ -59,6 +60,47 @@ const Page = () => {
   }, [authUser])
 
   const handleEdicaoClick = async (edicaoId) => {
+    setErro('')
+    // Query equipes directly to find the team for this user + edition
+    let equipeEncontrada = null
+    try {
+      const eqSnap = await getDocs(query(
+        collection(db, 'equipes'),
+        where('edicaoId', '==', edicaoId)
+      ))
+      console.log('handleEdicaoClick: equipes query returned', eqSnap.size, 'docs')
+      for (const d of eqSnap.docs) {
+        const data = d.data()
+        console.log('handleEdicaoClick: checking team', d.id, 'membros:', data.membros?.length)
+        const aindaMembro = (data.membros || []).some(m => m.uid === authUser.uid && m.status === 'ativo')
+        if (aindaMembro) {
+          equipeEncontrada = { id: d.id, data }
+          break
+        }
+      }
+    } catch (err) {
+      console.error('handleEdicaoClick: query error', err)
+      setErro('Erro ao buscar equipe: ' + (err?.message || 'Erro desconhecido'))
+    }
+    if (equipeEncontrada) {
+      try {
+        await setDoc(doc(db, 'users', authUser.uid, 'participacoes', edicaoId), {
+          equipeId: equipeEncontrada.id,
+          papel: equipeEncontrada.data.membros.find(m => m.uid === authUser.uid)?.papel || '',
+        })
+        await setDoc(doc(db, 'membro-index', btoa(authUser.email).replace(/=+$/, '') + '_' + edicaoId), {
+          equipeId: equipeEncontrada.id, papel: equipeEncontrada.data.membros.find(m => m.uid === authUser.uid)?.papel || '', uid: authUser.uid,
+        })
+        setEquipes((prev) => ({ ...prev, [edicaoId]: { equipeId: equipeEncontrada.id } }))
+        router.push(`/montagem-equipe?equipeId=${equipeEncontrada.id}`)
+        return
+      } catch (err) {
+        console.error('handleEdicaoClick: setDoc error', err)
+        setErro('Erro ao salvar participação: ' + (err?.message || 'Erro desconhecido'))
+      }
+    }
+
+    // Fallback: check cached participacao state
     let participacao = equipes[edicaoId]
     if (participacao) {
       try {
@@ -72,11 +114,11 @@ const Page = () => {
           }
         }
       } catch {}
-      // equipe não existe mais ou foi removido — limpar participacao e redirecionar
       router.push(`/criar-equipe?edicaoId=${edicaoId}`)
       return
     }
 
+    // Fallback: membro-index
     try {
       const idxSnap = await getDoc(
         doc(db, 'membro-index', btoa(authUser.email).replace(/=+$/, '') + '_' + edicaoId)
@@ -100,7 +142,7 @@ const Page = () => {
       }
     } catch {}
 
-    router.push(`/criar-equipe?edicaoId=${edicaoId}`)
+    if (!erro) router.push(`/criar-equipe?edicaoId=${edicaoId}`)
   }
 
   if (loading || !authUser) {
@@ -219,6 +261,8 @@ const Page = () => {
                     <div className='flex justify-center items-center'>
                         <p className='text-[1.3rem] md:text-[1.5rem] text-[#82181A] font-medium'>Edições</p>
                     </div>
+
+                    {erro && <p className='text-center text-red-600 text-sm mt-2'>{erro}</p>}
 
                     <div className='flex flex-wrap justify-center gap-4 pt-5 pb-10'>
                       {edicoes.length === 0 ? (

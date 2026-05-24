@@ -67,14 +67,43 @@ function SingleTeamView({ equipeId, authUser, userData }) {
       const userDoc = usersSnap.docs[0]
       if (membrosAtivos.some(m => m.uid === userDoc.id)) { setErro('Este usuário já é membro da equipe.'); return }
 
+      // Validate professor_orientador
+      if (papel === 'professor_orientador') {
+        if (userDoc.data().tipo !== 'professor') {
+          setErro('Apenas usuários com conta do tipo professor podem ser Professores Orientadores.')
+          return
+        }
+        if (userDoc.data().documentoStatus !== 'aprovado') {
+          setErro('O documento deste professor ainda não foi aprovado pela administração.')
+          return
+        }
+      }
+
+      // Bug 3: block non-professors from joining multiple teams
+      if (papel !== 'professor_orientador') {
+        const miRef = btoa(data.email.trim()).replace(/=+$/, '') + '_' + equipe.edicaoId
+        const miSnap = await getDoc(doc(db, 'membro-index', miRef))
+        if (miSnap.exists() && miSnap.data().equipeId !== equipeId) {
+          setErro('Este usuário já está em outra equipe nesta edição e não pode participar de mais de uma.')
+          return
+        }
+      }
+
       const nome = `${userDoc.data().nome || ''} ${userDoc.data().sobrenome || ''}`.trim()
       await updateDoc(doc(db, 'equipes', equipeId), {
         membros: arrayUnion({ uid: userDoc.id, nome, email: data.email.trim(), papel, status: 'ativo' }),
       })
-      await setDoc(doc(db, 'users', userDoc.id, 'participacoes', equipe.edicaoId), { equipeId, papel })
-      await setDoc(doc(db, 'membro-index', btoa(data.email.trim()).replace(/=+$/, '') + '_' + equipe.edicaoId), {
-        equipeId, papel, uid: userDoc.id,
-      })
+      const pExist = await getDoc(doc(db, 'users', userDoc.id, 'participacoes', equipe.edicaoId))
+      if (!pExist.exists()) {
+        await setDoc(doc(db, 'users', userDoc.id, 'participacoes', equipe.edicaoId), { equipeId, papel })
+      }
+      const miRef = btoa(data.email.trim()).replace(/=+$/, '') + '_' + equipe.edicaoId
+      const miExist = await getDoc(doc(db, 'membro-index', miRef))
+      if (!miExist.exists()) {
+        await setDoc(doc(db, 'membro-index', miRef), {
+          equipeId, papel, uid: userDoc.id,
+        })
+      }
 
       setSucesso(`${nome} adicionado como ${papel === 'professor_orientador' ? 'Professor Orientador' : papel === 'responsavel' ? 'Responsável' : 'Estudante'}!`)
       setSlotInputs(prev => ({ ...prev, [slotKey]: {} }))
@@ -367,7 +396,6 @@ function MultiTeamView({ authUser, userData, edicoes }) {
                 const podeRemover = podeAddMembro
                 const papelOrdem = { 'professor_orientador': 0, 'responsavel': 1, 'aluno': 2 }
                 const membrosOrdenados = [...membrosAtivos].sort((a, b) => papelOrdem[a.papel] - papelOrdem[b.papel])
-                const emptySlots = 4 - membrosAtivos.length
 
                 const handleRemoverMembro = async (membro) => {
                   if (!window.confirm(`Tem certeza que deseja remover ${membro.nome} da equipe?`)) return
@@ -393,15 +421,44 @@ function MultiTeamView({ authUser, userData, edicoes }) {
                     const userDoc = usersSnap.docs[0]
                     if (membrosAtivos.some(m => m.uid === userDoc.id)) { alert('Este usuário já é membro da equipe.'); return }
 
+                    // Validate professor_orientador
+                    if (papel === 'professor_orientador') {
+                      if (userDoc.data().tipo !== 'professor') {
+                        alert('Apenas usuários com conta do tipo professor podem ser Professores Orientadores.')
+                        return
+                      }
+                      if (userDoc.data().documentoStatus !== 'aprovado') {
+                        alert('O documento deste professor ainda não foi aprovado pela administração.')
+                        return
+                      }
+                    }
+
+                    // Bug 3: block non-professors from joining multiple teams
+                    if (papel !== 'professor_orientador') {
+                      const miRef = btoa(data.email.trim()).replace(/=+$/, '') + '_' + equipe.edicaoId
+                      const miSnap = await getDoc(doc(db, 'membro-index', miRef))
+                      if (miSnap.exists() && miSnap.data().equipeId !== equipe.id) {
+                        alert('Este usuário já está em outra equipe nesta edição e não pode participar de mais de uma.')
+                        return
+                      }
+                    }
+
                     const nome = `${userDoc.data().nome || ''} ${userDoc.data().sobrenome || ''}`.trim()
                     const novoMembro = { uid: userDoc.id, nome, email: data.email.trim(), papel, status: 'ativo' }
                     await updateDoc(doc(db, 'equipes', equipe.id), {
                       membros: arrayUnion(novoMembro),
                     })
-                    await setDoc(doc(db, 'users', userDoc.id, 'participacoes', equipe.edicaoId), { equipeId: equipe.id, papel })
-                    await setDoc(doc(db, 'membro-index', btoa(data.email.trim()).replace(/=+$/, '') + '_' + equipe.edicaoId), {
-                      equipeId: equipe.id, papel, uid: userDoc.id,
-                    })
+                    const pExist = await getDoc(doc(db, 'users', userDoc.id, 'participacoes', equipe.edicaoId))
+                    if (!pExist.exists()) {
+                      await setDoc(doc(db, 'users', userDoc.id, 'participacoes', equipe.edicaoId), { equipeId: equipe.id, papel })
+                    }
+                    const miRef = btoa(data.email.trim()).replace(/=+$/, '') + '_' + equipe.edicaoId
+                    const miExist = await getDoc(doc(db, 'membro-index', miRef))
+                    if (!miExist.exists()) {
+                      await setDoc(doc(db, 'membro-index', miRef), {
+                        equipeId: equipe.id, papel, uid: userDoc.id,
+                      })
+                    }
                     setMultiSlotInputs(prev => ({ ...prev, [equipe.id]: {} }))
                     setEquipes(prev => prev.map(eq =>
                       eq.id === equipe.id ? { ...eq, membros: [...(eq.membros || []), novoMembro] } : eq
@@ -411,15 +468,22 @@ function MultiTeamView({ authUser, userData, edicoes }) {
                   }
                 }
 
-                const determinarProximoPapel = () => {
-                  if (!membrosAtivos.some(m => m.papel === 'professor_orientador')) return 'professor_orientador'
-                  if (!membrosAtivos.some(m => m.papel === 'responsavel')) return 'responsavel'
-                  return 'aluno'
+                const slotDefs = []
+                const membroPorPapel = { professor_orientador: null, responsavel: null, aluno: [] }
+                membrosOrdenados.forEach(m => {
+                  if (m.papel === 'aluno') membroPorPapel.aluno.push(m)
+                  else membroPorPapel[m.papel] = m
+                })
+                const papelOrdemSlots = ['professor_orientador', 'responsavel', 'aluno', 'aluno']
+                for (let i = 0; i < 4; i++) {
+                  const papel = papelOrdemSlots[i]
+                  if (i < 2) {
+                    slotDefs.push({ papel, membro: membroPorPapel[papel] || null, slotIndex: i })
+                  } else {
+                    const alunoIdx = i - 2
+                    slotDefs.push({ papel, membro: membroPorPapel.aluno[alunoIdx] || null, slotIndex: i })
+                  }
                 }
-
-                const nextPapel = emptySlots > 0 ? determinarProximoPapel() : null
-                const nextPapelLabel = nextPapel === 'professor_orientador' ? 'orientador' : nextPapel === 'responsavel' ? 'responsável' : 'estudante'
-                const multiInput = multiSlotInputs[equipe.id] || {}
 
                 return (
                   <React.Fragment key={equipe.id}>
@@ -450,79 +514,89 @@ function MultiTeamView({ authUser, userData, edicoes }) {
                         </div>
                       </div>
 
-                      {membrosOrdenados.map((m, i) => (
-                        <div key={i}>
-                          <div className="bg-[#8f0000] px-5 py-[13px] text-[12px] font-semibold leading-tight text-white">
-                            <p className="flex items-center gap-4">
-                              <span aria-hidden="true" className="inline-flex items-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-check-lg" viewBox="0 0 16 16">
-                                  <path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425z"/>
-                                </svg>
-                              </span>
-                              <span>{m.nome} ({m.email})</span>
-                              {podeRemover && (
-                                <button
-                                  onClick={() => handleRemoverMembro(m)}
-                                  className="ml-auto text-[10px] underline hover:text-white/70"
-                                >
-                                  Remover
-                                </button>
-                              )}
-                            </p>
-                          </div>
-                          <div className="bg-[#650000] px-5 py-[10px] text-[11px] font-semibold leading-tight text-white">
-                            <p>
-                              <span className="inline-flex items-center gap-3">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-right" viewBox="0 0 16 16">
-                                  <path fill-rule="evenodd" d="M1 8a.5.5 0 0 1 .5-.5h11.793l-3.147-3.146a.5.5 0 0 1 .708-.708l4 4a.5.5 0 0 1 0 .708l-4 4a.5.5 0 0 1-.708-.708L13.293 8.5H1.5A.5.5 0 0 1 1 8"/>
-                                </svg>
-                                <span>Tudo certo! {m.nome} {m.uid === equipe.criadorUid ? 'já criou uma conta!' : 'já faz parte da equipe.'}</span>
-                              </span>
-                            </p>
-                          </div>
-                        </div>
-                      ))}
+                      {slotDefs.map((slot) => {
+                        const labelMap = { professor_orientador: 'Orientador', responsavel: 'Responsável', aluno: 'Estudante' }
+                        const label = labelMap[slot.papel] || 'Integrante'
+                        const inputKey = equipe.id + '-' + slot.slotIndex
+                        const multiInput = multiSlotInputs[equipe.id] || {}
+                        const isAlunoSlot = slot.papel === 'aluno'
+                        const slotSpecificInputKey = isAlunoSlot ? `aluno-${slot.slotIndex}` : slot.papel
 
-                      {emptySlots > 0 && podeAddMembro ? (
-                        <div>
-                          <form
-                            onSubmit={(e) => { e.preventDefault(); handleAddMembroMulti(nextPapel, multiInput) }}
-                            className="grid gap-3 bg-[#bfbfbf] px-5 py-[10px] sm:grid-cols-2 sm:gap-8"
-                          >
-                            <label className="flex min-w-0 items-center gap-2">
-                              <span aria-hidden="true" className="text-[18px] font-bold leading-none text-[#ffe15a]">!</span>
-                              <input
-                                placeholder={`Nome do ${nextPapelLabel}`}
-                                value={multiInput.nome || ''}
-                                onChange={(e) => setMultiSlotInputs(prev => ({ ...prev, [equipe.id]: { ...prev[equipe.id], nome: e.target.value } }))}
-                                className="h-[20px] min-w-0 flex-1 rounded-[3px] bg-[#e7e7e7] px-2 text-[10px] italic leading-none text-[#555] outline-none placeholder:text-[#aaa]"
-                              />
-                            </label>
-                            <label className="flex min-w-0 items-center gap-2">
-                              <span aria-hidden="true" className="text-[18px] font-bold leading-none text-[#ffe15a]">!</span>
-                              <input
-                                placeholder={`Email do ${nextPapelLabel}`}
-                                value={multiInput.email || ''}
-                                onChange={(e) => setMultiSlotInputs(prev => ({ ...prev, [equipe.id]: { ...prev[equipe.id], email: e.target.value } }))}
-                                className="h-[20px] min-w-0 flex-1 rounded-[3px] bg-[#e7e7e7] px-2 text-[10px] italic leading-none text-[#555] outline-none placeholder:text-[#aaa]"
-                              />
-                            </label>
-                            <button type="submit" className="sr-only">Adicionar integrante</button>
-                          </form>
-                          <div className="bg-[#4f4f4f] px-5 py-[10px] text-[11px] font-semibold leading-tight text-white">
-                            <p>
-                              <span className="inline-flex items-center gap-1">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" className="bi bi-arrow-right-short" viewBox="0 0 16 16">
-                                  <path fillRule="evenodd" d="M4 8a.5.5 0 0 1 .5-.5h5.793L8.146 5.354a.5.5 0 1 1 .708-.708l3 3a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708-.708L10.293 8.5H4.5A.5.5 0 0 1 4 8"/>
-                                </svg>
-                                <span>A equipe falta integrantes!</span>
-                              </span>
-                            </p>
-                          </div>
-                        </div>
-                      ) : emptySlots > 0 ? (
-                        Array.from({ length: emptySlots }).map((_, i) => (
-                          <div key={`empty-${i}`}>
+                        if (slot.membro) {
+                          return (
+                            <React.Fragment key={`${equipe.id}-slot-${slot.slotIndex}`}>
+                              <div className="bg-[#8f0000] px-5 py-[13px] text-[12px] font-semibold leading-tight text-white">
+                                <p className="flex items-center gap-4">
+                                  <span aria-hidden="true" className="inline-flex items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-check-lg" viewBox="0 0 16 16">
+                                      <path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425z"/>
+                                    </svg>
+                                  </span>
+                                  <span>{slot.membro.nome} ({slot.membro.email})</span>
+                                  {podeRemover && (
+                                    <button onClick={() => handleRemoverMembro(slot.membro)}
+                                      className="ml-auto text-[10px] underline hover:text-white/70">Remover</button>
+                                  )}
+                                </p>
+                              </div>
+                              <div className="bg-[#650000] px-5 py-[10px] text-[11px] font-semibold leading-tight text-white">
+                                <p>
+                                  <span className="inline-flex items-center gap-3">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-right" viewBox="0 0 16 16">
+                                      <path fill-rule="evenodd" d="M1 8a.5.5 0 0 1 .5-.5h11.793l-3.147-3.146a.5.5 0 0 1 .708-.708l4 4a.5.5 0 0 1 0 .708l-4 4a.5.5 0 0 1-.708-.708L13.293 8.5H1.5A.5.5 0 0 1 1 8"/>
+                                    </svg>
+                                    <span>Tudo certo! {slot.membro.nome} {slot.membro.uid === equipe.criadorUid ? 'já criou uma conta!' : 'já faz parte da equipe.'}</span>
+                                  </span>
+                                </p>
+                              </div>
+                            </React.Fragment>
+                          )
+                        }
+
+                        if (podeAddMembro) {
+                          const papelLabel = slot.papel === 'professor_orientador' ? 'orientador' : slot.papel === 'responsavel' ? 'responsável' : 'estudante'
+                          return (
+                            <React.Fragment key={`${equipe.id}-slot-${slot.slotIndex}`}>
+                              <form
+                                onSubmit={(e) => { e.preventDefault(); handleAddMembroMulti(slot.papel, multiInput) }}
+                                className="grid gap-3 bg-[#bfbfbf] px-5 py-[10px] sm:grid-cols-2 sm:gap-8"
+                              >
+                                <label className="flex min-w-0 items-center gap-2">
+                                  <span aria-hidden="true" className="text-[18px] font-bold leading-none text-[#ffe15a]">!</span>
+                                  <input
+                                    placeholder={`Nome do ${papelLabel}`}
+                                    value={multiInput.nome || ''}
+                                    onChange={(e) => setMultiSlotInputs(prev => ({ ...prev, [equipe.id]: { ...prev[equipe.id], nome: e.target.value } }))}
+                                    className="h-[20px] min-w-0 flex-1 rounded-[3px] bg-[#e7e7e7] px-2 text-[10px] italic leading-none text-[#555] outline-none placeholder:text-[#aaa]"
+                                  />
+                                </label>
+                                <label className="flex min-w-0 items-center gap-2">
+                                  <span aria-hidden="true" className="text-[18px] font-bold leading-none text-[#ffe15a]">!</span>
+                                  <input
+                                    placeholder={`Email do ${papelLabel}`}
+                                    value={multiInput.email || ''}
+                                    onChange={(e) => setMultiSlotInputs(prev => ({ ...prev, [equipe.id]: { ...prev[equipe.id], email: e.target.value } }))}
+                                    className="h-[20px] min-w-0 flex-1 rounded-[3px] bg-[#e7e7e7] px-2 text-[10px] italic leading-none text-[#555] outline-none placeholder:text-[#aaa]"
+                                  />
+                                </label>
+                                <button type="submit" className="sr-only">Adicionar integrante</button>
+                              </form>
+                              <div className="bg-[#4f4f4f] px-5 py-[10px] text-[11px] font-semibold leading-tight text-white">
+                                <p>
+                                  <span className="inline-flex items-center gap-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" className="bi bi-arrow-right-short" viewBox="0 0 16 16">
+                                      <path fillRule="evenodd" d="M4 8a.5.5 0 0 1 .5-.5h5.793L8.146 5.354a.5.5 0 1 1 .708-.708l3 3a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708-.708L10.293 8.5H4.5A.5.5 0 0 1 4 8"/>
+                                    </svg>
+                                    <span>A equipe falta integrantes! Insira os dados do participante.</span>
+                                  </span>
+                                </p>
+                              </div>
+                            </React.Fragment>
+                          )
+                        }
+
+                        return (
+                          <React.Fragment key={`${equipe.id}-slot-${slot.slotIndex}`}>
                             <div className="bg-[#bfbfbf] px-5 py-[10px] text-[11px] font-semibold leading-tight text-white">
                               <p>Vaga disponível</p>
                             </div>
@@ -536,9 +610,9 @@ function MultiTeamView({ authUser, userData, edicoes }) {
                                 </span>
                               </p>
                             </div>
-                          </div>
-                        ))
-                      ) : null}
+                          </React.Fragment>
+                        )
+                      })}
 
                     </div>
 

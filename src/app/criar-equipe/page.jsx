@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react'
 import Image from 'next/image'
 import { Poppins } from 'next/font/google'
-import { collection, query, where, orderBy, getDocs, addDoc, doc, setDoc } from 'firebase/firestore'
+import { collection, query, where, orderBy, getDocs, getDoc, addDoc, doc, setDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -208,17 +208,30 @@ function CriarEquipeForm() {
         createdAt: new Date().toISOString(),
       })
 
-      await setDoc(doc(db, 'users', authUser.uid, 'participacoes', edicaoId), {
-        equipeId: equipeRef.id,
-        papel: papelCriador,
-      })
-      await setDoc(doc(db, 'membro-index', btoa(authUser.email).replace(/=+$/, '') + '_' + edicaoId), {
-        equipeId: equipeRef.id, papel: papelCriador, uid: authUser.uid,
-      })
+      // Only create participacao if user isn't already in another team for this edition
+      const pExist = await getDoc(doc(db, 'users', authUser.uid, 'participacoes', edicaoId))
+      if (!pExist.exists()) {
+        await setDoc(doc(db, 'users', authUser.uid, 'participacoes', edicaoId), {
+          equipeId: equipeRef.id,
+          papel: papelCriador,
+        })
+      }
+      // Only create membro-index if not already registered for this edition
+      const miRef = btoa(authUser.email).replace(/=+$/, '') + '_' + edicaoId
+      const miExist = await getDoc(doc(db, 'membro-index', miRef))
+      if (!miExist.exists()) {
+        await setDoc(doc(db, 'membro-index', miRef), {
+          equipeId: equipeRef.id, papel: papelCriador, uid: authUser.uid,
+        })
+      }
 
       router.push(userData?.tipo === 'professor' ? '/montagem-equipe' : `/montagem-equipe?equipeId=${equipeRef.id}`)
-    } catch {
-      setErro('Erro ao criar equipe.')
+    } catch (err) {
+      console.error('Erro ao criar equipe:', err)
+      const msg = err?.message?.includes('index')
+        ? 'O índice composto está faltando no Firebase. Vá em Firestore > Índices e crie: coleção "equipes", campos "edicaoId" (Asc) + "nomeNormalized" (Asc).'
+        : 'Erro: ' + (err?.message || JSON.stringify(err) || 'Erro desconhecido')
+      setErro(msg)
     } finally {
       setCarregando(false)
     }

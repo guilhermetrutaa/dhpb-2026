@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { Poppins } from 'next/font/google';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { doc, getDoc, setDoc, updateDoc, collection, query, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 const poppins = Poppins({
@@ -63,6 +63,32 @@ const Page = () => {
       router.push('/enviar-documento')
       return
     }
+
+    // Query equipes directly to find the team for this user + edition
+    try {
+      const eqSnap = await getDocs(query(
+        collection(db, 'equipes'),
+        where('edicaoId', '==', edicaoId)
+      ))
+      for (const d of eqSnap.docs) {
+        const data = d.data()
+        const aindaMembro = (data.membros || []).some(m => m.uid === authUser.uid && m.status === 'ativo')
+        if (aindaMembro) {
+          await setDoc(doc(db, 'users', authUser.uid, 'participacoes', edicaoId), {
+            equipeId: d.id,
+            papel: data.membros.find(m => m.uid === authUser.uid)?.papel || '',
+          })
+          await setDoc(doc(db, 'membro-index', btoa(authUser.email).replace(/=+$/, '') + '_' + edicaoId), {
+            equipeId: d.id, papel: data.membros.find(m => m.uid === authUser.uid)?.papel || '', uid: authUser.uid,
+          })
+          setEquipes((prev) => ({ ...prev, [edicaoId]: { equipeId: d.id } }))
+          router.push(`/montagem-equipe`)
+          return
+        }
+      }
+    } catch {}
+
+    // Fallback: check cached participacao state
     let participacao = equipes[edicaoId]
     if (participacao) {
       try {
@@ -77,6 +103,7 @@ const Page = () => {
       return
     }
 
+    // Fallback: membro-index
     try {
       const idxSnap = await getDoc(
         doc(db, 'membro-index', btoa(authUser.email).replace(/=+$/, '') + '_' + edicaoId)
@@ -217,10 +244,10 @@ const Page = () => {
 
                 {userData?.tipo === 'professor' && userData?.documentoStatus !== 'aprovado' && (
                   <div className='flex justify-center pt-6'>
-                    <div className='bg-amber-50 border-l-4 border-amber-500 rounded-r-xl p-4 max-w-lg w-full'>
+                    <div className='bg-amber-50 rounded-r-xl p-4 max-w-lg w-full'>
                       <p className='text-sm font-semibold text-amber-800'>Documento pendente de aprovação</p>
                       <p className='text-xs text-amber-700 mt-1'>Para acessar as edições, você precisa enviar um documento que comprove seu vínculo como professor.</p>
-                      <a href="/enviar-documento" className='text-xs font-bold text-amber-800 hover:underline mt-2 inline-block'>Enviar documento →</a>
+                      <a href="/enviar-documento" className='text-xs font-bold text-amber-800 hover:underline mt-2 inline-block'>Enviar documento</a>
                     </div>
                   </div>
                 )}
