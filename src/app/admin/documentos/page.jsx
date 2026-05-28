@@ -4,7 +4,8 @@ import React, { useState, useEffect, Suspense } from 'react'
 import { Poppins } from 'next/font/google'
 import { useRouter } from 'next/navigation'
 import { collection, query, getDocs, doc, updateDoc } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { onAuthStateChanged } from 'firebase/auth'
+import { db, auth } from '@/lib/firebase'
 import Image from 'next/image'
 
 const poppins = Poppins({
@@ -15,11 +16,14 @@ const poppins = Poppins({
 function DocumentosContent() {
   const router = useRouter()
   const [autenticado, setAutenticado] = useState(false)
+  const [firebaseAutenticado, setFirebaseAutenticado] = useState(false)
   const [usuarios, setUsuarios] = useState([])
   const [carregando, setCarregando] = useState(true)
   const [filtro, setFiltro] = useState('pendente')
   const [modal, setModal] = useState(null)
   const [motivo, setMotivo] = useState('')
+  const [erro, setErro] = useState('')
+  const [operando, setOperando] = useState(null)
 
   useEffect(() => {
     const admin = localStorage.getItem('admin-authenticated')
@@ -29,6 +33,19 @@ function DocumentosContent() {
 
   useEffect(() => {
     if (!autenticado) return
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        localStorage.removeItem('admin-authenticated')
+        router.push('/admin')
+        return
+      }
+      setFirebaseAutenticado(true)
+    })
+    return () => unsub()
+  }, [autenticado, router])
+
+  useEffect(() => {
+    if (!firebaseAutenticado) return
     const carregar = async () => {
       try {
         const snap = await getDocs(collection(db, 'users'))
@@ -43,23 +60,42 @@ function DocumentosContent() {
       } catch {} finally { setCarregando(false) }
     }
     carregar()
-  }, [autenticado])
+  }, [firebaseAutenticado])
 
   const handleAprovar = async (uid) => {
+    setErro('')
+    setOperando(uid)
     try {
       await updateDoc(doc(db, 'users', uid), { documentoStatus: 'aprovado' })
       setUsuarios((prev) => prev.map((u) => u.id === uid ? { ...u, documentoStatus: 'aprovado' } : u))
       setModal(null)
-    } catch {}
+      setMotivo('')
+    } catch (err) {
+      setErro('Erro ao aprovar: ' + (err?.message || 'Erro desconhecido'))
+    } finally {
+      setOperando(null)
+    }
+  }
+
+  const abrirModal = (uid) => {
+    setModal(uid)
+    setMotivo('')
+    setErro('')
   }
 
   const handleRecusar = async (uid) => {
+    setErro('')
+    setOperando(uid)
     try {
       await updateDoc(doc(db, 'users', uid), { documentoStatus: 'recusado', documentoRecusadoMotivo: motivo })
       setUsuarios((prev) => prev.map((u) => u.id === uid ? { ...u, documentoStatus: 'recusado', documentoRecusadoMotivo: motivo } : u))
       setModal(null)
       setMotivo('')
-    } catch {}
+    } catch (err) {
+      setErro('Erro ao recusar: ' + (err?.message || 'Erro desconhecido'))
+    } finally {
+      setOperando(null)
+    }
   }
 
   const filtrados = usuarios.filter((u) => {
@@ -120,7 +156,7 @@ function DocumentosContent() {
 
                     <div className='flex flex-col gap-2'>
                       {user.documento && (
-                        <button onClick={() => setModal(modal === user.id ? null : user.id)}
+                        <button onClick={() => modal === user.id ? setModal(null) : abrirModal(user.id)}
                           className='text-xs font-semibold text-blue-600 hover:underline cursor-pointer'>
                           {modal === user.id ? 'Fechar' : 'Ver Documento'}
                         </button>
@@ -139,13 +175,20 @@ function DocumentosContent() {
                       </div>
 
                       {user.documentoStatus === 'pendente' && (
-                        <div className='flex items-center gap-3 mt-4 pt-4 border-t border-neutral-100'>
-                          <button onClick={() => handleAprovar(user.id)}
-                            className='bg-green-600 text-white text-sm font-semibold px-6 py-2 rounded-xl hover:bg-green-700 transition-all cursor-pointer'>Aprovar</button>
-                          <input type="text" placeholder="Motivo da recusa (opcional)" value={motivo} onChange={(e) => setMotivo(e.target.value)}
-                            className='flex-1 rounded-xl border border-neutral-300 px-4 py-2 text-sm outline-none focus:border-[#82181A]' />
-                          <button onClick={() => handleRecusar(user.id)}
-                            className='bg-red-600 text-white text-sm font-semibold px-6 py-2 rounded-xl hover:bg-red-700 transition-all cursor-pointer'>Recusar</button>
+                        <div className='space-y-3 mt-4 pt-4 border-t border-neutral-100'>
+                          {erro && <p className='text-red-600 text-sm'>{erro}</p>}
+                          <div className='flex items-center gap-3'>
+                            <button onClick={() => handleAprovar(user.id)} disabled={operando === user.id}
+                              className='bg-green-600 text-white text-sm font-semibold px-6 py-2 rounded-xl hover:bg-green-700 disabled:opacity-50 transition-all cursor-pointer'>
+                              {operando === user.id ? 'Aprovando...' : 'Aprovar'}
+                            </button>
+                            <input type="text" placeholder="Motivo da recusa (opcional)" value={motivo} onChange={(e) => setMotivo(e.target.value)}
+                              className='flex-1 rounded-xl border border-neutral-300 px-4 py-2 text-sm outline-none focus:border-[#82181A]' />
+                            <button onClick={() => handleRecusar(user.id)} disabled={operando === user.id}
+                              className='bg-red-600 text-white text-sm font-semibold px-6 py-2 rounded-xl hover:bg-red-700 disabled:opacity-50 transition-all cursor-pointer'>
+                              {operando === user.id ? 'Recusando...' : 'Recusar'}
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>

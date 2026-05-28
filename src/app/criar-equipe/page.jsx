@@ -26,6 +26,25 @@ function normalizarNome(nome) {
   return r
 }
 
+const TIPO_MAP = {
+  'Municipal': 'municipal',
+  'Estadual': 'estadual',
+  'Federal': 'federal',
+  'Privada': 'particular',
+}
+
+function derivarTipo(dep) {
+  return TIPO_MAP[dep] || 'publica'
+}
+
+function normalizarNomeBusca(nome) {
+  return nome.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9 ]/g, '')
+    .trim()
+    .replace(/\s+/g, ' ')
+}
+
 function CriarEquipeForm() {
   const { authUser, userData, loading } = useAuth()
   const router = useRouter()
@@ -68,10 +87,23 @@ function CriarEquipeForm() {
     const escolaId = searchParams.get('escolaId')
     const escolaNome = searchParams.get('escolaNome')
     if (escolaId && escolaNome) {
-      setEscolaSelecionada({ id: escolaId, nome: decodeURIComponent(escolaNome) })
-      setBuscaEscola(decodeURIComponent(escolaNome))
+      const nome = decodeURIComponent(escolaNome)
+      setEscolaSelecionada({ id: escolaId, nome })
+      setBuscaEscola(nome)
+      // Fetch full escola doc
+      ;(async () => {
+        try {
+          const snap = await getDoc(doc(db, 'escolas', escolaId))
+          if (snap.exists()) {
+            const data = snap.data()
+            setEscolaSelecionada({ id: escolaId, nome, ...data })
+          }
+        } catch {}
+      })()
     }
   }, [searchParams])
+
+  const escolasCacheRef = useRef([])
 
   const buscarEscolas = useCallback(async (termo) => {
     if (!termo.trim()) {
@@ -83,24 +115,24 @@ function CriarEquipeForm() {
     setBuscando(true)
 
     try {
-      const termoLower = termo.toLowerCase()
-      const q = query(
-        collection(db, 'escolas'),
-        where('nomeLower', '>=', termoLower),
-        where('nomeLower', '<=', termoLower + '\uf8ff')
-      )
-      const snap = await getDocs(q)
-      let resultados = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      const termoBusca = normalizarNomeBusca(termo)
+      if (!termoBusca) { setSugestoes([]); setShowSugestoes(false); setBuscando(false); return }
 
-      if (resultados.length === 0) {
-        const qFallback = query(
+      // Fetch all registered schools once and cache in ref
+      if (escolasCacheRef.current.length === 0) {
+        const q = query(
           collection(db, 'escolas'),
-          where('nome', '>=', termo),
-          where('nome', '<=', termo + '\uf8ff')
+          where('cadastrada', '==', true)
         )
-        const snapFallback = await getDocs(qFallback)
-        resultados = snapFallback.docs.map((d) => ({ id: d.id, ...d.data() }))
+        const snap = await getDocs(q)
+        escolasCacheRef.current = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
       }
+
+      // Client-side search: includes match on nomeBusca or nomeLower
+      const resultados = escolasCacheRef.current.filter((esc) => {
+        const busca = esc.nomeBusca || esc.nomeLower || esc.nome?.toLowerCase() || ''
+        return busca.includes(termoBusca)
+      })
 
       setSugestoes(resultados)
       setShowSugestoes(true)
@@ -124,7 +156,6 @@ function CriarEquipeForm() {
     setEscolaSelecionada(escola)
     setBuscaEscola(escola.nome)
     setShowSugestoes(false)
-    setTipoEscola(escola.tipo || '')
   }
 
   useEffect(() => {
@@ -341,7 +372,6 @@ function CriarEquipeForm() {
                             className="w-full text-left p-4 text-sm hover:bg-[#82181A]/5 border-b border-neutral-100 last:border-0 cursor-pointer"
                           >
                             <p className="font-medium">{esc.nome}</p>
-                            <p className="text-xs text-neutral-500">{esc.tipo}</p>
                           </button>
                         ))
                       ) : (
