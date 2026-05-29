@@ -184,7 +184,7 @@ function SingleTeamView({ equipeId, authUser, userData }) {
             Tela de montagem<br />da equipe
           </h1>
 
-          <div className="mt-7 w-full overflow-hidden bg-[#5f5f5f]">
+          <div className="mt-7 w-full overflow-hidden bg-[#5f5f5f] shadow-2xl">
             <div className="grid gap-8 px-5 pb-12 pt-4 text-white sm:grid-cols-[1.35fr_1fr] sm:gap-10 md:px-6 md:pb-[58px]">
               <div className="flex flex-col justify-between gap-8">
                 <div>
@@ -252,7 +252,7 @@ function SingleTeamView({ equipeId, authUser, userData }) {
                         event.preventDefault()
                         handleAddSlot(slot.key, slot.papel)
                       }}
-                      className="grid gap-3 bg-[#bfbfbf] px-5 py-[10px] sm:grid-cols-2 sm:gap-8"
+                      className="grid gap-3 bg-[#bfbfbf] px-5 py-[15px] sm:grid-cols-2 sm:gap-8"
                     >
                       <label className="flex min-w-0 items-center gap-2">
                         <span aria-hidden="true" className="text-[18px] font-bold leading-none text-[#ffe15a]">!</span>
@@ -262,7 +262,7 @@ function SingleTeamView({ equipeId, authUser, userData }) {
                           onChange={(e) => setSlotInputs(prev => ({
                             ...prev, [slot.key]: { ...prev[slot.key], nome: e.target.value }
                           }))}
-                          className="h-[20px] min-w-0 flex-1 rounded-[3px] bg-[#e7e7e7] px-2 text-[10px] italic leading-none text-[#555] outline-none placeholder:text-[#aaa]"
+                          className="h-[30px] min-w-0 flex-1 rounded-[3px] bg-[#e7e7e7] px-2 text-[12px] italic leading-none shadow-[inset_1px_3px_5px_rgba(0,0,0,0.15)] text-[#555] outline-none placeholder:text-[#aaa]"
                         />
                       </label>
                       <label className="flex min-w-0 items-center gap-2">
@@ -273,7 +273,7 @@ function SingleTeamView({ equipeId, authUser, userData }) {
                           onChange={(e) => setSlotInputs(prev => ({
                             ...prev, [slot.key]: { ...prev[slot.key], email: e.target.value }
                           }))}
-                          className="h-[20px] min-w-0 flex-1 rounded-[3px] bg-[#e7e7e7] px-2 text-[10px] italic leading-none text-[#555] outline-none placeholder:text-[#aaa]"
+                          className="h-[30px] min-w-0 flex-1 rounded-[3px] bg-[#e7e7e7] px-2 text-[12px] italic shadow-[inset_1px_3px_5px_rgba(0,0,0,0.15)] leading-none text-[#555] outline-none placeholder:text-[#aaa]"
                         />
                       </label>
                       <button type="submit" className="sr-only">Adicionar integrante</button>
@@ -319,6 +319,9 @@ function MultiTeamView({ authUser, userData, edicoes }) {
   const [equipes, setEquipes] = useState([])
   const [carregando, setCarregando] = useState(true)
   const [multiSlotInputs, setMultiSlotInputs] = useState({})
+  const [dragSource, setDragSource] = useState(null)
+  const [fasesPorEdicao, setFasesPorEdicao] = useState({})
+  const [dropTargetId, setDropTargetId] = useState(null)
 
   useEffect(() => {
     if (!authUser) return
@@ -366,6 +369,102 @@ function MultiTeamView({ authUser, userData, edicoes }) {
 
     carregarTudo()
   }, [authUser, edicoes])
+
+  useEffect(() => {
+    if (equipes.length === 0) return
+    const edicaoIds = [...new Set(equipes.map(e => e.edicaoId).filter(Boolean))]
+    const carregarFases = async () => {
+      const mapa = {}
+      for (const edId of edicaoIds) {
+        try {
+          const q = query(collection(db, 'edicoes', edId, 'fases'))
+          const snap = await getDocs(q)
+          mapa[edId] = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        } catch {
+          mapa[edId] = []
+        }
+      }
+      setFasesPorEdicao(mapa)
+    }
+    carregarFases()
+  }, [equipes])
+
+  const equipesOrientador = equipes.filter(eq =>
+    eq.membros?.some(m => m.uid === authUser?.uid && m.papel === 'professor_orientador')
+  )
+  const podeArrastar = equipesOrientador.length >= 2
+
+  const podeFazerSwap = (teamA, teamB) => {
+    if (!teamA || !teamB || teamA.id === teamB.id) return false
+    if (teamA.edicaoId !== teamB.edicaoId) return false
+    const fases = fasesPorEdicao[teamA.edicaoId] || []
+    const algumaFaseAconteceu = fases.some(f => f.status !== 'pendente')
+    if (!algumaFaseAconteceu) return true
+    const aAprovado = !!teamA.aprovadoAte
+    const bAprovado = !!teamB.aprovadoAte
+    return aAprovado !== bAprovado
+  }
+
+  const handleSwap = async (targetTeamId, targetMembro) => {
+    if (!dragSource) return
+    const { teamId: sourceTeamId, membro: sourceMembro } = dragSource
+    setDragSource(null)
+    setDropTargetId(null)
+
+    if (sourceTeamId === targetTeamId) return
+    if (sourceMembro.uid === targetMembro.uid) return
+
+    const sourceTeam = equipes.find(e => e.id === sourceTeamId)
+    const targetTeam = equipes.find(e => e.id === targetTeamId)
+
+    if (!sourceTeam || !targetTeam) return
+    if (!podeFazerSwap(sourceTeam, targetTeam)) {
+      alert('Troca não permitida: as equipes precisam estar na mesma situação de aprovação ou uma precisa estar eliminada e a outra aprovada.')
+      return
+    }
+
+    try {
+      const updateSource = {
+        membros: sourceTeam.membros.filter(m => m.uid !== sourceMembro.uid).concat({ ...targetMembro })
+      }
+      const updateTarget = {
+        membros: targetTeam.membros.filter(m => m.uid !== targetMembro.uid).concat({ ...sourceMembro })
+      }
+
+      await Promise.all([
+        updateDoc(doc(db, 'equipes', sourceTeamId), updateSource),
+        updateDoc(doc(db, 'equipes', targetTeamId), updateTarget),
+      ])
+
+      await Promise.all([
+        setDoc(doc(db, 'users', sourceMembro.uid, 'participacoes', sourceTeam.edicaoId), { equipeId: targetTeamId, papel: sourceMembro.papel }),
+        setDoc(doc(db, 'users', targetMembro.uid, 'participacoes', targetTeam.edicaoId), { equipeId: sourceTeamId, papel: targetMembro.papel }),
+      ])
+
+      const sourceMiRef = btoa(sourceMembro.email).replace(/=+$/, '') + '_' + sourceTeam.edicaoId
+      const targetMiRef = btoa(targetMembro.email).replace(/=+$/, '') + '_' + targetTeam.edicaoId
+      const [sourceMiSnap, targetMiSnap] = await Promise.all([
+        getDoc(doc(db, 'membro-index', sourceMiRef)),
+        getDoc(doc(db, 'membro-index', targetMiRef)),
+      ])
+      const promises = []
+      if (sourceMiSnap.exists()) {
+        promises.push(setDoc(doc(db, 'membro-index', sourceMiRef), { ...sourceMiSnap.data(), equipeId: targetTeamId }))
+      }
+      if (targetMiSnap.exists()) {
+        promises.push(setDoc(doc(db, 'membro-index', targetMiRef), { ...targetMiSnap.data(), equipeId: sourceTeamId }))
+      }
+      await Promise.all(promises)
+
+      setEquipes(prev => prev.map(eq => {
+        if (eq.id === sourceTeamId) return { ...eq, membros: updateSource.membros }
+        if (eq.id === targetTeamId) return { ...eq, membros: updateTarget.membros }
+        return eq
+      }))
+    } catch (err) {
+      alert('Erro ao trocar membros: ' + (err.message || 'Erro desconhecido'))
+    }
+  }
 
   if (carregando) return <p className="text-[#82181A] text-lg text-center pt-20">Carregando equipes...</p>
 
@@ -523,9 +622,32 @@ function MultiTeamView({ authUser, userData, edicoes }) {
                         const slotSpecificInputKey = isAlunoSlot ? `aluno-${slot.slotIndex}` : slot.papel
 
                         if (slot.membro) {
+                          const dragId = `${equipe.id}:${slot.membro.uid}`
+                          const isDragover = dropTargetId === dragId
                           return (
                             <React.Fragment key={`${equipe.id}-slot-${slot.slotIndex}`}>
-                              <div className="bg-[#8f0000] px-5 py-[13px] text-[12px] font-semibold leading-tight text-white">
+                              <div
+                                draggable={podeArrastar}
+                                onDragStart={(e) => {
+                                  setDragSource({ teamId: equipe.id, membro: slot.membro })
+                                  e.dataTransfer.effectAllowed = 'move'
+                                }}
+                                onDragOver={(e) => {
+                                  if (!dragSource || dragSource.teamId === equipe.id) return
+                                  e.preventDefault()
+                                  e.dataTransfer.dropEffect = 'move'
+                                  setDropTargetId(dragId)
+                                }}
+                                onDragLeave={() => {
+                                  if (dropTargetId === dragId) setDropTargetId(null)
+                                }}
+                                onDrop={(e) => {
+                                  e.preventDefault()
+                                  handleSwap(equipe.id, slot.membro)
+                                }}
+                                className={`${podeArrastar ? 'cursor-grab active:cursor-grabbing' : ''} bg-[${isDragover ? '#6b0000' : '#8f0000'}] px-5 py-[13px] text-[12px] font-semibold leading-tight text-white`}
+                                style={{ backgroundColor: isDragover ? '#6b0000' : '#8f0000' }}
+                              >
                                 <p className="flex items-center gap-4">
                                   <span aria-hidden="true" className="inline-flex items-center">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-check-lg" viewBox="0 0 16 16">
