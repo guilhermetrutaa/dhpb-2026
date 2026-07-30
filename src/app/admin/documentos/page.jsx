@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, Suspense } from 'react'
+import React, { useState, useEffect, useRef, Suspense } from 'react'
 import { Poppins } from 'next/font/google'
 import { useRouter } from 'next/navigation'
 import { collection, query, getDocs, doc, updateDoc } from 'firebase/firestore'
@@ -26,6 +26,41 @@ function ImageComError({ url }) {
     </p>
   )
   return <img src={url} alt="Documento" className="max-w-full rounded-lg" onError={() => setErro(true)} />
+}
+
+function PDFViewer({ url }) {
+  const [blobUrl, setBlobUrl] = useState(null)
+  const [erro, setErro] = useState(false)
+  const blobRef = useRef(null)
+
+  useEffect(() => {
+    if (!url) return
+    if (blobRef.current) URL.revokeObjectURL(blobRef.current)
+    blobRef.current = null
+    setBlobUrl(null)
+    setErro(false)
+    let cancelled = false
+    fetch(url)
+      .then(r => r.blob())
+      .then(b => {
+        if (cancelled) return
+        const u = URL.createObjectURL(new Blob([b], { type: 'application/pdf' }))
+        blobRef.current = u
+        setBlobUrl(u)
+      })
+      .catch(() => { if (!cancelled) setErro(true) })
+    return () => { cancelled = true; if (blobRef.current) URL.revokeObjectURL(blobRef.current) }
+  }, [url])
+
+  if (erro) return (
+    <div className="p-6 text-center">
+      <p className="text-neutral-500 text-sm mb-3">Não foi possível carregar o PDF.</p>
+      <a href={url} target="_blank" rel="noopener noreferrer"
+        className="text-blue-600 font-semibold text-sm hover:underline">Abrir PDF em nova aba</a>
+    </div>
+  )
+  if (!blobUrl) return <p className="text-neutral-400 text-sm p-6 text-center">Carregando PDF...</p>
+  return <iframe src={blobUrl} className='w-full h-[450px] rounded-lg' title="PDF" />
 }
 
 function DocumentosContent() {
@@ -189,7 +224,7 @@ function DocumentosContent() {
                       </div>
                       <div className='max-h-[500px] overflow-auto bg-neutral-100 rounded-lg flex items-center justify-center min-h-[200px]'>
                         {isPDF(user) ? (
-                          <iframe src={user.documentoURL} className='w-full h-[450px] rounded-lg' title="Documento PDF" />
+                          <PDFViewer url={user.documentoURL} />
                         ) : (
                           <ImageComError url={user.documentoURL} />
                         )}
