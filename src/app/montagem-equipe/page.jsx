@@ -512,7 +512,7 @@ function MultiTeamView({ authUser, userData, edicoes }) {
                   }
                 }
 
-                const handleAddMembroMulti = async (papel, data) => {
+                const handleAddMembroMulti = async (papel, data, slotStateKey) => {
                   if (!data?.email?.trim()) return
                   try {
                     const usersSnap = await getDocs(query(collection(db, 'users'), where('email', '==', data.email.trim())))
@@ -558,7 +558,7 @@ function MultiTeamView({ authUser, userData, edicoes }) {
                         equipeId: equipe.id, papel, uid: userDoc.id,
                       })
                     }
-                    setMultiSlotInputs(prev => ({ ...prev, [equipe.id]: {} }))
+                    setMultiSlotInputs(prev => ({ ...prev, [slotStateKey]: {} }))
                     setEquipes(prev => prev.map(eq =>
                       eq.id === equipe.id ? { ...eq, membros: [...(eq.membros || []), novoMembro] } : eq
                     ))
@@ -616,10 +616,8 @@ function MultiTeamView({ authUser, userData, edicoes }) {
                       {slotDefs.map((slot) => {
                         const labelMap = { professor_orientador: 'Orientador', responsavel: 'Responsável', aluno: 'Estudante' }
                         const label = labelMap[slot.papel] || 'Integrante'
-                        const inputKey = equipe.id + '-' + slot.slotIndex
-                        const multiInput = multiSlotInputs[equipe.id] || {}
-                        const isAlunoSlot = slot.papel === 'aluno'
-                        const slotSpecificInputKey = isAlunoSlot ? `aluno-${slot.slotIndex}` : slot.papel
+                        const slotStateKey = equipe.id + '-' + slot.slotIndex
+                        const multiInput = multiSlotInputs[slotStateKey] || {}
 
                         if (slot.membro) {
                           const dragId = `${equipe.id}:${slot.membro.uid}`
@@ -680,7 +678,7 @@ function MultiTeamView({ authUser, userData, edicoes }) {
                           return (
                             <React.Fragment key={`${equipe.id}-slot-${slot.slotIndex}`}>
                               <form
-                                onSubmit={(e) => { e.preventDefault(); handleAddMembroMulti(slot.papel, multiInput) }}
+                                onSubmit={(e) => { e.preventDefault(); handleAddMembroMulti(slot.papel, multiInput, slotStateKey) }}
                                 className="grid gap-3 bg-[#bfbfbf] px-5 py-[10px] sm:grid-cols-2 sm:gap-8"
                               >
                                 <label className="flex min-w-0 items-center gap-2">
@@ -688,7 +686,7 @@ function MultiTeamView({ authUser, userData, edicoes }) {
                                   <input
                                     placeholder={`Nome do ${papelLabel}`}
                                     value={multiInput.nome || ''}
-                                    onChange={(e) => setMultiSlotInputs(prev => ({ ...prev, [equipe.id]: { ...prev[equipe.id], nome: e.target.value } }))}
+                                    onChange={(e) => setMultiSlotInputs(prev => ({ ...prev, [slotStateKey]: { ...prev[slotStateKey], nome: e.target.value } }))}
                                     className="h-[20px] min-w-0 flex-1 rounded-[3px] bg-[#e7e7e7] px-2 text-[10px] italic leading-none text-[#555] outline-none placeholder:text-[#aaa]"
                                   />
                                 </label>
@@ -697,7 +695,7 @@ function MultiTeamView({ authUser, userData, edicoes }) {
                                   <input
                                     placeholder={`Email do ${papelLabel}`}
                                     value={multiInput.email || ''}
-                                    onChange={(e) => setMultiSlotInputs(prev => ({ ...prev, [equipe.id]: { ...prev[equipe.id], email: e.target.value } }))}
+                                    onChange={(e) => setMultiSlotInputs(prev => ({ ...prev, [slotStateKey]: { ...prev[slotStateKey], email: e.target.value } }))}
                                     className="h-[20px] min-w-0 flex-1 rounded-[3px] bg-[#e7e7e7] px-2 text-[10px] italic leading-none text-[#555] outline-none placeholder:text-[#aaa]"
                                   />
                                 </label>

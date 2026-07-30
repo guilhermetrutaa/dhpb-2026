@@ -7,6 +7,7 @@ import { doc, getDoc, getDocs, collection, query, orderBy, onSnapshot } from 'fi
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter, useSearchParams } from 'next/navigation'
+import ModalQuestionario from '@/components/ModalQuestionario'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -23,6 +24,8 @@ function SalaEquipeContent() {
   const [edicaoNome, setEdicaoNome] = useState('')
   const [fases, setFases] = useState([])
   const [carregando, setCarregando] = useState(true)
+  const [questionarioPendente, setQuestionarioPendente] = useState(null)
+  const [verificandoQuestionario, setVerificandoQuestionario] = useState(true)
 
   useEffect(() => {
     if (!loading && !authUser) router.push('/login')
@@ -39,16 +42,26 @@ function SalaEquipeContent() {
       setEquipe(team)
 
       const carregarDados = async () => {
-        const edSnap = await getDoc(doc(db, 'edicoes', team.edicaoId))
+        const [edSnap, fSnap] = await Promise.all([
+          getDoc(doc(db, 'edicoes', team.edicaoId)),
+          getDocs(query(collection(db, 'edicoes', team.edicaoId, 'fases'), orderBy('dataInicio', 'asc'))),
+        ])
         if (edSnap.exists()) setEdicaoNome(edSnap.data().nome || '')
-        const fSnap = await getDocs(query(collection(db, 'edicoes', team.edicaoId, 'fases'), orderBy('dataInicio', 'asc')))
         setFases(fSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
         setCarregando(false)
+        setVerificandoQuestionario(false)
       }
       carregarDados()
     })
     return () => unsub()
   }, [authUser, equipeId, router])
+
+  useEffect(() => {
+    if (!verificandoQuestionario && equipe) {
+      const jaRespondeu = !!equipe.questionario?.[authUser?.uid]
+      setQuestionarioPendente(!jaRespondeu)
+    }
+  }, [verificandoQuestionario, equipe, authUser?.uid])
 
   if (loading || !authUser) {
     return <div className={`${poppins.className} w-full min-h-screen flex items-center justify-center`}><p className="text-[#82181A] text-lg">Carregando...</p></div>
@@ -115,8 +128,22 @@ function SalaEquipeContent() {
     return { texto: 'Indisponível.', classe: 'text-neutral-400' }
   }
 
+  const handleQuestionarioComplete = () => {
+    setQuestionarioPendente(false)
+  }
+
   return (
     <div className={poppins.className}>
+      {questionarioPendente && equipe && (
+        <ModalQuestionario
+          authUser={authUser}
+          userData={userData}
+          equipe={equipe}
+          equipeId={equipeId}
+          onComplete={handleQuestionarioComplete}
+        />
+      )}
+
       <div className='w-full min-h-screen bg-[#fff] text-[#000]'>
         <header className='flex flex-col lg:flex-row justify-around items-center pt-5 pb-5 gap-6 px-4'>
           <div><Image src="/logo.svg" width={100} height={100} alt="Logo" /></div>
