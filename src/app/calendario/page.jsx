@@ -85,14 +85,17 @@ export default function Page() {
 
             <div className='relative border-l-2 border-[#fff] ml-4 pl-8 mt-10 space-y-10'>
               {[
-                { label: 'Inscrições — Individual e de Equipes', date: 'de 26/05/2026 até 12/09/2026 às 23h59' },
-                { label: 'Fase 1', date: 'das 08:00 do dia 26/09/2026 até às 23h59 do dia 01/10/2026' },
-                { label: 'Fase 2', date: 'das 08:00 do dia 03/10/2026 até às 23h59 do dia 08/10/2026' },
-                { label: 'Fase 3', date: 'das 08:00 do dia 10/10/2026 até às 23h59 do dia 15/10/2026' },
-                { label: 'Fase 4', date: 'das 08:00 do dia 17/10/2026 até às 23h59 do dia 22/10/2026' },
-                { label: 'Resultado final e convocação para a final', date: 'Até o dia 22/11/2026' },
-                { label: 'Final presencial', date: 'Dia 06/12/2026' },
-                { label: 'Cerimônia de Premiação', date: 'Dia 07/12/2026' },
+                { label: 'Período de Inscrição — Individual e de equipes', date: 'De 30/07/2026 a 01/09/2026, até às 23h59' },
+                { label: '1ª Fase Online', date: 'Das 08:00 do dia 10/09/2026 até às 23h59 do dia 15/09/2026' },
+                { label: 'Divulgação do gabarito da 1ª Fase', date: 'Dia 16/09/2026 às 08:00' },
+                { label: '2ª Fase Online', date: 'Das 08:00 do dia 17/09/2026 até às 23h59 do dia 22/09/2026' },
+                { label: 'Divulgação do gabarito da 2ª Fase', date: 'Dia 23/09/2026 às 08:00' },
+                { label: '3ª Fase Online', date: 'Das 08:00 do dia 24/09/2026 até às 23h59 do dia 29/09/2026' },
+                { label: 'Divulgação do gabarito da 3ª Fase', date: 'Dia 30/09/2026 às 08:00' },
+                { label: '4ª Fase Online', date: 'Das 08:00 do dia 01/10/2026 até às 23h59 do dia 09/10/2026' },
+                { label: 'Resultado final da 4ª Fase online e convocação para a final', date: 'Até o dia 30/10/2026 às 23h59' },
+                { label: 'Fase final presencial', date: 'Dia 05/12/2026, das 08:00 às 12:00' },
+                { label: 'Cerimônia de Premiação', date: 'Dia 06/12/2026, das 08:00 às 12:00' },
               ].map((item, i) => (
                 <div key={i} className='relative'>
                   <div className='absolute -left-10 mt-1.5 w-3.5 h-3.5 bg-[#fff] rounded-full' />

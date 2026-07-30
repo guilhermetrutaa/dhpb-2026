@@ -106,6 +106,19 @@ export default function Page() {
                     className='bg-[#82181A] text-white px-8 py-4 rounded-xl text-center font-bold hover:bg-[#631214] transition-colors'>Prova Final</a>
                 </div>
               </div>
+              <div>
+                <h2 className='text-white text-xl font-semibold mb-4'>3° Desafio em História da Paraíba</h2>
+                <div className='flex flex-col sm:flex-row gap-4 flex-wrap'>
+                  <a href="https://drive.google.com/file/d/1xX6OTL_2VlhiaBvovqHWIQXzN0lV2E5x/view" target="_blank" rel="noopener noreferrer"
+                    className='bg-[#82181A] text-white px-8 py-4 rounded-xl text-center font-bold hover:bg-[#631214] transition-colors'>Caderno de questões — Fase 1</a>
+                  <a href="https://drive.google.com/file/d/1J2waav0AfyBQcJaxJIc9t8jYBsk02SN3/view" target="_blank" rel="noopener noreferrer"
+                    className='bg-[#82181A] text-white px-8 py-4 rounded-xl text-center font-bold hover:bg-[#631214] transition-colors'>Caderno de questões — Fase 2</a>
+                  <a href="https://drive.google.com/file/d/1-59nl-L86pmKY3vxpolnlFo8OaUi7zOF/view" target="_blank" rel="noopener noreferrer"
+                    className='bg-[#82181A] text-white px-8 py-4 rounded-xl text-center font-bold hover:bg-[#631214] transition-colors'>Caderno de questões — Fase 3</a>
+                  <a href="https://drive.google.com/file/d/11lPyVQQQHUDVBYEyKEaYX4_052OAWeup/view" target="_blank" rel="noopener noreferrer"
+                    className='bg-[#82181A] text-white px-8 py-4 rounded-xl text-center font-bold hover:bg-[#631214] transition-colors'>Prova Final</a>
+                </div>
+              </div>
             </div>
           </section>
         </main>
