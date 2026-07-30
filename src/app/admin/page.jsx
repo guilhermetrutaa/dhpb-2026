@@ -47,7 +47,7 @@ const Page = () => {
               src="/bg-admin.svg"
               width={800}
               height={100}
-              alt="Background"
+              alt="Backgroun"
               className="w-full h-screen object-cover"
             />
           </div>
