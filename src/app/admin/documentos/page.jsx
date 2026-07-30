@@ -51,7 +51,7 @@ function DocumentosContent() {
         const snap = await getDocs(collection(db, 'users'))
         const lista = snap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
-          .filter((u) => u.documento)
+          .filter((u) => u.documentoURL)
           .sort((a, b) => {
             const ordem = { pendente: 0, aprovado: 1, recusado: 2 }
             return (ordem[a.documentoStatus] || 0) - (ordem[b.documentoStatus] || 0)
@@ -155,7 +155,7 @@ function DocumentosContent() {
                     </div>
 
                     <div className='flex flex-col gap-2'>
-                      {user.documento && (
+                      {user.documentoURL && (
                         <button onClick={() => modal === user.id ? setModal(null) : abrirModal(user.id)}
                           className='text-xs font-semibold text-blue-600 hover:underline cursor-pointer'>
                           {modal === user.id ? 'Fechar' : 'Ver Documento'}
@@ -164,13 +164,13 @@ function DocumentosContent() {
                     </div>
                   </div>
 
-                  {modal === user.id && user.documento && (
+                  {modal === user.id && user.documentoURL && (
                     <div className='mt-4 border-t border-neutral-200 pt-4'>
                       <div className='max-h-[500px] overflow-auto'>
-                        {user.documentoMime === 'application/pdf' ? (
-                          <embed src={user.documento} type="application/pdf" className='w-full h-[400px] rounded-lg' />
+                        {user.documentoResourceType === 'raw' || user.documentoNome?.endsWith('.pdf') ? (
+                          <embed src={user.documentoURL} type="application/pdf" className='w-full h-[400px] rounded-lg' />
                         ) : (
-                          <img src={user.documento} alt="Documento" className='max-w-full rounded-lg' />
+                          <img src={user.documentoURL} alt="Documento" className='max-w-full rounded-lg' />
                         )}
                       </div>
 

@@ -18,7 +18,6 @@ function EnviarDocumentoContent() {
   const router = useRouter()
   const [arquivo, setArquivo] = useState(null)
   const [tipo, setTipo] = useState('')
-  const [base64, setBase64] = useState('')
   const [erro, setErro] = useState('')
   const [sucesso, setSucesso] = useState('')
   const [salvando, setSalvando] = useState(false)
@@ -38,47 +37,58 @@ function EnviarDocumentoContent() {
     if (file.size > 500 * 1024) {
       setErro('Arquivo muito grande. Máximo de 500KB.')
       setArquivo(null)
-      setBase64('')
       return
     }
 
     if (file.type !== 'application/pdf' && !file.type.startsWith('image/')) {
       setErro('Apenas PDF ou imagens (JPG, PNG).')
       setArquivo(null)
-      setBase64('')
       return
     }
 
     setErro('')
     setArquivo(file)
-
-    const reader = new FileReader()
-    reader.onload = () => {
-      const result = reader.result
-      setBase64(result)
-    }
-    reader.readAsDataURL(file)
   }
 
   const handleEnviar = async () => {
     setErro('')
     setSucesso('')
 
-    if (!base64) { setErro('Selecione um arquivo.'); return }
+    if (!arquivo) { setErro('Selecione um arquivo.'); return }
     if (!tipo) { setErro('Selecione o tipo de documento.'); return }
 
     setSalvando(true)
     try {
+      const formData = new FormData()
+      formData.append('file', arquivo)
+      formData.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET)
+      formData.append('folder', 'dhpb/documentos')
+
+      const res = await fetch(
+        `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/auto/upload`,
+        { method: 'POST', body: formData }
+      )
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData.error?.message || 'Falha no upload')
+      }
+
+      const data = await res.json()
+
       await updateDoc(doc(db, 'users', authUser.uid), {
-        documento: base64,
-        documentoMime: arquivo?.type || '',
-        documentoNome: arquivo?.name || '',
+        documentoURL: data.secure_url,
+        documentoResourceType: data.resource_type,
+        documentoPublicId: data.public_id,
+        documentoNome: arquivo.name,
         documentoTipo: tipo,
         documentoStatus: 'pendente',
+        documento: null,
+        documentoMime: null,
       })
+
       setSucesso('Documento enviado com sucesso! Aguarde a análise da administração.')
       setArquivo(null)
-      setBase64('')
       setTipo('')
     } catch {
       setErro('Erro ao enviar documento.')
@@ -162,7 +172,7 @@ function EnviarDocumentoContent() {
                 {erro && <p className='text-sm text-red-600'>{erro}</p>}
                 {sucesso && <p className='text-sm text-green-600'>{sucesso}</p>}
 
-                <button onClick={handleEnviar} disabled={salvando || !base64}
+                <button onClick={handleEnviar} disabled={salvando || !arquivo}
                   className='bg-[#82181A] text-white font-semibold px-8 py-3 hover:bg-[#631214] transition-all disabled:opacity-50 cursor-pointer'>
                   {salvando ? 'Enviando...' : 'Enviar Documento'}
                 </button>

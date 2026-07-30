@@ -107,7 +107,7 @@ function TabUsuarios() {
                   {u.tipo === 'professor' ? (
                     u.documentoStatus === 'aprovado' ? <span className='text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold'>Aprovado</span>
                     : u.documentoStatus === 'recusado' ? <span className='text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-semibold'>Recusado</span>
-                    : u.documento ? <span className='text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold'>Pendente</span>
+                    : u.documentoURL ? <span className='text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold'>Pendente</span>
                     : <span className='text-[10px] bg-neutral-100 text-neutral-400 px-2 py-0.5 rounded-full font-semibold'>Não enviado</span>
                   ) : <span className='text-neutral-400'>—</span>}
                 </td>
