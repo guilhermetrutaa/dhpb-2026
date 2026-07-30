@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { Poppins } from 'next/font/google'
 import { useRouter } from 'next/navigation'
-import { collection, getDocs, orderBy, query, where } from 'firebase/firestore'
+import { collection, getDocs, getDoc, doc, orderBy, query, where } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { db, auth } from '@/lib/firebase'
 import Image from 'next/image'
@@ -78,6 +78,12 @@ const formatar = (chave, valor) => {
   return valor
 }
 
+const camposComuns = ['nomeCompleto', 'nomeSocial', 'email', 'telefone', 'dataNascimento', 'identidadeGenero', 'corRaca', 'religiao', 'pcd', 'pcdQual', 'moradia', 'escolaridadeMae', 'escolaridadePai']
+const camposProfessor = ['ensinoSuperiorFamilia', 'ensinoSuperiorGeracoes', 'formacaoMaxima', 'graduacaoHistoria', 'lecionaExclusivamenteHistoria', 'outrasDisciplinas', 'escolasTrabalha', 'turmasFundamental', 'turmasMedio']
+const camposEstudante = ['anoSérie', 'tipoEscolaFundamental', 'programasSociais']
+const camposSocioeconomicos = ['televisores', 'geladeirasFreezers', 'computadoresNotebooks', 'acessoInternet', 'meiosInformacao', 'redeSocialPreferida', 'cinema', 'teatro']
+const camposEquipe = ['comoSoube', 'motivoNome', 'participouDHPB', 'edicoesDHPB', 'participouONHB', 'edicoesONHB']
+
 function Page() {
   const [autenticado, setAutenticado] = useState(false)
   const [verificando, setVerificando] = useState(true)
@@ -85,8 +91,10 @@ function Page() {
   const [edicaoSelecionada, setEdicaoSelecionada] = useState('')
   const [equipes, setEquipes] = useState([])
   const [equipeSelecionada, setEquipeSelecionada] = useState(null)
-  const [questionarios, setQuestionarios] = useState([])
+  const [questionarioEquipe, setQuestionarioEquipe] = useState(null)
+  const [questionariosIndividuais, setQuestionariosIndividuais] = useState([])
   const [carregando, setCarregando] = useState(false)
+  const [carregandoIndividuais, setCarregandoIndividuais] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -107,7 +115,8 @@ function Page() {
   const handleSelecionarEdicao = async (edId) => {
     setEdicaoSelecionada(edId)
     setEquipeSelecionada(null)
-    setQuestionarios([])
+    setQuestionarioEquipe(null)
+    setQuestionariosIndividuais([])
     setCarregando(true)
     const snap = await getDocs(query(collection(db, 'equipes'), where('edicaoId', '==', edId)))
     setEquipes(snap.docs.map((d, i) => ({ id: d.id, idx: i + 1, ...d.data() })))
@@ -116,8 +125,21 @@ function Page() {
 
   const handleSelecionarEquipe = async (equipe) => {
     setEquipeSelecionada(equipe)
-    const respostas = equipe.questionario || {}
-    setQuestionarios(Object.keys(respostas).map(uid => ({ id: uid, ...respostas[uid] })))
+    setQuestionarioEquipe(equipe.questionarioEquipe || null)
+
+    setCarregandoIndividuais(true)
+    const individuais = []
+    const membros = equipe.membros || []
+    for (const membro of membros) {
+      try {
+        const qSnap = await getDoc(doc(db, 'users', membro.uid, 'questionarios', edicaoSelecionada))
+        if (qSnap.exists()) {
+          individuais.push({ id: membro.uid, membroNome: membro.nome, ...qSnap.data() })
+        }
+      } catch {}
+    }
+    setQuestionariosIndividuais(individuais)
+    setCarregandoIndividuais(false)
   }
 
   const handleSair = async () => {
@@ -125,12 +147,6 @@ function Page() {
     localStorage.removeItem('admin-authenticated')
     router.push('/admin')
   }
-
-  const camposComuns = ['nomeCompleto', 'nomeSocial', 'email', 'telefone', 'dataNascimento', 'identidadeGenero', 'corRaca', 'religiao', 'pcd', 'pcdQual', 'moradia', 'escolaridadeMae', 'escolaridadePai']
-  const camposProfessor = ['ensinoSuperiorFamilia', 'ensinoSuperiorGeracoes', 'formacaoMaxima', 'graduacaoHistoria', 'lecionaExclusivamenteHistoria', 'outrasDisciplinas', 'escolasTrabalha', 'turmasFundamental', 'turmasMedio']
-  const camposEstudante = ['anoSérie', 'tipoEscolaFundamental', 'programasSociais']
-  const camposSocioeconomicos = ['televisores', 'geladeirasFreezers', 'computadoresNotebooks', 'acessoInternet', 'meiosInformacao', 'redeSocialPreferida', 'cinema', 'teatro']
-  const camposHistorico = ['comoSoube', 'motivoNome', 'participouDHPB', 'edicoesDHPB', 'participouONHB', 'edicoesONHB']
 
   if (verificando) {
     return <div className={`${poppins.className} w-full min-h-screen flex items-center justify-center`}><p className="text-[#82181A] text-lg">Verificando...</p></div>
@@ -159,7 +175,7 @@ function Page() {
         <main className='max-w-6xl mx-auto px-6 py-6'>
           <div className='bg-white rounded-2xl shadow-sm border border-neutral-200 p-6'>
             <div className='flex items-center gap-3 pb-4 border-b border-neutral-100'>
-              <h2 className='text-lg font-bold text-[#82181A]'>Questionários de Inscrição</h2>
+              <h2 className='text-lg font-bold text-[#82181A]'>Questionários</h2>
             </div>
 
             <div className='pt-4 space-y-6'>
@@ -197,6 +213,11 @@ function Page() {
                           <p className='font-semibold'>{eq.nome}</p>
                           <p className='text-xs text-neutral-400 mt-1'>{eq.escola || '—'}</p>
                           <p className='text-xs text-neutral-400'>{eq.membros?.length || 0} membro(s)</p>
+                          {eq.questionarioEquipe ? (
+                            <span className='text-[10px] text-green-600 mt-1 block'>Questionário da equipe ✓</span>
+                          ) : (
+                            <span className='text-[10px] text-amber-500 mt-1 block'>Equipe sem questionário</span>
+                          )}
                         </button>
                       ))}
                     </div>
@@ -205,36 +226,58 @@ function Page() {
               )}
 
               {equipeSelecionada && (
-                <div className='border-t border-neutral-100 pt-6'>
-                  <h3 className='text-base font-bold text-[#82181A] mb-1'>Questionários: {equipeSelecionada.nome}</h3>
-                  <p className='text-xs text-neutral-400 mb-4'>Equipe #{equipeSelecionada.id}</p>
+                <div className='border-t border-neutral-100 pt-6 space-y-8'>
+                  {/* Team Questionnaire */}
+                  <div>
+                    <h3 className='text-base font-bold text-[#82181A] mb-1'>Questionário da Equipe</h3>
+                    <p className='text-xs text-neutral-400 mb-4'>Respondido por: {equipeSelecionada.nome}</p>
 
-                  {carregando ? (
-                    <p className='text-sm text-neutral-400'>Carregando questionários...</p>
-                  ) : questionarios.length === 0 ? (
-                    <p className='text-sm text-neutral-400'>Nenhum questionário respondido ainda.</p>
-                  ) : (
-                    <div className='space-y-6'>
-                      {questionarios.map((q) => (
-                        <div key={q.id} className='border border-neutral-200 rounded-xl overflow-hidden'>
-                          <div className='bg-[#82181A] text-white px-5 py-3'>
-                            <p className='font-semibold text-sm'>{q.membroNome || q.nomeCompleto || 'Membro'}</p>
-                            <p className='text-xs text-white/70'>{q.tipo === 'professor' ? 'Professor Orientador' : 'Estudante'} — {q.email}</p>
-                          </div>
-                          <div className='p-5 space-y-6 text-sm'>
-                            <SectionCard titulo="Identificação e Perfil Geral" campos={camposComuns} data={q} />
-                            {q.tipo === 'professor' ? (
-                              <SectionCard titulo="Professor Orientador" campos={camposProfessor} data={q} />
-                            ) : (
-                              <SectionCard titulo="Estudante" campos={camposEstudante} data={q} />
-                            )}
-                            <SectionCard titulo="Socioeconômico e Cultural" campos={camposSocioeconomicos} data={q} />
-                            <SectionCard titulo="Histórico no Desafio" campos={camposHistorico} data={q} />
-                          </div>
+                    {questionarioEquipe ? (
+                      <div className='border border-neutral-200 rounded-xl overflow-hidden'>
+                        <div className='bg-[#82181A] text-white px-5 py-3'>
+                          <p className='font-semibold text-sm'>Questionário da Equipe</p>
+                          <p className='text-xs text-white/70'>Respondido por {questionarioEquipe.respondidoPorNome || '—'} ({questionarioEquipe.respondidoPorTipo || '—'})</p>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                        <div className='p-5 text-sm'>
+                          <SectionCard titulo="Sobre a Equipe" campos={camposEquipe} data={questionarioEquipe} />
+                        </div>
+                      </div>
+                    ) : (
+                      <p className='text-sm text-neutral-400'>Nenhum questionário da equipe respondido ainda.</p>
+                    )}
+                  </div>
+
+                  {/* Individual Questionnaires */}
+                  <div>
+                    <h3 className='text-base font-bold text-[#82181A] mb-1'>Questionários Individuais</h3>
+                    <p className='text-xs text-neutral-400 mb-4'>Respostas dos membros da equipe</p>
+
+                    {carregandoIndividuais ? (
+                      <p className='text-sm text-neutral-400'>Carregando questionários individuais...</p>
+                    ) : questionariosIndividuais.length === 0 ? (
+                      <p className='text-sm text-neutral-400'>Nenhum questionário individual respondido.</p>
+                    ) : (
+                      <div className='space-y-6'>
+                        {questionariosIndividuais.map((q) => (
+                          <div key={q.id} className='border border-neutral-200 rounded-xl overflow-hidden'>
+                            <div className='bg-[#82181A] text-white px-5 py-3'>
+                              <p className='font-semibold text-sm'>{q.membroNome || 'Membro'}</p>
+                              <p className='text-xs text-white/70'>{q.tipo === 'professor' ? 'Professor Orientador' : 'Estudante'} — {q.email}</p>
+                            </div>
+                            <div className='p-5 space-y-6 text-sm'>
+                              <SectionCard titulo="Identificação e Perfil Geral" campos={camposComuns} data={q} />
+                              {q.tipo === 'professor' ? (
+                                <SectionCard titulo="Professor Orientador" campos={camposProfessor} data={q} />
+                              ) : (
+                                <SectionCard titulo="Estudante" campos={camposEstudante} data={q} />
+                              )}
+                              <SectionCard titulo="Socioeconômico e Cultural" campos={camposSocioeconomicos} data={q} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

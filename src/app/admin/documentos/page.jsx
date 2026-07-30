@@ -13,6 +13,21 @@ const poppins = Poppins({
   weight: ['400', '500', '600', '700'],
 })
 
+function isPDF(user) {
+  return user.documentoResourceType === 'raw' || user.documentoNome?.endsWith('.pdf')
+}
+
+function ImageComError({ url }) {
+  const [erro, setErro] = useState(false)
+  if (erro) return (
+    <p className="text-neutral-500 text-sm p-8 text-center">
+      Não foi possível exibir o documento.{' '}
+      <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-600 font-semibold hover:underline">Abrir em nova aba</a>
+    </p>
+  )
+  return <img src={url} alt="Documento" className="max-w-full rounded-lg" onError={() => setErro(true)} />
+}
+
 function DocumentosContent() {
   const router = useRouter()
   const [autenticado, setAutenticado] = useState(false)
@@ -166,11 +181,17 @@ function DocumentosContent() {
 
                   {modal === user.id && user.documentoURL && (
                     <div className='mt-4 border-t border-neutral-200 pt-4'>
-                      <div className='max-h-[500px] overflow-auto'>
-                        {user.documentoResourceType === 'raw' || user.documentoNome?.endsWith('.pdf') ? (
-                          <embed src={user.documentoURL} type="application/pdf" className='w-full h-[400px] rounded-lg' />
+                      <div className='flex justify-end mb-2'>
+                        <a href={user.documentoURL} target="_blank" rel="noopener noreferrer"
+                          className='text-xs font-semibold text-blue-600 hover:underline cursor-pointer'>
+                          Abrir em nova aba
+                        </a>
+                      </div>
+                      <div className='max-h-[500px] overflow-auto bg-neutral-100 rounded-lg flex items-center justify-center min-h-[200px]'>
+                        {isPDF(user) ? (
+                          <iframe src={user.documentoURL} className='w-full h-[450px] rounded-lg' title="Documento PDF" />
                         ) : (
-                          <img src={user.documentoURL} alt="Documento" className='max-w-full rounded-lg' />
+                          <ImageComError url={user.documentoURL} />
                         )}
                       </div>
 

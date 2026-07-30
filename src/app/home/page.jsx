@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import ModalQuestionarioIndividual from '@/components/ModalQuestionarioIndividual'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -20,6 +21,7 @@ const Page = () => {
   const [showAvatares, setShowAvatares] = useState(false)
   const [abaAvatar, setAbaAvatar] = useState('avatares')
   const [erro, setErro] = useState('')
+  const [edicaoQuestionarioPendente, setEdicaoQuestionarioPendente] = useState(null)
   const avatares = ['/avatar.svg', '/avatar2.svg', '/avatar3.svg', '/avatar4.svg', '/avatar5.svg']
   const cidades = [
     { src: '/cidades-avatar/joaopessoa.svg', nome: 'João Pessoa' },
@@ -61,6 +63,14 @@ const Page = () => {
 
   const handleEdicaoClick = async (edicaoId) => {
     setErro('')
+
+    // Check individual questionnaire (student)
+    const qSnap = await getDoc(doc(db, 'users', authUser.uid, 'questionarios', edicaoId))
+    if (!qSnap.exists()) {
+      setEdicaoQuestionarioPendente(edicaoId)
+      return
+    }
+
     // Query equipes directly to find the team for this user + edition
     let equipeEncontrada = null
     try {
@@ -145,6 +155,12 @@ const Page = () => {
     if (!erro) router.push(`/criar-equipe?edicaoId=${edicaoId}`)
   }
 
+  const handleQuestionarioComplete = () => {
+    const edId = edicaoQuestionarioPendente
+    setEdicaoQuestionarioPendente(null)
+    if (edId) handleEdicaoClick(edId)
+  }
+
   if (loading || !authUser) {
     return (
       <div className={`${poppins.className} w-full min-h-screen bg-[#fff] text-[#000] flex items-center justify-center`}>
@@ -157,6 +173,15 @@ const Page = () => {
 
   return (
     <div className={poppins.className}>
+      {edicaoQuestionarioPendente && (
+        <ModalQuestionarioIndividual
+          authUser={authUser}
+          userData={userData}
+          edicaoId={edicaoQuestionarioPendente}
+          onComplete={handleQuestionarioComplete}
+          onClose={() => setEdicaoQuestionarioPendente(null)}
+        />
+      )}
       <div className='w-full min-h-screen bg-[#fff] text-[#000]'>
         
         <header className='flex flex-col lg:flex-row justify-around items-center pt-5 gap-6 px-4'>

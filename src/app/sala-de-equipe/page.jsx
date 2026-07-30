@@ -7,7 +7,7 @@ import { doc, getDoc, getDocs, collection, query, orderBy, onSnapshot } from 'fi
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter, useSearchParams } from 'next/navigation'
-import ModalQuestionario from '@/components/ModalQuestionario'
+import ModalQuestionarioEquipe from '@/components/ModalQuestionarioEquipe'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -58,10 +58,10 @@ function SalaEquipeContent() {
 
   useEffect(() => {
     if (!verificandoQuestionario && equipe) {
-      const jaRespondeu = !!equipe.questionario?.[authUser?.uid]
+      const jaRespondeu = !!equipe.questionarioEquipe
       setQuestionarioPendente(!jaRespondeu)
     }
-  }, [verificandoQuestionario, equipe, authUser?.uid])
+  }, [verificandoQuestionario, equipe])
 
   if (loading || !authUser) {
     return <div className={`${poppins.className} w-full min-h-screen flex items-center justify-center`}><p className="text-[#82181A] text-lg">Carregando...</p></div>
@@ -135,12 +135,13 @@ function SalaEquipeContent() {
   return (
     <div className={poppins.className}>
       {questionarioPendente && equipe && (
-        <ModalQuestionario
+        <ModalQuestionarioEquipe
           authUser={authUser}
           userData={userData}
           equipe={equipe}
           equipeId={equipeId}
           onComplete={handleQuestionarioComplete}
+          onClose={() => setQuestionarioPendente(false)}
         />
       )}
 

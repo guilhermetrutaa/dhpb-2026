@@ -197,6 +197,13 @@ function CriarEquipeForm() {
       return
     }
 
+    // Check individual questionnaire
+    const qSnap = await getDoc(doc(db, 'users', authUser.uid, 'questionarios', edicaoId))
+    if (!qSnap.exists()) {
+      setErro('Você precisa responder ao questionário de inscrição antes de criar uma equipe. Volte à página inicial e clique na edição novamente.')
+      return
+    }
+
     setCarregando(true)
 
     try {
