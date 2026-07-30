@@ -344,9 +344,7 @@ const Page = () => {
                         <div className="md:pl-6 text-center md:text-left">
                             <p className="text-sm font-medium mb-2 text-[#000]">Apoio:</p>
                             <div className='flex'>
-                                <img src="/anpuhpb.svg" alt="ANPUH" className="h-8 mx-auto md:mx-0" />
                                 <img src="/comite-logo.svg" alt="Comitê Olímpico" className="h-8 pl-5" />
-                                <img src="/logo-gov.svg" alt="Logo-Gov" className="h-20 pl-5" />
                             </div>
                         </div>
                     </div>

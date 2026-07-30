@@ -160,9 +160,7 @@ export default function Page() {
               <div className="flex flex-col items-center gap-2">
                 <span className="text-black font-semibold text-base">Apoio:</span>
                 <div className="flex items-center gap-5 flex-wrap justify-center">
-                  <img src="/anpuhpb.svg" alt="ANPUH" className="h-10 w-auto object-contain" />
                   <img src="/comite-logo.svg" alt="Comitê" className="h-10 w-auto object-contain" />
-                  <img src="/logo-gov.svg" alt="Governo" className="h-14 w-auto object-contain" />
                 </div>
               </div>
 

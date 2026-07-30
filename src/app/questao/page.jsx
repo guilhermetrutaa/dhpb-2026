@@ -109,9 +109,7 @@ function Footer() {
           <div className="flex flex-col items-center gap-2">
             <span className="text-base font-semibold text-black">Apoio:</span>
             <div className="flex flex-wrap items-center justify-center gap-5">
-              <img src="/anpuhpb.svg" alt="ANPUH" className="h-10 w-auto object-contain" />
               <img src="/comite-logo.svg" alt="Comitê" className="h-10 w-auto object-contain" />
-              <img src="/logo-gov.svg" alt="Governo" className="h-14 w-auto object-contain" />
             </div>
           </div>
 
