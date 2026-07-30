@@ -260,6 +260,8 @@ const Page = () => {
                 <span className="text-black font-semibold text-base">Apoio:</span>
                 <div className="flex items-center gap-5 flex-wrap justify-center">
                   <img src="/comite-logo.svg" alt="Comitê" className="h-10 w-auto object-contain" />
+                  <img src="/logo-nuhcl.svg" alt="NUHCL" className="h-10 w-auto object-contain" />
+                  <img src="/logo-ufcg.svg" alt="HISTORIA-UFCG" className="h-12 w-auto object-contain" />
                 </div>
               </div>
 
