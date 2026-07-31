@@ -158,7 +158,7 @@ const Page = () => {
   const handleQuestionarioComplete = () => {
     const edId = edicaoQuestionarioPendente
     setEdicaoQuestionarioPendente(null)
-    if (edId) handleEdicaoClick(edId)
+    if (edId) router.push(`/criar-equipe?edicaoId=${edId}`)
   }
 
   if (loading || !authUser) {
