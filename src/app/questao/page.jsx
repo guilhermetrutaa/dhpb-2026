@@ -4,7 +4,7 @@ import React, { Suspense, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Poppins } from 'next/font/google'
-import { doc as firestoreDoc, getDoc, getDocs, onSnapshot, collection, query, orderBy, updateDoc, increment, writeBatch } from 'firebase/firestore'
+import { doc as firestoreDoc, getDoc, getDocs, onSnapshot, collection, query, orderBy, updateDoc, increment, writeBatch, getDocsFromCache, getDocsFromServer } from 'firebase/firestore'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { db } from '@/lib/firebase'
@@ -381,7 +381,13 @@ function QuestaoContent() {
     ;(async () => {
       try {
         const q = query(collection(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes'), orderBy('numero', 'asc'))
-        const snap = await getDocs(q)
+        let snap
+        try {
+          snap = await getDocsFromCache(q)
+          if (snap.empty) throw new Error('vazio')
+        } catch {
+          snap = await getDocsFromServer(q)
+        }
         setAllQuestaoIds(snap.docs.map(d => d.id))
       } catch {}
     })()

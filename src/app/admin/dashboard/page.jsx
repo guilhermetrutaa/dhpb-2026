@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Poppins } from 'next/font/google'
 import { useRouter } from 'next/navigation'
-import { collection, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, orderBy, query, getDocs } from 'firebase/firestore'
+import { collection, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, orderBy, query, getDocs, limit, startAfter } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { db, auth } from '@/lib/firebase'
 import Image from 'next/image'
@@ -19,20 +19,36 @@ function TabEquipes() {
   const [carregando, setCarregando] = useState(true)
   const [expanded, setExpanded] = useState(null)
 
+  const [lastVisible, setLastVisible] = useState(null)
+  const [temMais, setTemMais] = useState(true)
+
   useEffect(() => {
     const carregar = async () => {
-      const [eSnap, edSnap] = await Promise.all([
-        getDocs(collection(db, 'equipes')),
-        getDocs(collection(db, 'edicoes')),
-      ])
+      const edSnap = await getDocs(collection(db, 'edicoes'))
       const edMap = {}
       edSnap.docs.forEach((d) => { edMap[d.id] = d.data().nome || '—' })
       setEdicoes(edSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
+
+      const q = query(collection(db, 'equipes'), limit(50))
+      const eSnap = await getDocs(q)
       setEquipes(eSnap.docs.map((d) => ({ id: d.id, edicaoNome: edMap[d.data().edicaoId] || '—', ...d.data() })))
+      setLastVisible(eSnap.docs[eSnap.docs.length - 1])
+      setTemMais(eSnap.docs.length === 50)
       setCarregando(false)
     }
     carregar()
   }, [])
+
+  const carregarMais = async () => {
+    if (!lastVisible) return
+    const edMap = {}
+    edicoes.forEach((ed) => { edMap[ed.id] = ed.nome })
+    const q = query(collection(db, 'equipes'), startAfter(lastVisible), limit(50))
+    const eSnap = await getDocs(q)
+    setEquipes((prev) => [...prev, ...eSnap.docs.map((d) => ({ id: d.id, edicaoNome: edMap[d.data().edicaoId] || '—', ...d.data() }))])
+    setLastVisible(eSnap.docs[eSnap.docs.length - 1])
+    setTemMais(eSnap.docs.length === 50)
+  }
 
   if (carregando) return <p className='text-neutral-400 text-sm text-center py-10'>Carregando...</p>
   if (equipes.length === 0) return <p className='text-neutral-400 text-sm text-center py-10'>Nenhuma equipe cadastrada.</p>
@@ -64,6 +80,11 @@ function TabEquipes() {
           )}
         </div>
       ))}
+      {temMais && (
+        <button onClick={carregarMais} className='w-full py-3 mt-4 border border-neutral-300 rounded-xl text-sm font-semibold text-neutral-600 hover:bg-neutral-50 cursor-pointer'>
+          Carregar mais equipes
+        </button>
+      )}
     </div>
   )
 }
@@ -72,14 +93,29 @@ function TabUsuarios() {
   const [usuarios, setUsuarios] = useState([])
   const [carregando, setCarregando] = useState(true)
 
+  const [lastVisible, setLastVisible] = useState(null)
+  const [temMais, setTemMais] = useState(true)
+
   useEffect(() => {
     const carregar = async () => {
-      const snap = await getDocs(collection(db, 'users'))
+      const q = query(collection(db, 'users'), limit(50))
+      const snap = await getDocs(q)
       setUsuarios(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      setLastVisible(snap.docs[snap.docs.length - 1])
+      setTemMais(snap.docs.length === 50)
       setCarregando(false)
     }
     carregar()
   }, [])
+
+  const carregarMais = async () => {
+    if (!lastVisible) return
+    const q = query(collection(db, 'users'), startAfter(lastVisible), limit(50))
+    const snap = await getDocs(q)
+    setUsuarios((prev) => [...prev, ...snap.docs.map((d) => ({ id: d.id, ...d.data() }))])
+    setLastVisible(snap.docs[snap.docs.length - 1])
+    setTemMais(snap.docs.length === 50)
+  }
 
   if (carregando) return <p className='text-neutral-400 text-sm text-center py-10'>Carregando...</p>
 
@@ -116,6 +152,11 @@ function TabUsuarios() {
           )}
         </tbody>
       </table>
+      {temMais && (
+        <button onClick={carregarMais} className='w-full py-3 mt-4 border border-neutral-300 rounded-xl text-sm font-semibold text-neutral-600 hover:bg-neutral-50 cursor-pointer'>
+          Carregar mais usuários
+        </button>
+      )}
     </div>
   )
 }
@@ -125,14 +166,29 @@ function TabEscolas() {
   const [carregando, setCarregando] = useState(true)
   const [filtro, setFiltro] = useState('')
 
+  const [lastVisible, setLastVisible] = useState(null)
+  const [temMais, setTemMais] = useState(true)
+
   useEffect(() => {
     const carregar = async () => {
-      const snap = await getDocs(query(collection(db, 'escolas'), orderBy('nome', 'asc')))
+      const q = query(collection(db, 'escolas'), orderBy('nome', 'asc'), limit(50))
+      const snap = await getDocs(q)
       setEscolas(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      setLastVisible(snap.docs[snap.docs.length - 1])
+      setTemMais(snap.docs.length === 50)
       setCarregando(false)
     }
     carregar()
   }, [])
+
+  const carregarMais = async () => {
+    if (!lastVisible) return
+    const q = query(collection(db, 'escolas'), orderBy('nome', 'asc'), startAfter(lastVisible), limit(50))
+    const snap = await getDocs(q)
+    setEscolas((prev) => [...prev, ...snap.docs.map((d) => ({ id: d.id, ...d.data() }))])
+    setLastVisible(snap.docs[snap.docs.length - 1])
+    setTemMais(snap.docs.length === 50)
+  }
 
   const filtradas = filtro ? escolas.filter((e) => e.nome?.toLowerCase().includes(filtro.toLowerCase())) : escolas
 
@@ -163,6 +219,11 @@ function TabEscolas() {
             )}
           </tbody>
         </table>
+        {temMais && (
+          <button onClick={carregarMais} className='w-full py-3 mt-4 border border-neutral-300 rounded-xl text-sm font-semibold text-neutral-600 hover:bg-neutral-50 cursor-pointer'>
+            Carregar mais escolas
+          </button>
+        )}
       </div>
     </div>
   )

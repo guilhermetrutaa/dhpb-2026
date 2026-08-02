@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Poppins } from 'next/font/google'
-import { doc, getDoc, collection, query, orderBy, onSnapshot, getDocs } from 'firebase/firestore'
+import { doc, getDoc, collection, query, orderBy, onSnapshot, getDocs, getDocsFromCache, getDocsFromServer } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -85,7 +85,13 @@ function ResumoFaseContent() {
     ;(async () => {
       try {
         const q = query(collection(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes'), orderBy('numero', 'asc'))
-        const snap = await getDocs(q)
+        let snap
+        try {
+          snap = await getDocsFromCache(q)
+          if (snap.empty) throw new Error('Cache vazio')
+        } catch {
+          snap = await getDocsFromServer(q)
+        }
         setQuestoes(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
       } catch {}
     })()
@@ -93,15 +99,12 @@ function ResumoFaseContent() {
 
   useEffect(() => {
     if (!equipeId || !faseId) return
-    const carregarRespostas = async () => {
-      try {
-        const snap = await getDocs(collection(db, 'equipes', equipeId, 'respostas'))
-        const m = {}
-        snap.docs.forEach((d) => { m[d.id] = d.data() })
-        setRespostas(m)
-      } catch {}
-    }
-    carregarRespostas()
+    const unsub = onSnapshot(collection(db, 'equipes', equipeId, 'respostas'), (snap) => {
+      const m = {}
+      snap.docs.forEach((d) => { m[d.id] = d.data() })
+      setRespostas(m)
+    })
+    return () => unsub()
   }, [equipeId, faseId])
 
   const getStatus = (key) => {
