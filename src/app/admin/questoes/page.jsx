@@ -420,6 +420,34 @@ function BlocoEditor({ blocos, setBlocos }) {
     setBlocos(b)
   }
 
+  const handleImageUpload = async (e, i, j) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    updBlocoInterno(i, j, "Fazendo upload...")
+
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('upload_preset', 'dhpb-questoes')
+
+    try {
+      const res = await fetch('https://api.cloudinary.com/v1_1/dwyq3x6b/image/upload', {
+        method: 'POST',
+        body: formData
+      })
+      const data = await res.json()
+      if (data.secure_url) {
+        updBlocoInterno(i, j, data.secure_url)
+      } else {
+        alert('Erro ao fazer upload da imagem.')
+        updBlocoInterno(i, j, "")
+      }
+    } catch (err) {
+      alert('Erro na conexão com Cloudinary.')
+      updBlocoInterno(i, j, "")
+    }
+  }
+
   return (
     <div className='space-y-3'>
       <div className='flex items-center justify-between'>
@@ -487,12 +515,28 @@ function BlocoEditor({ blocos, setBlocos }) {
                       )}
                       {['imagem', 'video', 'pdf', 'musica'].includes(bloco.tipo) && (
                         <div className='space-y-2'>
-                          <input type="text" placeholder={
-                            bloco.tipo === 'imagem' ? 'URL da imagem' :
-                            bloco.tipo === 'video' ? 'URL do YouTube' :
-                            bloco.tipo === 'pdf' ? 'URL do PDF' : 'URL da música'
-                          } value={bloco.conteudo} onChange={(e) => updBlocoInterno(i, j, e.target.value)}
-                            className="w-full rounded-lg border border-neutral-300 p-2 text-xs outline-none focus:border-[#82181A]" />
+                          {bloco.tipo === 'imagem' ? (
+                            <div className='flex gap-2 items-center w-full bg-neutral-100 rounded-lg p-2 border border-neutral-200'>
+                              {bloco.conteudo === "Fazendo upload..." ? (
+                                <p className="flex-1 text-xs text-neutral-500 italic px-2">Enviando para a nuvem...</p>
+                              ) : bloco.conteudo ? (
+                                <p className="flex-1 text-xs text-green-600 font-medium px-2 truncate">Imagem selecionada ✓</p>
+                              ) : (
+                                <p className="flex-1 text-xs text-neutral-400 italic px-2">Nenhuma imagem escolhida.</p>
+                              )}
+                              
+                              <label className="cursor-pointer bg-[#82181A] hover:bg-[#9b1d1f] text-white text-xs px-4 py-2 rounded font-medium transition-colors whitespace-nowrap">
+                                ⇧ Fazer Upload
+                                <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, i, j)} />
+                              </label>
+                            </div>
+                          ) : (
+                            <input type="text" placeholder={
+                              bloco.tipo === 'video' ? 'URL do YouTube' :
+                              bloco.tipo === 'pdf' ? 'URL do PDF' : 'URL da música'
+                            } value={bloco.conteudo} onChange={(e) => updBlocoInterno(i, j, e.target.value)}
+                              className="w-full rounded-lg border border-neutral-300 p-2 text-xs outline-none focus:border-[#82181A]" />
+                          )}
                           {bloco.conteudo && bloco.tipo === 'imagem' && (
                             <img src={bloco.conteudo} alt="" className='max-h-32 rounded object-contain bg-white' onError={(e) => e.target.style.display = 'none'} />
                           )}
@@ -618,10 +662,13 @@ function QuestoesForm() {
   }, [autenticado, faseId, edicaoId])
 
   const carregarQuestoes = useCallback(async () => {
-    if (!faseId) return
-    const q = query(collection(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes'), orderBy('numero', 'asc'))
-    const snap = await getDocs(q)
-    setQuestoes(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+    if (!faseId || !edicaoId) return
+    const fSnap = await getDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId))
+    if (fSnap.exists()) {
+      const q = fSnap.data().questoes || []
+      q.sort((a, b) => a.numero - b.numero)
+      setQuestoes(q)
+    }
   }, [faseId, edicaoId])
 
   useEffect(() => { carregarQuestoes() }, [carregarQuestoes])
@@ -650,12 +697,18 @@ function QuestoesForm() {
       updatedAt: new Date().toISOString(),
     }
     try {
+      const novaLista = [...questoes]
       if (editandoId) {
-        await updateDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes', editandoId), dados)
+        const idx = novaLista.findIndex((q) => q.id === editandoId)
+        if (idx >= 0) novaLista[idx] = { ...novaLista[idx], ...dados }
       } else {
-        await addDoc(collection(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes'), { ...dados, createdAt: new Date().toISOString() })
+        novaLista.push({ id: crypto.randomUUID(), ...dados, createdAt: new Date().toISOString() })
       }
-      limparForm(); await carregarQuestoes()
+      novaLista.sort((a, b) => a.numero - b.numero)
+
+      await updateDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId), { questoes: novaLista })
+      setQuestoes(novaLista)
+      limparForm()
     } catch { setErro('Erro ao salvar questão.') }
     finally { setSalvando(false) }
   }
@@ -673,7 +726,11 @@ function QuestoesForm() {
 
   const handleDeletarQuestao = async (qId) => {
     if (editandoId === qId) limparForm()
-    try { await deleteDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes', qId)); await carregarQuestoes() } catch {}
+    try {
+      const novaLista = questoes.filter((q) => q.id !== qId)
+      await updateDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId), { questoes: novaLista })
+      setQuestoes(novaLista)
+    } catch {}
   }
 
   if (!autenticado || carregando) {

@@ -35,77 +35,40 @@ function ResumoFaseContent() {
 
   useEffect(() => {
     if (!authUser || !faseId) return
-    const carregar = async () => {
-      try {
-        const fSnap = await getDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId))
-        if (fSnap.exists()) setFase({ id: fSnap.id, ...fSnap.data() })
-      } catch {} finally { setCarregando(false) }
-    }
-    carregar()
-  }, [authUser, faseId, edicaoId])
+    const unsub = onSnapshot(doc(db, 'edicoes', edicaoId, 'fases', faseId), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data()
+        setFase({ id: snap.id, ...data })
+        
+        const st = data.status
+        if (st !== 'aberta' && st !== 'correcao') {
+          router.push(userData?.tipo === 'professor' ? '/home-professor' : '/home')
+          return
+        }
 
-  // Monitor membership in real-time
+        const q = data.questoes || []
+        q.sort((a, b) => a.numero - b.numero)
+        setQuestoes(q)
+      }
+      setCarregando(false)
+    })
+    return () => unsub()
+  }, [authUser, faseId, edicaoId, router, userData])
+
+  // Monitor membership, name, and responses in real-time
   useEffect(() => {
     if (!authUser || !equipeId) return
     const unsub = onSnapshot(doc(db, 'equipes', equipeId), (snap) => {
       if (!snap.exists()) { router.push('/home'); return }
       const data = snap.data()
       const aindaMembro = (data.membros || []).some(m => m.uid === authUser.uid && m.status === 'ativo')
-      if (!aindaMembro) router.push('/home')
+      if (!aindaMembro) { router.push('/home'); return }
+      
+      setEquipeNome(data.nome || '')
+      setRespostas(data.respostas || {})
     })
     return () => unsub()
   }, [authUser, equipeId, router])
-
-  useEffect(() => {
-    if (!authUser || !faseId) return
-    const carregarNome = async () => {
-      if (equipeId) {
-        const eqSnap = await getDoc(doc(db, 'equipes', equipeId))
-        if (eqSnap.exists()) setEquipeNome(eqSnap.data().nome || '')
-      }
-    }
-    carregarNome()
-  }, [authUser, equipeId])
-
-  useEffect(() => {
-    if (!faseId || !authUser) return
-    const unsub = onSnapshot(doc(db, 'edicoes', edicaoId, 'fases', faseId), (snap) => {
-      if (snap.exists()) {
-        const st = snap.data().status
-        if (st !== 'aberta' && st !== 'correcao') {
-          router.push(userData?.tipo === 'professor' ? '/home-professor' : '/home')
-        }
-      }
-    })
-    return () => unsub()
-  }, [authUser, faseId, edicaoId, router, userData])
-
-  useEffect(() => {
-    if (!faseId) return
-    ;(async () => {
-      try {
-        const q = query(collection(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes'), orderBy('numero', 'asc'))
-        let snap
-        try {
-          snap = await getDocsFromCache(q)
-          if (snap.empty) throw new Error('Cache vazio')
-        } catch {
-          snap = await getDocsFromServer(q)
-        }
-        setQuestoes(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
-      } catch {}
-    })()
-  }, [faseId, edicaoId])
-
-  useEffect(() => {
-    if (!equipeId || !faseId) return
-    const unsub = onSnapshot(collection(db, 'equipes', equipeId, 'respostas'), (snap) => {
-      const m = {}
-      snap.docs.forEach((d) => { m[d.id] = d.data() })
-      setRespostas(m)
-    })
-    return () => unsub()
-  }, [equipeId, faseId])
 
   const getStatus = (key) => {
     return respostas[key]?.status || 'pendente'

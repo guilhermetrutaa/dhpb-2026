@@ -372,109 +372,59 @@ function QuestaoContent() {
   }, [loading, authUser, router])
 
   useEffect(() => {
-    if (!faseId || !edicaoId) return
-    const temNavegacao = prevIdParam !== null || nextIdParam !== null
-    if (temNavegacao) {
-      setAllQuestaoIds([])
-      return
-    }
-    ;(async () => {
-      try {
-        const q = query(collection(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes'), orderBy('numero', 'asc'))
-        let snap
-        try {
-          snap = await getDocsFromCache(q)
-          if (snap.empty) throw new Error('vazio')
-        } catch {
-          snap = await getDocsFromServer(q)
-        }
-        setAllQuestaoIds(snap.docs.map(d => d.id))
-      } catch {}
-    })()
-  }, [faseId, edicaoId, prevIdParam, nextIdParam])
-
-  useEffect(() => {
-    if (!authUser) return
-
-    const carregar = async () => {
-      const seq = ++seqRef.current
-      try {
-        if (!questaoId || !faseId || !edicaoId) {
-          setErro('Dados da questão incompletos.')
-          return
-        }
-
-        setSelectedAlt(null)
-        setRespostaStatus('pendente')
-        setRespostaPesoAnterior(0)
-        setMensagem('')
-        setErro('')
-        setCarregando(true)
-
-        const [qSnap, fSnap, rSnap] = await Promise.all([
-          getDoc(firestoreDoc(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes', questaoId)),
-          getDoc(firestoreDoc(db, 'edicoes', edicaoId, 'fases', faseId)),
-          equipeId ? getDoc(firestoreDoc(db, 'equipes', equipeId, 'respostas', questaoId)) : Promise.resolve(null),
-        ])
-
-        if (seq !== seqRef.current) return
-
-        if (!qSnap.exists()) {
-          setErro('Questão não encontrada.')
-          return
-        }
-
-        setQuestao({ id: qSnap.id, ...qSnap.data() })
-        if (fSnap.exists()) setFase({ id: fSnap.id, ...fSnap.data() })
-        if (rSnap?.exists()) {
-          setSelectedAlt(rSnap.data().alternativa)
-          setRespostaStatus(rSnap.data().status || 'pendente')
-          if (rSnap.data().status === 'entregue') setRespostaPesoAnterior(rSnap.data().peso || 0)
-        }
-
-        const tsRascunho = ultimoRascunhoRef.current[questaoId]
-        if (tsRascunho) {
-          const restante = Math.ceil((tsRascunho + 60000 - Date.now()) / 1000)
-          setRascunhoBloqueado(Math.max(restante, 0))
-        } else {
-          setRascunhoBloqueado(0)
-        }
-      } catch (e) {
-        if (seq === seqRef.current) setErro(e.message)
-      } finally {
-        if (seq === seqRef.current) setCarregando(false)
-      }
-    }
-
-    carregar()
-  }, [authUser, questaoId, faseId, edicaoId, equipeId])
-
-  useEffect(() => {
-    if (!faseId || !edicaoId || !authUser) return
-
+    if (!authUser || !faseId || !edicaoId) return
     const unsub = onSnapshot(firestoreDoc(db, 'edicoes', edicaoId, 'fases', faseId), (snap) => {
       if (!snap.exists()) return
-
-      const st = snap.data().status
+      const data = snap.data()
+      setFase({ id: snap.id, ...data })
+      
+      const st = data.status
       if (st !== 'aberta' && st !== 'correcao') {
         router.push(userData?.tipo === 'professor' ? '/home-professor' : '/home')
+        return
       }
+
+      const qs = data.questoes || []
+      qs.sort((a, b) => a.numero - b.numero)
+      setAllQuestaoIds(qs.map(q => q.id))
+      
+      if (questaoId) {
+        const qDoc = qs.find(q => q.id === questaoId)
+        if (qDoc) {
+          setQuestao(qDoc)
+          setErro('')
+        } else {
+          setErro('Questão não encontrada.')
+        }
+      }
+      setCarregando(false)
     })
-
     return () => unsub()
-  }, [authUser, faseId, edicaoId, router, userData])
+  }, [authUser, faseId, edicaoId, questaoId, router, userData])
 
-  // Monitor membership in real-time
   useEffect(() => {
     if (!authUser || !equipeId) return
     const unsub = onSnapshot(firestoreDoc(db, 'equipes', equipeId), (snap) => {
       if (!snap.exists()) { router.push('/home'); return }
       const data = snap.data()
       const aindaMembro = (data.membros || []).some(m => m.uid === authUser.uid && m.status === 'ativo')
-      if (!aindaMembro) router.push('/home')
+      if (!aindaMembro) { router.push('/home'); return }
+      
+      if (questaoId) {
+        const res = data.respostas?.[questaoId]
+        if (res) {
+          setSelectedAlt(res.alternativa)
+          setRespostaStatus(res.status || 'pendente')
+          if (res.status === 'entregue') setRespostaPesoAnterior(res.peso || 0)
+        } else {
+          setSelectedAlt(null)
+          setRespostaStatus('pendente')
+          setRespostaPesoAnterior(0)
+        }
+      }
     })
     return () => unsub()
-  }, [authUser, equipeId, router])
+  }, [authUser, equipeId, questaoId, router])
 
   useEffect(() => {
     if (!mensagem) return
@@ -542,8 +492,7 @@ function QuestaoContent() {
       const novoPeso = novoStatus === 'entregue' ? peso : 0
       const delta = novoPeso - respostaPesoAnterior
 
-      const batch = writeBatch(db)
-      batch.set(firestoreDoc(db, 'equipes', equipeId, 'respostas', questaoId), {
+      const respostaObj = {
         alternativa: selectedAlt,
         status: novoStatus,
         peso,
@@ -551,19 +500,23 @@ function QuestaoContent() {
         numero: questao?.numero || 0,
         atualizadoEm: new Date().toISOString(),
         atualizadoPor: userData?.nome || authUser.email,
-      })
+      }
+
+      const updateData = {
+        [`respostas.${questaoId}`]: respostaObj
+      }
 
       if (delta !== 0) {
         const notaMaxima = fase?.notaMaxima > 0 ? fase?.notaMaxima : 1
         const fator = (fase?.peso || 0) / notaMaxima
         const deltaDi = delta * fator
-        batch.update(firestoreDoc(db, 'equipes', equipeId), {
-          [`pontuacoes.${faseId}.ni`]: increment(delta),
-          [`pontuacoes.${faseId}.di`]: increment(deltaDi),
-          df: increment(deltaDi),
-        })
+        
+        updateData[`pontuacoes.${faseId}.ni`] = increment(delta)
+        updateData[`pontuacoes.${faseId}.di`] = increment(deltaDi)
+        updateData.df = increment(deltaDi)
       }
-      await batch.commit()
+      
+      await updateDoc(firestoreDoc(db, 'equipes', equipeId), updateData)
 
       setRespostaPesoAnterior(novoPeso)
       setRespostaStatus(novoStatus)
