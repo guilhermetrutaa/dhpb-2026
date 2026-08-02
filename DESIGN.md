@@ -112,7 +112,7 @@ membro-index/                     # Índice auxiliar (email_base64_edicaoId → 
   - Edições: CRUD de edições + fases (nome, datas, status: pendente/aberta/finalizada/correcao, peso, notaMaxima, provaPdfUrl)
   - Equipes: lista todas equipes com membros
   - Usuários: lista todos users com status de documento
-  - Escolas: busca/filtra escolas importadas
+  - Escolas: busca/filtra escolas importada
 /admin/questoes?faseId=XXX&edicaoId=XXX
   - CRUD de questões (com editor TipTap completo)
   - Alternativas com pesos
