@@ -7,6 +7,27 @@ import { auth, db } from '@/lib/firebase'
 import { useRouter } from 'next/navigation'
 
 const AuthContext = createContext({})
+const TTL_CACHE = 60000
+
+const lerCache = (key) => {
+  try {
+    const raw = localStorage.getItem(key)
+    if (!raw) return null
+    const { ts, data } = JSON.parse(raw)
+    if (!ts || Date.now() - ts > TTL_CACHE) return null
+    return data
+  } catch { return null }
+}
+
+const gravarCache = (key, data) => {
+  try {
+    localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data }))
+  } catch {}
+}
+
+const removerCache = (key) => {
+  try { localStorage.removeItem(key) } catch {}
+}
 
 export function AuthProvider({ children }) {
   const [authUser, setAuthUser] = useState(null)
@@ -20,6 +41,7 @@ export function AuthProvider({ children }) {
       setAuthUser(user)
       if (!user) {
         setUserData(null)
+        setEdicoes([])
         setLoading(false)
       }
     })
@@ -30,11 +52,20 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (!authUser) return
 
+    const chave = `dhpb_userdata_${authUser.uid}`
+    const cacheado = lerCache(chave)
+    if (cacheado) {
+      setUserData(cacheado)
+      setLoading(false)
+      return
+    }
+
     ;(async () => {
       try {
         const snap = await getDoc(doc(db, 'users', authUser.uid))
-        if (snap.exists()) setUserData(snap.data())
-        else setUserData({})
+        const dados = snap.exists() ? snap.data() : {}
+        setUserData(dados)
+        gravarCache(chave, dados)
       } catch {
         setUserData({})
       }
@@ -44,25 +75,34 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (!authUser) return
+    const cacheado = lerCache('dhpb_edicoes')
+    if (cacheado) { setEdicoes(cacheado); return }
     ;(async () => {
       try {
         const q = query(collection(db, 'edicoes'), orderBy('createdAt', 'desc'))
         const snap = await getDocs(q)
-        setEdicoes(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+        const dados = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+        setEdicoes(dados)
+        gravarCache('dhpb_edicoes', dados)
       } catch {}
     })()
   }, [authUser])
 
   const logout = async () => {
+    removerCache(`dhpb_userdata_${authUser?.uid}`)
     await signOut(auth)
     router.push('/')
   }
 
   const refreshUserData = async () => {
     if (!authUser) return
+    const chave = `dhpb_userdata_${authUser.uid}`
     try {
       const snap = await getDoc(doc(db, 'users', authUser.uid))
-      if (snap.exists()) setUserData(snap.data())
+      if (snap.exists()) {
+        setUserData(snap.data())
+        gravarCache(chave, snap.data())
+      }
     } catch {}
   }
 

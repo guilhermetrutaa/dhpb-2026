@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react'
 import { Poppins } from 'next/font/google'
 import { useRouter } from 'next/navigation'
-import { collection, query, where, getDocs, doc, getDoc, updateDoc, orderBy } from 'firebase/firestore'
+import { collection, query, where, getDocs, doc, orderBy, writeBatch } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import Image from 'next/image'
 
@@ -46,34 +46,15 @@ function RankingContent() {
       setFases(fasesData)
 
       const eSnap = await getDocs(query(collection(db, 'equipes'), where('edicaoId', '==', edId)))
-      const equipesData = []
-
-      for (const doc_ of eSnap.docs) {
+      const equipesData = eSnap.docs.map((doc_) => {
         const team = { id: doc_.id, ...doc_.data() }
         const pontuacao = {}
-
         for (const fase of fasesData) {
-          const rSnap = await getDocs(collection(db, 'equipes', team.id, 'respostas'))
-          let ni = 0
-          rSnap.docs.forEach((r) => {
-            const rData = r.data()
-            if (rData.status === 'entregue') {
-              if (r.id === 'tarefa') {
-                ni += rData.pontuacao || 0
-              } else {
-                ni += rData.peso || 0
-              }
-            }
-          })
-          const ni_max = fase.notaMaxima || 1
-          const pi = fase.peso || 0
-          const di = ni_max > 0 ? (ni / ni_max) * pi : 0
-          pontuacao[fase.id] = { ni, di }
+          const p = team.pontuacoes?.[fase.id]
+          pontuacao[fase.id] = { ni: p?.ni || 0, di: p?.di || 0 }
         }
-
-        const df = Object.values(pontuacao).reduce((acc, p) => acc + p.di, 0)
-        equipesData.push({ ...team, pontuacao, df })
-      }
+        return { ...team, pontuacao, df: team.df || 0 }
+      })
 
       equipesData.sort((a, b) => b.df - a.df)
       setEquipes(equipesData)
@@ -140,14 +121,77 @@ function RankingContent() {
       aprovados.push(...candidatos)
     }
 
-    for (const eq of aprovados) {
-      try {
-        await updateDoc(doc(db, 'equipes', eq.id), { aprovadoAte: aprovarPara })
-      } catch {}
+    for (let i = 0; i < aprovados.length; i += 400) {
+      const batch = writeBatch(db)
+      const chunk = aprovados.slice(i, i + 400)
+      chunk.forEach((eq) => batch.update(doc(db, 'equipes', eq.id), { aprovadoAte: aprovarPara }))
+      await batch.commit()
     }
 
     setMsg(`${aprovados.length} equipe(s) aprovada(s) para ${aprovarPara.toUpperCase()}!`)
     carregarDados(edicaoId)
+  }
+
+  const handleRecalcular = async () => {
+    if (!edicaoId || fases.length === 0) return
+    setCarregando(true); setMsg('Recalculando pontuações...')
+    try {
+      const questaoPorFase = {}
+      for (const fase of fases) {
+        const qSnap = await getDocs(collection(db, 'edicoes', edicaoId, 'fases', fase.id, 'questoes'))
+        qSnap.docs.forEach((d) => { questaoPorFase[d.id] = fase.id })
+      }
+
+      const eSnap = await getDocs(query(collection(db, 'equipes'), where('edicaoId', '==', edicaoId)))
+      const updates = []
+      for (const doc_ of eSnap.docs) {
+        const teamId = doc_.id
+        const rSnap = await getDocs(collection(db, 'equipes', teamId, 'respostas'))
+        const pontuacoes = {}
+        let df = 0
+
+        rSnap.docs.forEach((r) => {
+          const rData = r.data()
+          if (rData.status !== 'entregue') return
+          if (r.id === 'tarefa') {
+            fases.forEach((fase) => {
+              const p = pontuacoes[fase.id] || { ni: 0 }
+              p.ni += rData.pontuacao || 0
+              pontuacoes[fase.id] = p
+            })
+            return
+          }
+          const faseIdQ = questaoPorFase[r.id]
+          if (!faseIdQ) return
+          const p = pontuacoes[faseIdQ] || { ni: 0 }
+          p.ni += rData.peso || 0
+          pontuacoes[faseIdQ] = p
+        })
+
+        for (const fase of fases) {
+          const p = pontuacoes[fase.id] || { ni: 0 }
+          const ni_max = fase.notaMaxima > 0 ? fase.notaMaxima : 1
+          p.di = (p.ni / ni_max) * (fase.peso || 0)
+          pontuacoes[fase.id] = p
+          df += p.di
+        }
+
+        updates.push({ teamId, pontuacoes, df })
+      }
+
+      for (let i = 0; i < updates.length; i += 400) {
+        const batch = writeBatch(db)
+        const chunk = updates.slice(i, i + 400)
+        chunk.forEach((u) => {
+          batch.set(doc(db, 'equipes', u.teamId), { pontuacoes: u.pontuacoes, df: u.df }, { merge: true })
+        })
+        await batch.commit()
+      }
+
+      setMsg(`Pontuações recalculadas para ${updates.length} equipe(s)!`)
+      await carregarDados(edicaoId)
+    } catch (e) { setMsg('Erro: ' + e.message) }
+    finally { setCarregando(false) }
   }
 
   if (!autenticado) return null
@@ -229,6 +273,7 @@ function RankingContent() {
                     </select>
                   </div>
                   <button onClick={handleConfirmar} className='bg-[#82181A] text-white font-semibold px-8 py-3 rounded-xl hover:bg-[#631214] transition-all cursor-pointer'>Confirmar Aprovação</button>
+                  <button onClick={handleRecalcular} disabled={carregando} className='border border-neutral-300 text-neutral-600 font-semibold px-8 py-3 rounded-xl hover:bg-neutral-100 transition-all cursor-pointer disabled:opacity-50'>Recalcular pontuações</button>
                 </div>
                 {msg && <p className='text-sm font-medium text-green-600'>{msg}</p>}
               </div>

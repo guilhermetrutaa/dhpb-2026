@@ -40,21 +40,26 @@ function SalaEquipeContent() {
       const aindaMembro = (team.membros || []).some(m => m.uid === authUser.uid && m.status === 'ativo')
       if (!aindaMembro) { router.push('/home'); return }
       setEquipe(team)
-
-      const carregarDados = async () => {
-        const [edSnap, fSnap] = await Promise.all([
-          getDoc(doc(db, 'edicoes', team.edicaoId)),
-          getDocs(query(collection(db, 'edicoes', team.edicaoId, 'fases'), orderBy('dataInicio', 'asc'))),
-        ])
-        if (edSnap.exists()) setEdicaoNome(edSnap.data().nome || '')
-        setFases(fSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
-        setCarregando(false)
-        setVerificandoQuestionario(false)
-      }
-      carregarDados()
     })
     return () => unsub()
   }, [authUser, equipeId, router])
+
+  useEffect(() => {
+    if (!equipe?.edicaoId) return
+    let ativo = true
+    ;(async () => {
+      const [edSnap, fSnap] = await Promise.all([
+        getDoc(doc(db, 'edicoes', equipe.edicaoId)),
+        getDocs(query(collection(db, 'edicoes', equipe.edicaoId, 'fases'), orderBy('dataInicio', 'asc'))),
+      ])
+      if (!ativo) return
+      if (edSnap.exists()) setEdicaoNome(edSnap.data().nome || '')
+      setFases(fSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      setCarregando(false)
+      setVerificandoQuestionario(false)
+    })()
+    return () => { ativo = false }
+  }, [equipe?.edicaoId])
 
   useEffect(() => {
     if (!verificandoQuestionario && equipe) {

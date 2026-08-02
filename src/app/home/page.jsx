@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { Poppins } from 'next/font/google';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import ModalQuestionarioIndividual from '@/components/ModalQuestionarioIndividual'
 
@@ -71,88 +71,63 @@ const Page = () => {
       return
     }
 
-    // Query equipes directly to find the team for this user + edition
-    let equipeEncontrada = null
+    const verificarMembro = (data) => (data.membros || []).some(m => m.uid === authUser.uid && m.status === 'ativo')
+
+    // 1) Participações já carregadas em memória (zero leituras)
+    const participacao = equipes[edicaoId]
+    if (participacao?.equipeId) {
+      try {
+        const eqSnap = await getDoc(doc(db, 'equipes', participacao.equipeId))
+        if (eqSnap.exists() && verificarMembro(eqSnap.data())) {
+          router.push(`/montagem-equipe?equipeId=${eqSnap.id}`)
+          return
+        }
+      } catch {}
+    }
+
+    // 2) membro-index (até 2 leituras)
+    const miKey = btoa(authUser.email).replace(/=+$/, '') + '_' + edicaoId
+    try {
+      const idxSnap = await getDoc(doc(db, 'membro-index', miKey))
+      if (idxSnap.exists()) {
+        const idxData = idxSnap.data()
+        const eqSnap = await getDoc(doc(db, 'equipes', idxData.equipeId))
+        if (eqSnap.exists() && verificarMembro(eqSnap.data())) {
+          await setDoc(doc(db, 'users', authUser.uid, 'participacoes', edicaoId), {
+            equipeId: idxData.equipeId,
+            papel: idxData.papel || '',
+          })
+          setEquipes((prev) => ({ ...prev, [edicaoId]: { equipeId: idxData.equipeId, papel: idxData.papel } }))
+          router.push(`/montagem-equipe?equipeId=${idxData.equipeId}`)
+          return
+        }
+      }
+    } catch {}
+
+    // 3) Fallback legado: busca direta nas equipes (raro, dados antigos)
     try {
       const eqSnap = await getDocs(query(
         collection(db, 'equipes'),
         where('edicaoId', '==', edicaoId)
       ))
-      console.log('handleEdicaoClick: equipes query returned', eqSnap.size, 'docs')
       for (const d of eqSnap.docs) {
         const data = d.data()
-        console.log('handleEdicaoClick: checking team', d.id, 'membros:', data.membros?.length)
-        const aindaMembro = (data.membros || []).some(m => m.uid === authUser.uid && m.status === 'ativo')
-        if (aindaMembro) {
-          equipeEncontrada = { id: d.id, data }
-          break
+        if (verificarMembro(data)) {
+          const papel = (data.membros || []).find(m => m.uid === authUser.uid)?.papel || ''
+          const batch = writeBatch(db)
+          batch.set(doc(db, 'users', authUser.uid, 'participacoes', edicaoId), { equipeId: d.id, papel })
+          batch.set(doc(db, 'membro-index', miKey), { equipeId: d.id, papel, uid: authUser.uid })
+          await batch.commit()
+          setEquipes((prev) => ({ ...prev, [edicaoId]: { equipeId: d.id } }))
+          router.push(`/montagem-equipe?equipeId=${d.id}`)
+          return
         }
       }
     } catch (err) {
-      console.error('handleEdicaoClick: query error', err)
       setErro('Erro ao buscar equipe: ' + (err?.message || 'Erro desconhecido'))
     }
-    if (equipeEncontrada) {
-      try {
-        await setDoc(doc(db, 'users', authUser.uid, 'participacoes', edicaoId), {
-          equipeId: equipeEncontrada.id,
-          papel: equipeEncontrada.data.membros.find(m => m.uid === authUser.uid)?.papel || '',
-        })
-        await setDoc(doc(db, 'membro-index', btoa(authUser.email).replace(/=+$/, '') + '_' + edicaoId), {
-          equipeId: equipeEncontrada.id, papel: equipeEncontrada.data.membros.find(m => m.uid === authUser.uid)?.papel || '', uid: authUser.uid,
-        })
-        setEquipes((prev) => ({ ...prev, [edicaoId]: { equipeId: equipeEncontrada.id } }))
-        router.push(`/montagem-equipe?equipeId=${equipeEncontrada.id}`)
-        return
-      } catch (err) {
-        console.error('handleEdicaoClick: setDoc error', err)
-        setErro('Erro ao salvar participação: ' + (err?.message || 'Erro desconhecido'))
-      }
-    }
 
-    // Fallback: check cached participacao state
-    let participacao = equipes[edicaoId]
-    if (participacao) {
-      try {
-        const eqSnap = await getDoc(doc(db, 'equipes', participacao.equipeId))
-        if (eqSnap.exists()) {
-          const eqData = eqSnap.data()
-          const aindaMembro = (eqData.membros || []).some(m => m.uid === authUser.uid && m.status === 'ativo')
-          if (aindaMembro) {
-            router.push(`/montagem-equipe?equipeId=${participacao.equipeId}`)
-            return
-          }
-        }
-      } catch {}
-      router.push(`/criar-equipe?edicaoId=${edicaoId}`)
-      return
-    }
-
-    // Fallback: membro-index
-    try {
-      const idxSnap = await getDoc(
-        doc(db, 'membro-index', btoa(authUser.email).replace(/=+$/, '') + '_' + edicaoId)
-      )
-      if (idxSnap.exists()) {
-        const idxData = idxSnap.data()
-        const eqSnap = await getDoc(doc(db, 'equipes', idxData.equipeId))
-        if (eqSnap.exists()) {
-          const eqData = eqSnap.data()
-          const aindaMembro = (eqData.membros || []).some(m => m.uid === authUser.uid && m.status === 'ativo')
-          if (aindaMembro) {
-            await setDoc(doc(db, 'users', authUser.uid, 'participacoes', edicaoId), {
-              equipeId: idxData.equipeId,
-              papel: idxData.papel,
-            })
-            setEquipes((prev) => ({ ...prev, [edicaoId]: { equipeId: idxData.equipeId, papel: idxData.papel } }))
-            router.push(`/montagem-equipe?equipeId=${idxData.equipeId}`)
-            return
-          }
-        }
-      }
-    } catch {}
-
-    if (!erro) router.push(`/criar-equipe?edicaoId=${edicaoId}`)
+    router.push(`/criar-equipe?edicaoId=${edicaoId}`)
   }
 
   const handleQuestionarioComplete = () => {

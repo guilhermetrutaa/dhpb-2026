@@ -23,7 +23,6 @@ function ResumoFaseContent() {
   const equipeId = sp.get('equipeId')
 
   const [fase, setFase] = useState(null)
-  const [edicaoNome, setEdicaoNome] = useState('')
   const [questoes, setQuestoes] = useState([])
   const [respostas, setRespostas] = useState({})
   const [equipeNome, setEquipeNome] = useState('')
@@ -38,10 +37,6 @@ function ResumoFaseContent() {
     if (!authUser || !faseId) return
     const carregar = async () => {
       try {
-        if (edicaoId) {
-          const eSnap = await getDoc(doc(db, 'edicoes', edicaoId))
-          if (eSnap.exists()) setEdicaoNome(eSnap.data().nome || '')
-        }
         const fSnap = await getDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId))
         if (fSnap.exists()) setFase({ id: fSnap.id, ...fSnap.data() })
       } catch {} finally { setCarregando(false) }

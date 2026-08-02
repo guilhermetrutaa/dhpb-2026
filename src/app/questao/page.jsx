@@ -1,10 +1,10 @@
 'use client'
 
-import React, { Suspense, useEffect, useState } from 'react'
+import React, { Suspense, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Poppins } from 'next/font/google'
-import { doc as firestoreDoc, getDoc, getDocs, onSnapshot, setDoc, collection, query, orderBy } from 'firebase/firestore'
+import { doc as firestoreDoc, getDoc, getDocs, onSnapshot, collection, query, orderBy, updateDoc, increment, writeBatch } from 'firebase/firestore'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { db } from '@/lib/firebase'
@@ -350,16 +350,22 @@ function QuestaoContent() {
   const faseId = sp.get('faseId')
   const edicaoId = sp.get('edicaoId')
   const equipeId = sp.get('equipeId')
+  const prevIdParam = sp.get('prevId')
+  const nextIdParam = sp.get('nextId')
 
   const [questao, setQuestao] = useState(null)
   const [fase, setFase] = useState(null)
   const [selectedAlt, setSelectedAlt] = useState(null)
   const [respostaStatus, setRespostaStatus] = useState('pendente')
+  const [respostaPesoAnterior, setRespostaPesoAnterior] = useState(0)
   const [mensagem, setMensagem] = useState('')
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
   const [activeDocumentIndex, setActiveDocumentIndex] = useState(null)
   const [allQuestaoIds, setAllQuestaoIds] = useState([])
+  const [rascunhoBloqueado, setRascunhoBloqueado] = useState(0)
+  const seqRef = useRef(0)
+  const ultimoRascunhoRef = useRef({})
 
   useEffect(() => {
     if (!loading && !authUser) router.push('/login')
@@ -367,6 +373,11 @@ function QuestaoContent() {
 
   useEffect(() => {
     if (!faseId || !edicaoId) return
+    const temNavegacao = prevIdParam !== null || nextIdParam !== null
+    if (temNavegacao) {
+      setAllQuestaoIds([])
+      return
+    }
     ;(async () => {
       try {
         const q = query(collection(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes'), orderBy('numero', 'asc'))
@@ -374,12 +385,13 @@ function QuestaoContent() {
         setAllQuestaoIds(snap.docs.map(d => d.id))
       } catch {}
     })()
-  }, [faseId, edicaoId])
+  }, [faseId, edicaoId, prevIdParam, nextIdParam])
 
   useEffect(() => {
     if (!authUser) return
 
     const carregar = async () => {
+      const seq = ++seqRef.current
       try {
         if (!questaoId || !faseId || !edicaoId) {
           setErro('Dados da questão incompletos.')
@@ -388,14 +400,18 @@ function QuestaoContent() {
 
         setSelectedAlt(null)
         setRespostaStatus('pendente')
+        setRespostaPesoAnterior(0)
         setMensagem('')
         setErro('')
+        setCarregando(true)
 
         const [qSnap, fSnap, rSnap] = await Promise.all([
           getDoc(firestoreDoc(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes', questaoId)),
           getDoc(firestoreDoc(db, 'edicoes', edicaoId, 'fases', faseId)),
           equipeId ? getDoc(firestoreDoc(db, 'equipes', equipeId, 'respostas', questaoId)) : Promise.resolve(null),
         ])
+
+        if (seq !== seqRef.current) return
 
         if (!qSnap.exists()) {
           setErro('Questão não encontrada.')
@@ -407,11 +423,20 @@ function QuestaoContent() {
         if (rSnap?.exists()) {
           setSelectedAlt(rSnap.data().alternativa)
           setRespostaStatus(rSnap.data().status || 'pendente')
+          if (rSnap.data().status === 'entregue') setRespostaPesoAnterior(rSnap.data().peso || 0)
+        }
+
+        const tsRascunho = ultimoRascunhoRef.current[questaoId]
+        if (tsRascunho) {
+          const restante = Math.ceil((tsRascunho + 60000 - Date.now()) / 1000)
+          setRascunhoBloqueado(Math.max(restante, 0))
+        } else {
+          setRascunhoBloqueado(0)
         }
       } catch (e) {
-        setErro(e.message)
+        if (seq === seqRef.current) setErro(e.message)
       } finally {
-        setCarregando(false)
+        if (seq === seqRef.current) setCarregando(false)
       }
     }
 
@@ -453,6 +478,21 @@ function QuestaoContent() {
   }, [mensagem])
 
   useEffect(() => {
+    if (rascunhoBloqueado <= 0) return
+
+    const timer = setInterval(() => {
+      setRascunhoBloqueado((atual) => {
+        if (atual <= 1) {
+          clearInterval(timer)
+          return 0
+        }
+        return atual - 1
+      })
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [rascunhoBloqueado])
+
+  useEffect(() => {
     if (activeDocumentIndex === null) return
 
     const originalOverflow = document.body.style.overflow
@@ -486,17 +526,45 @@ function QuestaoContent() {
       return
     }
 
+    if (novoStatus === 'rascunho' && rascunhoBloqueado > 0) {
+      setMensagem(`Rascunho salvo recentemente. Aguarde ${rascunhoBloqueado}s.`)
+      return
+    }
+
     try {
       const peso = questao.alternativas?.find((a) => a.letra === selectedAlt)?.peso || 0
-      await setDoc(firestoreDoc(db, 'equipes', equipeId, 'respostas', questaoId), {
+      const novoPeso = novoStatus === 'entregue' ? peso : 0
+      const delta = novoPeso - respostaPesoAnterior
+
+      const batch = writeBatch(db)
+      batch.set(firestoreDoc(db, 'equipes', equipeId, 'respostas', questaoId), {
         alternativa: selectedAlt,
         status: novoStatus,
         peso,
+        faseId: faseId || '',
+        numero: questao?.numero || 0,
         atualizadoEm: new Date().toISOString(),
         atualizadoPor: userData?.nome || authUser.email,
       })
 
+      if (delta !== 0) {
+        const notaMaxima = fase?.notaMaxima > 0 ? fase?.notaMaxima : 1
+        const fator = (fase?.peso || 0) / notaMaxima
+        const deltaDi = delta * fator
+        batch.update(firestoreDoc(db, 'equipes', equipeId), {
+          [`pontuacoes.${faseId}.ni`]: increment(delta),
+          [`pontuacoes.${faseId}.di`]: increment(deltaDi),
+          df: increment(deltaDi),
+        })
+      }
+      await batch.commit()
+
+      setRespostaPesoAnterior(novoPeso)
       setRespostaStatus(novoStatus)
+      if (novoStatus === 'rascunho') {
+        ultimoRascunhoRef.current[questaoId] = Date.now()
+        setRascunhoBloqueado(60)
+      }
       setMensagem(novoStatus === 'entregue' ? 'Questão entregue!' : 'Rascunho salvo!')
     } catch {
       setMensagem('Não foi possível salvar agora.')
@@ -505,8 +573,8 @@ function QuestaoContent() {
 
   const qNumero = questao?.numero || 0
   const currentIdx = allQuestaoIds.indexOf(questaoId)
-  const qPrevId = currentIdx > 0 ? allQuestaoIds[currentIdx - 1] : ''
-  const qNextId = currentIdx < allQuestaoIds.length - 1 ? allQuestaoIds[currentIdx + 1] : ''
+  const qPrevId = prevIdParam || (currentIdx > 0 ? allQuestaoIds[currentIdx - 1] : '')
+  const qNextId = nextIdParam || (currentIdx < allQuestaoIds.length - 1 ? allQuestaoIds[currentIdx + 1] : '')
   const prevHref = qPrevId ? `/questao?questaoId=${qPrevId}&faseId=${faseId}&edicaoId=${edicaoId}&equipeId=${equipeId}` : ''
   const nextHref = qNextId ? `/questao?questaoId=${qNextId}&faseId=${faseId}&edicaoId=${edicaoId}&equipeId=${equipeId}` : ''
   const activeDocument = activeDocumentIndex !== null ? questao?.documentos?.[activeDocumentIndex] : null
@@ -599,13 +667,22 @@ function QuestaoContent() {
 
             {respostaStatus !== 'entregue' && fase?.status !== 'correcao' && (
               <div className="mt-12 flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-24">
-                <button
-                  type="button"
-                  onClick={() => handleSalvar('rascunho')}
-                  className="min-w-[190px] rounded-full bg-[#FFD0D0] px-6 py-3 text-sm font-medium uppercase text-[#2F2F2F] transition-colors hover:bg-[#FFC0C0] cursor-pointer"
-                >
-                  Salvar rascunho
-                </button>
+                {rascunhoBloqueado > 0 ? (
+                  <div className="flex min-w-[190px] items-center justify-center gap-2 rounded-full bg-[#F5E3E3] px-6 py-3 text-sm font-medium text-[#2F2F2F]">
+                    <span>Próximo rascunho em</span>
+                    <span className="tabular-nums text-[#82181A] font-bold">
+                      {Math.floor(rascunhoBloqueado / 60)}:{String(rascunhoBloqueado % 60).padStart(2, '0')}
+                    </span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleSalvar('rascunho')}
+                    className="min-w-[190px] rounded-full bg-[#FFD0D0] px-6 py-3 text-sm font-medium uppercase text-[#2F2F2F] transition-colors hover:bg-[#FFC0C0] cursor-pointer"
+                  >
+                    Salvar rascunho
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => { if (confirm('Tem certeza? Não será possível alterar depois.')) handleSalvar('entregue') }}
