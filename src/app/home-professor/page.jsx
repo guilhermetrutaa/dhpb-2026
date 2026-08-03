@@ -253,7 +253,7 @@ const Page = () => {
 
                 <div className='flex justify-center pt-7'>
                     <p className='text-[1rem] md:text-[1.1rem] text-[#313131] font-medium w-full max-w-[55rem] text-center leading-relaxed'>
-                      Oi Professor(a) {nome}! Receba nossas boas-vindas à sua área pessoal no Desafio em História da Paraíba. Aqui, informações atualizadas sobre sua participação em nossos programas.
+                      Oi, Professor(a) {nome}! Receba nossas boas-vindas à sua área pessoal no Desafio em História da Paraíba. Aqui, informações atualizadas sobre sua participação em nossos programas.
                     </p>
                 </div>
 
