@@ -61,6 +61,9 @@ const Page = () => {
   }, [authUser])
 
   const handleEdicaoClick = async (edicaoId) => {
+    if (userData?.documentoStatus === 'pendente') {
+      return
+    }
     if (userData?.documentoStatus !== 'aprovado') {
       router.push('/enviar-documento')
       return
@@ -259,11 +262,27 @@ const Page = () => {
 
                 {userData?.tipo === 'professor' && userData?.documentoStatus !== 'aprovado' && (
                   <div className='flex justify-center pt-6'>
-                    <div className='bg-amber-50 rounded-r-xl p-4 max-w-lg w-full'>
-                      <p className='text-sm font-semibold text-amber-800'>Documento pendente de aprovação</p>
-                      <p className='text-xs text-amber-700 mt-1'>Para acessar as edições, você precisa enviar um documento que comprove seu vínculo como professor.</p>
-                      <a href="/enviar-documento" className='text-xs font-bold text-amber-800 hover:underline mt-2 inline-block'>Enviar documento</a>
-                    </div>
+                    {userData?.documentoStatus === 'pendente' ? (
+                      <div className='bg-amber-50 rounded-r-xl p-4 max-w-lg w-full'>
+                        <p className='text-sm font-semibold text-amber-800'>Documento em análise</p>
+                        <p className='text-xs text-amber-700 mt-1'>Seu documento foi enviado e será analisado pela equipe administrativa. Em até 48 horas seu documento será aprovado para dar continuidade à sua inscrição.</p>
+                      </div>
+                    ) : userData?.documentoStatus === 'recusado' ? (
+                      <div className='bg-red-50 rounded-r-xl p-4 max-w-lg w-full'>
+                        <p className='text-sm font-semibold text-red-800'>Documento recusado</p>
+                        {userData?.documentoRecusadoMotivo && (
+                          <p className='text-xs text-red-700 mt-1'>Motivo: {userData.documentoRecusadoMotivo}</p>
+                        )}
+                        <p className='text-xs text-red-700 mt-1'>Envie um novo documento para dar continuidade à sua inscrição.</p>
+                        <a href="/enviar-documento" className='text-xs font-bold text-red-800 hover:underline mt-2 inline-block'>Enviar novo documento</a>
+                      </div>
+                    ) : (
+                      <div className='bg-amber-50 rounded-r-xl p-4 max-w-lg w-full'>
+                        <p className='text-sm font-semibold text-amber-800'>Documento pendente de aprovação</p>
+                        <p className='text-xs text-amber-700 mt-1'>Para acessar as edições, você precisa enviar um documento que comprove seu vínculo como professor.</p>
+                        <a href="/enviar-documento" className='text-xs font-bold text-amber-800 hover:underline mt-2 inline-block'>Enviar documento</a>
+                      </div>
+                    )}
                   </div>
                 )}
 

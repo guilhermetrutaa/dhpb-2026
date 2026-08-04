@@ -14,7 +14,7 @@ const poppins = Poppins({
 })
 
 function EnviarDocumentoContent() {
-  const { authUser, userData, loading } = useAuth()
+  const { authUser, userData, loading, refreshUserData } = useAuth()
   const router = useRouter()
   const [arquivo, setArquivo] = useState(null)
   const [tipo, setTipo] = useState('')
@@ -90,6 +90,7 @@ function EnviarDocumentoContent() {
       setSucesso('Documento enviado com sucesso! Aguarde a análise da administração.')
       setArquivo(null)
       setTipo('')
+      await refreshUserData()
     } catch {
       setErro('Erro ao enviar documento.')
     } finally {
@@ -146,7 +147,14 @@ function EnviarDocumentoContent() {
               </div>
             )}
 
-            {(!statusAtual || statusAtual === 'pendente' || statusAtual === 'recusado') && (
+            {statusAtual === 'pendente' && (
+              <div className='bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-lg'>
+                <p className='text-sm font-semibold text-amber-700'>Você já enviou um documento</p>
+                <p className='text-sm text-amber-600 mt-1'>Seu documento será analisado pela equipe administrativa e em até 48 horas será aprovado para dar continuidade à sua inscrição.</p>
+              </div>
+            )}
+
+            {(!statusAtual || statusAtual === 'recusado') && (
               <>
                 <div>
                   <label className='block text-sm font-medium text-neutral-700 mb-1'>Tipo de Documento</label>
@@ -176,12 +184,6 @@ function EnviarDocumentoContent() {
                   className='bg-[#82181A] text-white font-semibold px-8 py-3 hover:bg-[#631214] transition-all disabled:opacity-50 cursor-pointer'>
                   {salvando ? 'Enviando...' : 'Enviar Documento'}
                 </button>
-
-                {statusAtual === 'pendente' && (
-                  <div className='bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-lg'>
-                    <p className='text-sm font-semibold text-amber-700'>Você já enviou um documento. Aguarde a análise da administração.</p>
-                  </div>
-                )}
               </>
             )}
           </div>
