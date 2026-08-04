@@ -167,6 +167,7 @@ const Page = () => {
                   <img src="/comite-logo.svg" alt="Comitê" className="h-10 w-auto object-contain" />
                   <img src="/logo-nuhcl.svg" alt="NUHCL" className="h-10 w-auto object-contain" />
                   <img src="/logo-ufcg.svg" alt="HISTORIA-UFCG" className="h-12 w-auto object-contain" />
+                  <img src="/logo-ndh.svg" alt="NDH" className="h-13 w-auto object-contain" />
                 </div>
               </div>
 
