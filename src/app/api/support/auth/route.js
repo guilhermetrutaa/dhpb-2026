@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { verificarTokenFirebase } from '@/lib/support/server/verify-token'
 import { getSupportAdminAuth } from '@/lib/support/server/firebase-admin'
 
+export const runtime = 'nodejs'
+
 export async function POST(req) {
   try {
     const { tokenId, nome } = await req.json().catch(() => ({}))
@@ -26,6 +28,6 @@ export async function POST(req) {
     return NextResponse.json({ customToken, role, email, nome: typeof nome === 'string' ? nome : '' })
   } catch (err) {
     console.error('[support/auth]', err?.message || err)
-    return NextResponse.json({ erro: 'Falha na autenticação do suporte.' }, { status: 401 })
+    return NextResponse.json({ erro: 'Falha na autenticação do suporte.' }, { status: 500 })
   }
 }

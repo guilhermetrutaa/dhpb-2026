@@ -5,7 +5,7 @@ let app = null
 
 const carregarServiceAccount = () => {
   const raw = process.env.SUPPORT_SERVICE_ACCOUNT || process.env.SUPPORT_SERVICE_ACCOUNT_BASE64
-  if (!raw) throw new Error('SUPPORT_SERVICE_ACCOUNT não configurada')
+  if (!raw) throw new Error('SUPPORT_SERVICE_ACCOUNT nao configurada')
 
   const json = process.env.SUPPORT_SERVICE_ACCOUNT_BASE64
     ? Buffer.from(raw, 'base64').toString('utf8')
