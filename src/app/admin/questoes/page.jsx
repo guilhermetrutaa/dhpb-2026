@@ -630,6 +630,7 @@ function QuestoesForm() {
   const [editandoId, setEditandoId] = useState(null)
   const [tarefaTitulo, setTarefaTitulo] = useState('')
   const [tarefaUrl, setTarefaUrl] = useState('')
+  const [tarefaPontuacao, setTarefaPontuacao] = useState(0)
 
   const limparForm = () => {
     setNumero(''); setInstrucao(''); setComentario('')
@@ -651,6 +652,7 @@ function QuestoesForm() {
         setFase({ id: fSnap.id, ...fSnap.data() })
         setTarefaTitulo(fSnap.data().tarefa?.titulo || '')
         setTarefaUrl(fSnap.data().tarefaUrl || '')
+        setTarefaPontuacao(fSnap.data().tarefa?.pontuacao || 0)
       }
       if (edicaoId) {
         const eSnap = await getDoc(doc(db, 'edicoes', edicaoId))
@@ -676,7 +678,10 @@ function QuestoesForm() {
   const handleSalvarTarefa = async () => {
     try {
       await updateDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId), {
-        tarefa: { titulo: tarefaTitulo },
+        tarefa: { 
+          titulo: tarefaTitulo,
+          pontuacao: parseFloat(tarefaPontuacao) || 0
+        },
         tarefaUrl,
       })
     } catch {}
@@ -754,11 +759,13 @@ function QuestoesForm() {
         <main className='max-w-5xl mx-auto px-4 py-8 space-y-8'>
           <div className='bg-white rounded-xl shadow-md p-6'>
             <h2 className='text-lg font-bold text-[#82181A] mb-4'>Tarefa da Fase</h2>
-            <div className='grid grid-cols-1 md:grid-cols-3 gap-4 mb-4'>
+            <div className='grid grid-cols-1 md:grid-cols-4 gap-4 mb-4'>
               <input type="text" placeholder="Título da tarefa (ex: Questionário)" value={tarefaTitulo} onChange={(e) => setTarefaTitulo(e.target.value)}
-                className="rounded-lg border border-neutral-300 p-3 text-sm outline-none focus:border-[#82181A]" />
-              <input type="text" placeholder="URL da página da tarefa (ex: /tarefa/fase1)" value={tarefaUrl} onChange={(e) => setTarefaUrl(e.target.value)}
                 className="md:col-span-2 rounded-lg border border-neutral-300 p-3 text-sm outline-none focus:border-[#82181A]" />
+              <input type="text" placeholder="URL (ex: /tarefa/1)" value={tarefaUrl} onChange={(e) => setTarefaUrl(e.target.value)}
+                className="rounded-lg border border-neutral-300 p-3 text-sm outline-none focus:border-[#82181A]" />
+              <input type="number" step="0.1" placeholder="Pontuação Máx" value={tarefaPontuacao || ''} onChange={(e) => setTarefaPontuacao(e.target.value)}
+                className="rounded-lg border border-neutral-300 p-3 text-sm outline-none focus:border-[#82181A]" />
             </div>
             <button onClick={handleSalvarTarefa} className="bg-[#82181A] text-white text-sm font-semibold px-6 py-2 rounded-lg hover:bg-[#631214] transition-colors cursor-pointer">Salvar Tarefa</button>
           </div>
