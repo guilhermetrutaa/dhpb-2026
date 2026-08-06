@@ -5729,7 +5729,7 @@ service cloud.firestore {
 
 ## Notas para futuras IAs
 
-- **Depois de mudar `.env.local` ou módulos de servidor, o `npm run dev` precisa ser reiniciado** (env é cacheado no boot do servidor)
+ **Depois de mudar `.env.local` ou módulos de servidor, o `npm run dev` precisa ser reiniciado** (env é cacheado no boot do servidor)
 - O widget suporta `/admin` oculto: usar `usePathname().startsWith('/admin')`
 - A base de conhecimento do DHPB fica em `src/lib/support/ai/knowledge.js` — é o texto que a IA usa para responder; edite lá para atualizar o que a IA "sabe" sobre o site
 - Docs completos de setup: `SUPPORT-FIREBASE-SETUP.md`
