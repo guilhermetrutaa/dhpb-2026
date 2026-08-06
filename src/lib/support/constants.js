@@ -60,6 +60,9 @@ export const MENSAGEM_ERRO_IA =
 export const MENSAGEM_BEM_VINDO =
   'Olá! Seja bem-vindo(a) ao atendimento do DHPB. Para começar, pode me dizer o seu nome?'
 
+export const MENSAGEM_ATENDENTE_48H =
+  'Certo! Seu atendimento foi encaminhado para a equipe do DHPB. Um de nossos atendentes irá responder aqui no chat em até 48 horas.'
+
 export const SUGESTOES_INICIAIS = [
   'Como faço minha inscrição?',
   'Como montar a equipe?',

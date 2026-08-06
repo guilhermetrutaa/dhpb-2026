@@ -5,6 +5,7 @@ import { Poppins } from 'next/font/google'
 import { useSupportChat } from '@/hooks/useSupportChat'
 import {
   AUTORES,
+  MENSAGEM_ATENDENTE_48H,
   MENSAGEM_BEM_VINDO,
   STATUS_CHAMADO,
   STATUS_LABELS,
@@ -120,8 +121,7 @@ const ChatWindow = ({ onFechar }) => {
           <>
             {chamado?.modo === 'humano' && chamado.status === STATUS_CHAMADO.AGUARDANDO_ATENDENTE && (
               <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs px-4 py-3 rounded-xl">
-                Você foi transferido para a equipe de atendimento do DHPB. Em breve um atendente vai responder
-                aqui no chat.
+                {MENSAGEM_ATENDENTE_48H}
               </div>
             )}
             {encerrado && (

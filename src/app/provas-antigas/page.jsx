@@ -117,6 +117,8 @@ export default function Page() {
                     className='bg-[#82181A] text-white px-8 py-4 rounded-xl text-center font-bold hover:bg-[#631214] transition-colors'>Caderno de questões — Fase 3</a>
                   <a href="https://drive.google.com/file/d/11lPyVQQQHUDVBYEyKEaYX4_052OAWeup/view" target="_blank" rel="noopener noreferrer"
                     className='bg-[#82181A] text-white px-8 py-4 rounded-xl text-center font-bold hover:bg-[#631214] transition-colors'>Prova Final</a>
+                  <a href="https://drive.google.com/file/d/1fD-lonM0ks8uSPrZ87tokqmcv93HmsRp/view" target="_blank" rel="noopener noreferrer"
+                    className='bg-[#82181A] text-white px-8 py-4 rounded-xl text-center font-bold hover:bg-[#631214] transition-colors'>Gabarito</a>
                 </div>
               </div>
             </div>

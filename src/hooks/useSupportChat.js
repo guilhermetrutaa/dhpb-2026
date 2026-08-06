@@ -16,7 +16,7 @@ import {
   where,
 } from 'firebase/firestore'
 import { supportAuth, supportDb } from '@/lib/support/firebase'
-import { AUTORES, MENSAGEM_ERRO_IA, STATUS_CHAMADO } from '@/lib/support/constants'
+import { AUTORES, MENSAGEM_ATENDENTE_48H, MENSAGEM_ERRO_IA, STATUS_CHAMADO } from '@/lib/support/constants'
 import { buscarRespostasRapidas, encontrarRespostaRapida } from '@/lib/support/respostasRapidas'
 
 const CHAMADOS_ATIVOS = [
@@ -27,6 +27,16 @@ const CHAMADOS_ATIVOS = [
 ]
 
 let promessaSessao = null
+
+const mensagemErroSuporte = (erro) => {
+  if (erro?.code === 'auth/operation-not-allowed') {
+    return 'O login anonimo do Firebase do suporte esta desativado. Ative Authentication > Sign-in method > Anonymous no projeto de suporte.'
+  }
+  if (erro?.code === 'permission-denied') {
+    return 'As regras do Firestore do suporte bloquearam o atendimento anonimo.'
+  }
+  return erro?.message || 'Falha ao iniciar o atendimento.'
+}
 
 const autenticarSuporte = async () => {
   if (promessaSessao) return promessaSessao
@@ -146,7 +156,7 @@ export const useSupportChat = () => {
       setSugestoes(respostas.filter((r) => r.sugestao).map((r) => r.pergunta || r.titulo).filter(Boolean))
       setCarregando(false)
     } catch (e) {
-      setErro(e.message || 'Falha ao iniciar o atendimento.')
+      setErro(mensagemErroSuporte(e))
       setCarregando(false)
     }
   }, [])
@@ -219,6 +229,7 @@ export const useSupportChat = () => {
       atualizadoEm: serverTimestamp(),
       naoLidasAdmin: 1,
     })
+    await gravarMensagem(AUTORES.IA, MENSAGEM_ATENDENTE_48H, { fonte: 'transferencia_humano' })
 
     fetch('/api/support/notify-telegram', {
       method: 'POST',
