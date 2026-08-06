@@ -1,8 +1,8 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { Suspense, useState } from 'react'
 import { Poppins } from 'next/font/google'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { signInWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
@@ -12,11 +12,13 @@ const poppins = Poppins({
   weight: ['400', '500', '600', '700'],
 })
 
-const Page = () => {
+const LoginForm = () => {
   const [senha, setSenha] = useState('')
   const [erro, setErro] = useState('')
   const [carregando, setCarregando] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const next = searchParams.get('next')
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -26,7 +28,7 @@ const Page = () => {
     try {
       await signInWithEmailAndPassword(auth, 'admin@dhpb.com', senha)
       localStorage.setItem('admin-authenticated', 'true')
-      router.push('/admin/dashboard')
+      router.push(next || '/admin/dashboard')
     } catch (err) {
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found') {
         setErro('Senha inválida.')
@@ -97,6 +99,14 @@ const Page = () => {
         </main>
       </div>
     </div>
+  )
+}
+
+const Page = () => {
+  return (
+    <Suspense fallback={<div className={`${poppins.className} w-full min-h-screen flex items-center justify-center`}><p className="text-[#82181A]">Carregando...</p></div>}>
+      <LoginForm />
+    </Suspense>
   )
 }
 

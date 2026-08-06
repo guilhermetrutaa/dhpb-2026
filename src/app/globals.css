@@ -25,6 +25,26 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Suporte DHPB - animações do widget de chat */
+@keyframes support-pop {
+  0% { opacity: 0; transform: scale(0.92) translateY(16px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes support-in {
+  0% { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes support-bounce {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+.animate-support-pop { animation: support-pop 0.28s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-support-in { animation: support-in 0.25s ease-out both; }
+.animate-support-bounce { animation: support-bounce 1.2s ease-in-out infinite; }
+
 /* TipTap rich text editor styles */
 .tiptap-editor {
   font-size: 0.95rem;

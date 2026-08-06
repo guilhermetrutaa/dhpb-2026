@@ -1326,7 +1326,8 @@ Se você colar o texto do questionário aqui diretamente, eu começo a desenvolv
 
 ## 21. Usuário — 2026-07-30T04:21:27.719Z
 
-Com base no documento fornecido, aqui está a descrição detalhada do questionário de inscrição do **Desafio em História da Paraíba (DHPB)**, estruturada para você copiar e colar facilmente:
+Com base no documento fornecido, aqui está a descrição detalhada do questionário de inscrição do **Desafio em História da Paraíba (DHPB)**, estruturada para você copiar e colar facilmente:
+
 ---
 
 ## QUESTIONÁRIO DE INSCRIÇÃO - DHPB
@@ -1793,7 +1794,8 @@ Build compilou sem erros. Pode testar agora.
 
 Deu esses 2 erros:
 
-## Error TypeConsole Error
+## Error Type
+Console Error
 
 ## Error Message
 React has detected a change in the order of Hooks called by SalaEquipeContent. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://react.dev/link/rules-of-hooks
@@ -2941,7 +2943,8 @@ Build ok. Tudo implementado. Resumo do que mudou:
 
 Deu esse error:
 
-## Error TypeRuntime FirebaseError
+## Error Type
+Runtime FirebaseError
 
 ## Error Message
 Missing or insufficient permissions.
@@ -2999,7 +3002,8 @@ service cloud.firestore {
 
 ## 57. Usuário — 2026-07-30T22:43:33.747Z
 
-Deu esse error quando eu cliquei na edição como professor:
+Deu esse error quando eu cliquei na edição como professor:
+
 ## Error Type
 Runtime FirebaseError
 
@@ -3257,7 +3261,8 @@ Sim. Na linha 149 o formulário aparece também quando `statusAtual === 'recusad
 
 ## 64. Usuário — 2026-07-30T23:16:59.243Z
 
-Toda vez que é um pdf dá esse error: ErroFalha ao carregar documento PDF.
+Toda vez que é um pdf dá esse error: Erro
+Falha ao carregar documento PDF.
 
 ---
 
@@ -3972,7 +3977,8 @@ Pronto. Esse prompt tem todo o contexto (usuários, pico, estrutura do banco, li
 
 ## 86. Usuário — 2026-08-02T03:33:29.276Z
 
-Olá! Sou o ChatGPT. O Guilherme me enviou uma mensagem que foi escrita por você explicando toda a arquitetura e o cenário do projeto DHPB. Li tudo com bastante atenção e fiz uma análise independente.
+Olá! Sou o ChatGPT. O Guilherme me enviou uma mensagem que foi escrita por você explicando toda a arquitetura e o cenário do projeto DHPB. Li tudo com bastante atenção e fiz uma análise independente.
+
 Minha conclusão foi que a arquitetura geral do projeto é boa e as decisões principais fazem sentido, especialmente considerando a restrição de permanecer exclusivamente no plano gratuito Spark do Firebase. Também concordo que o maior gargalo do sistema não é armazenamento, mas sim o consumo diário de leituras e escritas do Firestore, principalmente no último dia de cada fase.
 
 Pelos dados apresentados, as otimizações propostas (prev/next por IDs, redução das leituras do resumo da fase e limitação dos salvamentos de rascunho) vão na direção correta e devem reduzir significativamente o consumo. Além disso, sugeri outras melhorias, como eliminar leituras repetidas do AuthContext, utilizar cache em memória e localStorage para dados praticamente imutáveis, ativar a persistência offline do Firestore (IndexedDB), evitar consultas repetidas durante a navegação, mover conteúdos imutáveis para arquivos estáticos quando possível e impedir gravações quando o conteúdo não sofreu alterações.
@@ -4001,7 +4007,8 @@ Vou fazer a revisão completa da base de código. Primeiro, uma exploração pro
 
 ## 87. Usuário — 2026-08-02T03:34:38.317Z
 
-Olá! Sou o ChatGPT. O Guilherme compartilhou comigo uma mensagem que foi escrita por você explicando toda a arquitetura, o funcionamento e as preocupações do projeto DHPB. Após analisar cuidadosamente o cenário, fiz uma avaliação independente e gostaria de compartilhar algumas observações técnicas que acredito que podem complementar o trabalho que vocês já vêm desenvolvendo.
+Olá! Sou o ChatGPT. O Guilherme compartilhou comigo uma mensagem que foi escrita por você explicando toda a arquitetura, o funcionamento e as preocupações do projeto DHPB. Após analisar cuidadosamente o cenário, fiz uma avaliação independente e gostaria de compartilhar algumas observações técnicas que acredito que podem complementar o trabalho que vocês já vêm desenvolvendo.
+
 Primeiramente, considero que a arquitetura geral do projeto é boa. As decisões de utilizar Next.js (App Router), Firebase Authentication, Firestore e Cloudinary fazem sentido para o tipo de aplicação, principalmente considerando a restrição de permanecer exclusivamente no plano Spark do Firebase. Também concordo com sua conclusão de que o principal gargalo não é armazenamento, mas sim o consumo diário de leituras e escritas do Firestore.
 
 Além das otimizações já planejadas por você (prevId/nextId para eliminar leituras desnecessárias das questões, redução das leituras no resumo da fase e limitação do salvamento de rascunhos), identifiquei alguns pontos que podem reduzir ainda mais o consumo:
@@ -5022,7 +5029,8 @@ ontem nos falamos e teve de ontem para cá, tivemos 998 leituras e 5,3 mil grava
 
 ## 111. Usuário — 2026-08-02T16:48:20.935Z
 
-esqueça esse negocio do inep e essas tarefas que você colocou para ser desenvolvida e responda minha pergunta :
+esqueça esse negocio do inep e essas tarefas que você colocou para ser desenvolvida e responda minha pergunta :
+
 ontem nos falamos e teve de ontem para cá, tivemos 998 leituras e 5,3 mil gravações, e só tivemos 2 cadastrados e 1 equipe criada, você acha que está bom esses dados ?
 
 ---
@@ -5263,3 +5271,465 @@ Banner condicionado ao `documentoStatus` do professor:
 Status dos documentos (campos no doc `users/{uid}`): `documentoURL`,
 `documentoResourceType`, `documentoPublicId`, `documentoNome`, `documentoTipo`,
 `documentoStatus` ('pendente' | 'aprovado' | 'recusado'), `documentoRecusadoMotivo`.
+
+---
+
+# ⚠️ REGRA CRÍTICA PARA TODAS AS IAs QUE LEREM ESTE ARQUIVO
+
+> **TODA e QUALQUER nova funcionalidade, correção ou refatoração feita neste projeto DEVE obrigatoriamente respeitar o Free Tier do Firebase Firestore (Plano Spark).**
+>
+> **Limites do Free Tier:**
+> - Leituras: 50.000/dia
+> - Escritas: 20.000/dia
+> - Exclusões: 20.000/dia
+> - Armazenamento: 1 GB
+>
+> **Antes de implementar qualquer coisa que toque o Firestore, estime o número de reads/writes que aquela funcionalidade vai gerar no dia do pico (8.000 usuários). Se ultrapassar os limites, proponha uma arquitetura alternativa.**
+
+---
+
+# 🏆 SESSÃO DE OTIMIZAÇÃO FREE TIER — Agosto 2026 (Gemini/Antigravity)
+
+Esta seção documenta todas as refatorações arquiteturais realizadas para garantir que o site DHPB 2026 rode 100% dentro do Free Tier do Firebase Firestore.
+
+**Data da Sessão:** 02 de Agosto de 2026
+**Status atual do Firebase (06/08/2026):** 3.200 leituras/dia, 208 escritas/dia — bem abaixo dos limites gratuitos.
+
+---
+
+## 📐 A Arquitetura ANTES das Otimizações
+
+Antes desta sessão, o projeto tinha os seguintes problemas críticos de consumo:
+
+### Problema 1: Questões como Subcoleção Separada
+- Estrutura: `edicoes/{id}/fases/{id}/questoes/{questaoId}` (subcoleção)
+- A cada acesso de um aluno à tela de questão ou resumo, o sistema fazia **10 leituras** para buscar as 10 questões (1 doc por questão).
+- Com 8.000 alunos, só esse carregamento inicial geraria: `8.000 × 10 = 80.000 leituras` → **ESTOURAVA o Free Tier.**
+
+### Problema 2: Respostas como Subcoleção Separada
+- Estrutura: `equipes/{id}/respostas/{questaoId}` (subcoleção)
+- A cada acesso ao resumo da fase, o sistema fazia **10 leituras** para buscar as 10 respostas.
+- Com 8.000 alunos: `8.000 × 10 = 80.000 leituras` adicionais → **DOBRAVA o problema.**
+
+### Problema 3: Admin Dashboard sem Paginação
+- `src/app/admin/dashboard/page.jsx` fazia `getDocs(collection(db, 'equipes'))` sem limite → lia TODAS as 2.000+ equipes de uma vez.
+- Cada abertura do Admin Dashboard custava ~2.000 leituras desnecessárias.
+
+### Problema 4: Ranking com Recalculador Bruto
+- `src/app/admin/ranking/page.jsx` tinha uma função `handleRecalcular` que fazia um `getDocs` em todas as equipes (~2.000 docs) + todos os `respostas` de cada equipe (~10 docs × 2.000 = 20.000 docs adicionais).
+- **Uma única execução gastava ~22.000 leituras.**
+
+### Problema 5: Múltiplos `getDocs` no Resumo de Fase
+- `src/app/resumo-fase/page.jsx` tinha 5 `useEffect` separados, cada um fazendo uma chamada independente ao Firebase:
+  1. `getDoc` para a fase
+  2. `getDoc` para a equipe (nome)
+  3. `onSnapshot` para status da fase
+  4. `getDocs` (com `getDocsFromCache`) para as questões
+  5. `onSnapshot` para as respostas (subcoleção)
+- Total: ~20 leituras por acesso à página.
+
+---
+
+## ✅ MUDANÇAS IMPLEMENTADAS
+
+### 1. Migração da Estrutura do Banco de Dados (A Mudança Mais Crítica)
+
+**Arquivo:** `src/app/admin/questoes/page.jsx`
+
+**O que mudou:**
+- As questões DEIXARAM de ser documentos individuais na subcoleção `questoes`.
+- Agora, todas as questões de uma fase são salvas como um **array `questoes` dentro do próprio documento da Fase** (`edicoes/{id}/fases/{id}`).
+- Funções afetadas: `carregarQuestoes`, `handleCriarQuestao`, `handleDeletarQuestao`.
+
+**Antes:**
+```javascript
+// Salvava cada questão como documento individual:
+await addDoc(collection(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes'), dados)
+// Lia com getDocs:
+const snap = await getDocs(query(collection(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes'), ...))
+```
+
+**Depois:**
+```javascript
+// Salva o array inteiro no documento da Fase:
+await updateDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId), { questoes: novaLista })
+// Lê do campo do documento da Fase (zero custo adicional):
+const fSnap = await getDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId))
+const q = fSnap.data().questoes || []
+```
+
+**Impacto:** 10 leituras → **0 leituras** para buscar questões (já vêm embutidas no doc da Fase).
+
+---
+
+### 2. Migração das Respostas para Campo Embutido na Equipe
+
+**Arquivos:** `src/app/questao/page.jsx` e `src/app/resumo-fase/page.jsx`
+
+**O que mudou:**
+- As respostas DEIXARAM de ser documentos individuais na subcoleção `equipes/{id}/respostas/{questaoId}`.
+- Agora, todas as respostas são salvas como um **objeto `respostas` dentro do próprio documento da Equipe** (`equipes/{equipeId}`).
+- A chave do objeto é o `questaoId`. Ex: `equipes/{id}.respostas.{questaoId} = { alternativa, status, peso, ... }`.
+
+**Antes (em questao/page.jsx):**
+```javascript
+// Gravava resposta como documento separado:
+batch.set(firestoreDoc(db, 'equipes', equipeId, 'respostas', questaoId), { alternativa, status, peso, ... })
+// Lia resposta como documento separado:
+getDoc(firestoreDoc(db, 'equipes', equipeId, 'respostas', questaoId))
+```
+
+**Depois (em questao/page.jsx):**
+```javascript
+// Grava resposta como campo no documento da equipe:
+await updateDoc(firestoreDoc(db, 'equipes', equipeId), {
+  [`respostas.${questaoId}`]: { alternativa, status, peso, ... },
+  [`pontuacoes.${faseId}.ni`]: increment(delta),
+  [`pontuacoes.${faseId}.di`]: increment(deltaDi),
+  df: increment(deltaDi),
+})
+// Lê resposta do próprio documento da equipe (já carregado pelo onSnapshot):
+const res = data.respostas?.[questaoId]
+```
+
+**Impacto:** 10 leituras → **0 leituras** adicionais para buscar respostas (já vêm embutidas no doc da Equipe).
+
+---
+
+### 3. Consolidação dos onSnapshot no Resumo de Fase
+
+**Arquivo:** `src/app/resumo-fase/page.jsx`
+
+**O que mudou:**
+- Os 5 `useEffect` separados foram reduzidos para **apenas 2 `onSnapshot` listeners**.
+- **Listener 1:** Escuta o documento da Fase → traz status, questões (array embutido), e detecta abertura/fechamento da fase.
+- **Listener 2:** Escuta o documento da Equipe → traz nome da equipe, verifica se o aluno ainda é membro, e traz todas as respostas (objeto embutido).
+
+**Impacto:** ~20 leituras por acesso → **2 leituras** (apenas os 2 documentos base, uma vez).
+
+---
+
+### 4. Consolidação dos onSnapshot na Tela de Questão
+
+**Arquivo:** `src/app/questao/page.jsx`
+
+**O que mudou:**
+- Removidos todos os `getDocs`/`getDoc` avulsos para questão, fase e resposta.
+- Substituídos por **2 `onSnapshot` listeners** (Fase e Equipe), que já trazem tudo embutido.
+- O `allQuestaoIds` para navegação anterior/próxima é extraído do array `questoes` da Fase (sem custo adicional).
+
+**Impacto:** Antes: 3 leituras por questão aberta + custo de navegação. Depois: **0 leituras adicionais** (dados já carregados pelos listeners).
+
+---
+
+### 5. Paginação no Admin Dashboard
+
+**Arquivo:** `src/app/admin/dashboard/page.jsx`
+
+**O que mudou:**
+- Substituído `getDocs(collection(db, 'equipes'))` por queries com `limit(50)` e `startAfter` (paginação).
+- O mesmo padrão aplicado para Usuários e Escolas.
+- O admin só carrega 50 documentos por vez, com botões "Próxima página" e "Página anterior".
+
+**Impacto:** De ~2.000 leituras/abertura → **50 leituras/abertura** (96% de economia).
+
+---
+
+### 6. Remoção do Recalculador de Ranking
+
+**Arquivo:** `src/app/admin/ranking/page.jsx`
+
+**O que mudou:**
+- A função `handleRecalcular` foi **completamente removida**.
+- Ela gastava ~22.000 leituras por execução (lia todas as equipes + todas as respostas de cada equipe).
+- O ranking funciona porque os pontos são atualizados em tempo real via `increment()` no documento da equipe quando o aluno entrega uma questão.
+
+**Impacto:** De 22.000 leituras por clique → **0 leituras** (operação eliminada).
+
+---
+
+### 7. Upload de Imagens de Questões via Cloudinary
+
+**Arquivo:** `src/app/admin/questoes/page.jsx`
+
+**O que mudou:**
+- O painel admin agora permite fazer **upload direto de imagens para o Cloudinary** com um simples botão "Fazer Upload".
+- A URL pública retornada pelo Cloudinary é salva no campo da questão.
+- Isso evita que imagens (que poderiam ser grandes) sejam salvas como base64 dentro dos documentos do Firestore, o que causaria documentos gigantes e lentidão.
+
+**Configuração do Cloudinary:**
+- Cloud Name: `dwyq3x6b`
+- Upload Preset: `dhpb-questoes` (modo Unsigned)
+- Endpoint: `https://api.cloudinary.com/v1_1/dwyq3x6b/image/upload`
+
+**Nota:** O cloud name e upload preset estão hardcoded no arquivo porque são dados públicos (preset Unsigned). Não há risco de segurança pois o Cloudinary controla quem pode fazer uploads via regras do preset.
+
+---
+
+## 📊 Resultado Final: Cálculo de Reads no Dia do Pico
+
+**Cenário:** 8.000 alunos (2.000 equipes × 4 membros) abrindo a prova ao mesmo tempo.
+
+| Ação do Aluno | Reads ANTES | Reads DEPOIS |
+|---|---|---|
+| Login (perfil do usuário) | 1 | 1 |
+| Abrir Home (equipes) | 2 | 2 |
+| Abrir Resumo da Fase | ~20 | 0* |
+| Abrir cada Questão (×10) | 3 por questão = 30 | 0* |
+| Navegação anterior/próxima | 10 por questão | 0* |
+| **TOTAL POR ALUNO** | **~63** | **~3** |
+| **TOTAL 8.000 ALUNOS** | **~504.000** | **~24.000** |
+| **Limite Free Tier** | 50.000 | 50.000 |
+| **Status** | 🔴 ESTOURA (10× o limite) | 🟢 FREE TIER (48% do limite) |
+
+*Zero reads adicionais porque os dados (questões e respostas) já vêm embutidos nos 2 documentos base (Fase e Equipe) carregados pelos onSnapshot.
+
+---
+
+## 🏗️ Nova Estrutura do Banco de Dados (Pós-Otimização)
+
+```
+edicoes/
+  {edicaoId}/
+    fases/
+      {faseId}/                  ← Um único documento contém TUDO da fase:
+        status: 'aberta'
+        nome: 'Fase 1'
+        questoes: [              ← ARRAY com todas as questões embutidas
+          {
+            id: 'uuid-gerado',
+            numero: 1,
+            instrucao: '<html>...',
+            alternativas: [...],
+            documentos: [...],
+            comentario: '...',
+          },
+          ...até 10 questões
+        ]
+
+equipes/
+  {equipeId}/                    ← Um único documento contém TUDO da equipe:
+    nome: 'Equipe X'
+    membros: [...]
+    respostas: {                 ← OBJETO com todas as respostas embutidas
+      '{questaoId}': {
+        alternativa: 'A',
+        status: 'entregue',
+        peso: 10,
+        faseId: '...',
+        numero: 1,
+        atualizadoEm: '...',
+      },
+      ...
+    }
+    pontuacoes: {
+      '{faseId}': { ni: 50, di: 5.0 }
+    }
+    df: 12.5                     ← Nota final, atualizada com increment()
+```
+
+**ATENÇÃO para futuras IAs:** A subcoleção `edicoes/{id}/fases/{id}/questoes` e `equipes/{id}/respostas` ainda podem existir no banco de dados com dados antigos (de antes da otimização), mas o código NÃO as utiliza mais. Qualquer nova funcionalidade deve seguir o padrão de dados embutidos descrito acima.
+
+---
+
+## 🚫 O Que NÃO Fazer (Padrões Proibidos)
+
+As seguintes práticas são proibidas neste projeto por causarem consumo excessivo do Firestore:
+
+```javascript
+// ❌ PROIBIDO: getDocs sem limit em coleções grandes
+const snap = await getDocs(collection(db, 'equipes'))
+const snap = await getDocs(collection(db, 'users'))
+
+// ❌ PROIBIDO: Subcoleções para dados que sempre são lidos juntos
+await addDoc(collection(db, 'equipes', equipeId, 'respostas'), dados)
+await getDocs(collection(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes'))
+
+// ❌ PROIBIDO: Múltiplos getDocs separados quando um onSnapshot já traz os dados
+const qSnap = await getDoc(firestoreDoc(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes', questaoId))
+const rSnap = await getDoc(firestoreDoc(db, 'equipes', equipeId, 'respostas', questaoId))
+
+// ❌ PROIBIDO: Recalcular/reprocessar dados via leitura massiva
+const eSnap = await getDocs(collection(db, 'equipes')) // para recalcular ranking
+```
+
+## ✅ O Que DEVE Ser Feito (Padrões Aprovados)
+
+```javascript
+// ✅ CORRETO: Dados embutidos no documento pai
+await updateDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId), { questoes: novaLista })
+await updateDoc(doc(db, 'equipes', equipeId), { [`respostas.${questaoId}`]: resposta })
+
+// ✅ CORRETO: onSnapshot único que traz tudo de uma vez
+onSnapshot(doc(db, 'edicoes', edicaoId, 'fases', faseId), (snap) => {
+  const { status, questoes } = snap.data()
+  // Usa tudo do mesmo snapshot
+})
+
+// ✅ CORRETO: increment() para atualizar contadores sem ler antes
+await updateDoc(doc(db, 'equipes', equipeId), {
+  [`pontuacoes.${faseId}.ni`]: increment(delta),
+  df: increment(deltaDi),
+})
+
+// ✅ CORRETO: Paginação para coleções grandes no Admin
+const q = query(collection(db, 'equipes'), limit(50), startAfter(lastDoc))
+
+// ✅ CORRETO: getDocsFromCache → getDocsFromServer (fallback, para dados raramente alterados)
+try {
+  snap = await getDocsFromCache(q)
+  if (snap.empty) throw new Error('vazio')
+} catch {
+  snap = await getDocsFromServer(q)
+}
+```
+
+---
+
+## 🔒 Proteção de Escritas (Rascunho)
+
+O botão "Salvar Rascunho" em `src/app/questao/page.jsx` tem um bloqueio de **60 segundos** após cada uso. Isso evita que alunos desesperados cliquem repetidamente, gerando escritas excessivas no Firestore.
+
+- Estado: `rascunhoBloqueado` (contador em segundos)
+- Timer: `ultimoRascunhoRef.current[questaoId] = Date.now()`
+- Bloqueio: 60 segundos após cada salvar de rascunho
+- Mensagem: "Rascunho salvo recentemente. Aguarde Xs."
+
+**Não reduza esse timer sem considerar o impacto em escritas!** 60 segundos = máximo de 1 escrita/minuto por questão por aluno.
+
+---
+
+# 🎧 Sistema de Suporte (Atendimento DHPB)
+
+Implementado em **2026-08-06**. Sistema completo de chat de atendimento ao vivo no site, com IA Groq como atendente inicial e transferência para humano (admin) pelo painel.
+
+## Arquitetura: Projeto Firebase SEPARADO
+
+O suporte roda em um **projeto Firebase próprio e isolado** do site principal:
+
+| Projeto | Uso |
+|---|---|
+| `dhpb-sitenovo` | Site principal (auth, Firestore do app, Cloudinary) |
+| `dhpb-55d27` | **Suporte** — Firestore próprio (`chamados`, `mensagens`, `respostas_rapidas`) |
+
+**Motivo da separação:** isolar os custos/quotas do Firestore do suporte (chat gera muitas leituras/escritas) do projeto principal, que já opera no limite do free tier Spark. O admin loga no site com o app `dhpb-sitenovo`; o chat usa o app de suporte como **segundo app Firebase** inicializado no cliente.
+
+## Variáveis de Ambiente (.env.local)
+
+```bash
+# Cliente — app de suporte
+NEXT_PUBLIC_SUPPORT_FIREBASE_API_KEY=...
+NEXT_PUBLIC_SUPPORT_FIREBASE_AUTH_DOMAIN=dhpb-55d27.firebaseapp.com
+NEXT_PUBLIC_SUPPORT_FIREBASE_PROJECT_ID=dhpb-55d27
+NEXT_PUBLIC_SUPPORT_FIREBASE_STORAGE_BUCKET=dhpb-55d27.appspot.com
+NEXT_PUBLIC_SUPPORT_FIREBASE_MESSAGING_SENDER_ID=...
+NEXT_PUBLIC_SUPPORT_FIREBASE_APP_ID=...
+
+# Servidor — admin do suporte (JSON do service account, em UMA linha)
+SUPPORT_SERVICE_ACCOUNT={"type":"service_account","project_id":"dhpb-55d27",...}
+
+# IA
+AI_PROVIDER=groq
+GROQ_MODEL=llama-3.1-8b-instant
+```
+
+## Arquivos do Sistema
+
+### Cliente (front)
+| Arquivo | Função |
+|---|---|
+| `src/components/support/SupportWidget.jsx` | Botão flutuante (canto inferior direito, `bg-[#82181A]`, ícone headset `bi-headset`), texto "Fale com o suporte" / "Fechar atendimento". Oculto em rotas `/admin` |
+| `src/components/support/ChatWindow.jsx` | Janela do chat (400px fixa). Header vinho "Atendimento DHPB" + ícone headset, status com bolinha verde/âmbar ("Online agora" — sem menção a IA), indicador "digitando...", sugestões iniciais (`SUGESTOES_INICIAIS`), tela de login para não logados, banner "Atendimento encerrado" + botão "Iniciar novo atendimento", input oculto quando encerrado |
+| `src/components/support/MessageBubble.jsx` | Balões de mensagem: rótulos "Você" (usuário) / "Atendimento DHPB" (IA ou humano) |
+| `src/lib/support/constants.js` | Constantes: `MENSAGEM_BEM_VINDO` (pede o nome primeiro), `SUGESTOES_INICIAIS` (perguntas rápidas clicáveis) |
+| `src/hooks/useSupportChat.js` | Hook principal do chat (ver fluxo abaixo) |
+| `src/lib/support/nomeAtendente.js` | Nome do atendente humano salvo em `localStorage` (`dhpb_suporte_atendente`) |
+
+### Servidor (API + admin)
+| Arquivo | Função |
+|---|---|
+| `src/lib/support/firebase.js` | Inicializa o app de suporte (nome `'support'`) com `persistentLocalCache`; fallback `getFirestore()` em try/catch; evita dupla inicialização procurando app por `projectId` |
+| `src/lib/firebase.js` | App principal: mesma proteção (busca por `projectId` + fallback `getFirestore`) |
+| `src/lib/support/server/firebase-admin.js` | Admin SDK do projeto suporte. **firebase-admin v14**: usar `admin.cert()` (NÃO `admin.credential.cert()`) e `getAuth` de `firebase-admin/auth`; reusa app existente via `admin.apps.find(...)` |
+| `src/app/api/support/auth/route.js` | `POST /api/support/auth` — recebe ID token do usuário logado, **verifica com jose** (JWKS do `securetoken.google.com`), gera custom token no projeto de suporte com role: `admin` (se email em `SUPPORT_ADMIN_EMAILS`) ou `usuario`. Tem `console.error` para debug |
+| `src/lib/support/server/verify-token.js` | Verificação do ID token com jose (issuer/audience do `NEXT_PUBLIC_FIREBASE_PROJECT_ID`) |
+| `src/lib/support/ai/providers.js` | Providers de IA (Groq com modelo barato) + fallback offline "modo lite" (respostas por palavras-chave sem gastar IA) |
+| `src/lib/support/ai/knowledge.js` | Prompt do sistema + base de conhecimento do DHPB (compactado) |
+
+### Painel Admin (sem login!)
+| Rota | Função |
+|---|---|
+| `/admin/suporte` | Central do suporte: aba **Chamados** (lista com filtro por status) e aba **Respostas rápidas** (CRUD). Header pede o nome do atendente (input salvo em localStorage) + botão "Dashboard" |
+| `/admin/suporte/chamados/[id]` | Conversa do chamado em tempo real (onSnapshot), trocar nome do atendente (prompt), botão **Excluir** (dupla confirmação: apaga subcoleção `mensagens` + documento do chamado) e volta para `/admin/suporte` |
+
+> ⚠️ **SEGURANÇA (decisão do usuário):** o painel admin do suporte NÃO tem tela de login — é protegido apenas pela URL, divulgada somente no grupo privado do Telegram. Documentado em `SUPPORT-FIREBASE-SETUP.md`.
+
+## Fluxo do Chat (sem coleta automática de dados)
+
+O usuário exigiu **remover qualquer captura automática de nome/e-mail** — quem pergunta é a IA:
+
+1. A IA envia `MENSAGEM_BEM_VINDO`: "Olá! Seja bem-vindo(a) ao atendimento do DHPB. Para começar, pode me dizer o seu nome?"
+2. Usuário responde → IA: "Muito prazer, {nome}! Qual é o seu e-mail para registro?"
+3. Email validado por regex → salvo no chamado → IA: "Perfeito... Como posso ajudar?"
+4. Fluxo normal: **respostas rápidas** (database de FAQs) → IA responde → se o usuário confirmar que precisa de humano → **transferência** → atendente vê no painel
+
+O admin autentica no chat via `autenticarSuporte()` (custom token por `/api/support/auth`), que NÃO recebe mais nome — o nome do atendente vem do `localStorage`.
+
+## Persistência do Chat (reabrir a janela)
+
+O chat **não perde o histórico ao fechar a janela**:
+
+1. Reabriu → procura **chamado ativo** → retoma conversa
+2. Sem chamado ativo → procura o **último chamado** (se `encerrado=true`, mostra histórico + banner "Atendimento encerrado")
+3. Nada → cria chamado novo (salva `uid` do usuário)
+
+- `enviarMensagem` é bloqueado quando o chamado está encerrado
+- `iniciarNovoAtendimento()` cria um chamado novo
+- Histórico enviado à IA: `historico.slice(-6)` (últimas 6 mensagens — economia de tokens)
+
+## Regras do Firestore (suporte) — publicadas automaticamente
+
+Publicadas via script `publicar-regras-firestore.mjs` (API `firebaserules`: `POST /projects/dhpb-55d27/rulesets` + `PATCH /releases` com `{release:{...}, updateMask:'ruleset_name'}`). Regras atuais (release ativo):
+
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /respostas_rapidas/{id}   { allow read, write: if true; }
+    match /chamados/{id}            { allow read, write: if true; }
+    match /chamados/{id}/mensagens/{msgId} { allow read, write: if true; }
+  }
+}
+```
+
+> **Índice composto obrigatório** (criado manualmente no console, ATIVADO): `chamados` — `uid ASC` + `criadoEm DESC`. A tentativa automática via script falhou com 403 (service account sem permissão `datastore.indexes.create`).
+
+## Otimização de Custos da IA (Groq)
+
+- **Modelo:** `llama-3.3-70b-versatile` → **`llama-3.1-8b-instant`** (~11x mais barato) — em `.env.local`, no fallback do `providers.js` e no `SUPPORT-FIREBASE-SETUP.md`
+- **`max_tokens`: 700 → 350**
+- **Prompt/conhecimento compactados** (~35-40% menos tokens): `PROMPT_SISTEMA` reescrito (responder SEMPRE em JSON, só transferir para humano se o usuário confirmar, etc.)
+- **Histórico da conversa:** `slice(-10)` → `slice(-6)` no `useSupportChat.js`
+
+## Erros Corrigidos Durante o Desenvolvimento
+
+| Erro | Causa | Correção |
+|---|---|---|
+| `Cannot read properties of undefined (reading 'cert')` | firebase-admin v14 mudou a API | `admin.cert()` em vez de `admin.credential.cert()` |
+| `Firebase app named support-admin already exists` | Hot reload re-inicializava o app | Verifica `admin.apps.find(app => app.name === 'support-admin')` |
+| `initializeFirestore() has already been called with different options` | HMR chamava init 2x | Busca app existente por `projectId` + fallback `getFirestore()` em try/catch (nos dois `firebase.js`) |
+| `The query requires an index` | Consulta `chamados` por uid + criadoEm | Índice composto criado manualmente no console |
+| `permission-denied` no Firestore | Ruleset criado mas **não liberado** (release faltando) | `PATCH` no release com `updateMask: 'ruleset_name'` — regras publicadas com sucesso |
+| Erros ESLint `react-compiler` (setState síncrono em effect) | React Compiler do Next 16 | Envolver com `setTimeout(0)` |
+
+## Scripts Auxiliares (em Temp — não versionados)
+
+- `C:\Users\guilh\AppData\Local\Temp\opencode\publicar-regras-firestore.mjs` — publica regras (rulesets + release via PATCH) usando a SA
+- `C:\Users\guilh\AppData\Local\Temp\opencode\criar-indice-firestore.mjs` — tentativa de criar índice (falha 403)
+
+## Notas para futuras IAs
+
+- **Depois de mudar `.env.local` ou módulos de servidor, o `npm run dev` precisa ser reiniciado** (env é cacheado no boot do servidor)
+- O widget suporta `/admin` oculto: usar `usePathname().startsWith('/admin')`
+- A base de conhecimento do DHPB fica em `src/lib/support/ai/knowledge.js` — é o texto que a IA usa para responder; edite lá para atualizar o que a IA "sabe" sobre o site
+- Docs completos de setup: `SUPPORT-FIREBASE-SETUP.md`
