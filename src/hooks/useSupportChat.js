@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { onAuthStateChanged, signInWithCustomToken, signOut } from 'firebase/auth'
+import { onAuthStateChanged, signInAnonymously, signOut } from 'firebase/auth'
 import {
   addDoc,
   collection,
@@ -16,7 +16,6 @@ import {
   where,
 } from 'firebase/firestore'
 import { supportAuth, supportDb } from '@/lib/support/firebase'
-import { auth } from '@/lib/firebase'
 import { AUTORES, MENSAGEM_ERRO_IA, STATUS_CHAMADO } from '@/lib/support/constants'
 import { buscarRespostasRapidas, encontrarRespostaRapida } from '@/lib/support/respostasRapidas'
 
@@ -30,21 +29,11 @@ const CHAMADOS_ATIVOS = [
 let promessaSessao = null
 
 const autenticarSuporte = async () => {
-  if (!auth.currentUser) throw new Error('Não autenticado no DHPB')
-
   if (promessaSessao) return promessaSessao
 
   promessaSessao = (async () => {
-    const tokenId = await auth.currentUser.getIdToken(true)
-    const res = await fetch('/api/support/auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tokenId }),
-    })
-    if (!res.ok) throw new Error('Falha ao autenticar no suporte')
-    const { customToken, role, email } = await res.json()
-    await signInWithCustomToken(supportAuth, customToken)
-    return { role, email, nome: '' }
+    const usuario = supportAuth.currentUser || (await signInAnonymously(supportAuth)).user
+    return { role: 'usuario', email: '', nome: '', uid: usuario.uid }
   })().finally(() => {
     setTimeout(() => {
       promessaSessao = null

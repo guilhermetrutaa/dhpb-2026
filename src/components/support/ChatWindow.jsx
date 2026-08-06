@@ -2,9 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Poppins } from 'next/font/google'
-import { useRouter } from 'next/navigation'
 import { useSupportChat } from '@/hooks/useSupportChat'
-import { useAuth } from '@/context/AuthContext'
 import {
   AUTORES,
   MENSAGEM_BEM_VINDO,
@@ -38,17 +36,15 @@ const IndicadorDigitando = () => (
 )
 
 const ChatWindow = ({ onFechar }) => {
-  const router = useRouter()
-  const { authUser, loading } = useAuth()
   const chat = useSupportChat()
   const { sessao, chamado, mensagens, carregando, digitando, erro, sugestoes, coleta, encerrado, inicializar, iniciarNovoAtendimento, enviarMensagem } = chat
   const [texto, setTexto] = useState('')
   const fimRef = useRef(null)
 
   useEffect(() => {
-    if (!authUser || sessao || carregando) return
+    if (sessao || carregando) return
     inicializar()
-  }, [authUser, sessao, carregando, inicializar])
+  }, [sessao, carregando, inicializar])
 
   useEffect(() => {
     fimRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -75,7 +71,6 @@ const ChatWindow = ({ onFechar }) => {
       : STATUS_LABELS[chamado.status]
     : 'Online agora'
 
-  const semLogin = !authUser && !loading
   const sugestoesExibidas = sugestoes.length > 0 ? sugestoes : SUGESTOES_INICIAIS
   const mensagensExibidas =
     mensagens.length === 0
@@ -117,22 +112,7 @@ const ChatWindow = ({ onFechar }) => {
       </header>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-neutral-50/50">
-        {semLogin ? (
-          <div className="h-full flex flex-col items-center justify-center text-center gap-4 px-6">
-            <div className="w-14 h-14 rounded-full bg-[#82181A]/10 flex items-center justify-center">
-              <IconeHeadset />
-            </div>
-            <p className="text-sm text-neutral-600">
-              Entre na sua conta para falar com o atendimento do DHPB.
-            </p>
-            <button
-              onClick={() => router.push('/login')}
-              className="bg-[#82181A] text-white text-sm font-semibold px-8 py-3 rounded-xl hover:bg-[#631214] transition-colors cursor-pointer"
-            >
-              Fazer login
-            </button>
-          </div>
-        ) : carregando ? (
+        {carregando ? (
           <div className="h-full flex items-center justify-center">
             <div className="w-8 h-8 border-2 border-[#82181A] border-t-transparent rounded-full animate-spin" />
           </div>
@@ -178,7 +158,7 @@ const ChatWindow = ({ onFechar }) => {
         )}
       </div>
 
-      {!semLogin && !carregando && !encerrado && (
+      {!carregando && !encerrado && (
         <footer className="border-t border-neutral-200 p-3 bg-white shrink-0">
           <div className="flex items-end gap-2">
             <textarea
