@@ -5733,3 +5733,18 @@ service cloud.firestore {
 - O widget suporta `/admin` oculto: usar `usePathname().startsWith('/admin')`
 - A base de conhecimento do DHPB fica em `src/lib/support/ai/knowledge.js` — é o texto que a IA usa para responder; edite lá para atualizar o que a IA "sabe" sobre o site
 - Docs completos de setup: `SUPPORT-FIREBASE-SETUP.md`
+
+## Novas Funcionalidades e Correções (Agosto/2026)
+
+### 1. Correção de Equipes Duplicadas
+- **Problema:** A trava de criação de equipes com nomes duplicados estava usando o campo `nomeNormalized`, que as equipes mais antigas não possuíam, permitindo o bypass da regra.
+- **Solução:** O bloqueio na criação de equipes (`src/app/criar-equipe/page.jsx`) foi alterado para consultar o campo `nomeLower`, garantindo que o bloqueio considere 100% das equipes.
+- **Limpeza:** Foi criado um botão (temporário) no painel de administração (`/admin/dashboard`) capaz de varrer o banco e renomear as duplicatas antigas adicionando um sufixo numérico (ex: "Nome da Equipe 1").
+
+### 2. Edição de Nome da Equipe
+- **Onde:** Na página de montagem de equipe (`src/app/montagem-equipe/page.jsx`).
+- **Regras Otimizadas para o Free Tier (Custo de 2 Reads e 1 Write ao Salvar):**
+  - **Permissão UI:** O botão (ícone de lápis) só aparece para o Professor Orientador ou Aluno Responsável.
+  - **Cooldown de 25 Dias:** Verificado através do campo `ultimoNomeEditadoEm` gravado no documento da equipe (nenhuma leitura adicional no Firebase é gasta para checar essa regra).
+  - **Bloqueio Pós-Inscrições:** O sistema gasta **1 Read** na coleção de `fases` no momento exato de salvar, para verificar se alguma fase já foi iniciada (status diferente de "pendente"). Se sim, bloqueia a mudança.
+  - **Prevenção de Duplicatas:** O sistema gasta **1 Read** na coleção de `equipes` testando o `nomeLower` antes de autorizar e regravar o documento com o novo nome.

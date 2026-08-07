@@ -207,12 +207,12 @@ function CriarEquipeForm() {
     setCarregando(true)
 
     try {
-      // Check for duplicate team name
-      const nomeNormalized = normalizarNome(nomeEquipe)
+      // Check for duplicate team name using nomeLower (to catch older teams)
+      const nomeLowerBusca = nomeEquipe.trim().toLowerCase()
       const dupSnap = await getDocs(query(
         collection(db, 'equipes'),
         where('edicaoId', '==', edicaoId),
-        where('nomeNormalized', '==', nomeNormalized)
+        where('nomeLower', '==', nomeLowerBusca)
       ))
       if (!dupSnap.empty) {
         setErro('Já existe uma equipe com nome similar nesta edição.')
@@ -225,8 +225,8 @@ function CriarEquipeForm() {
       const equipeRef = await addDoc(collection(db, 'equipes'), {
         edicaoId,
         nome: nomeEquipe.trim(),
-        nomeLower: nomeEquipe.trim().toLowerCase(),
-        nomeNormalized,
+        nomeLower: nomeLowerBusca,
+        nomeNormalized: normalizarNome(nomeEquipe),
         escola: escolaSelecionada.nome,
         escolaId: escolaSelecionada.id,
         tipoEscola,

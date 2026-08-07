@@ -50,11 +50,51 @@ function TabEquipes() {
     setTemMais(eSnap.docs.length === 50)
   }
 
+  const handleCorrigirDuplicadas = async () => {
+    if (!window.confirm('Custo de ~2.000 leituras. Isto irá varrer todas as equipes e renomear as duplicadas. Tem certeza?')) return
+    setCarregando(true)
+    try {
+      const snap = await getDocs(collection(db, 'equipes'))
+      const map = {}
+      snap.docs.forEach(d => {
+        const data = d.data()
+        const key = `${data.edicaoId}_${data.nomeLower}`
+        if (!map[key]) map[key] = []
+        map[key].push({ id: d.id, createdAt: new Date(data.createdAt || 0).getTime(), nome: data.nome })
+      })
+
+      let corrigidas = 0
+      for (const key in map) {
+        if (map[key].length > 1) {
+          map[key].sort((a, b) => a.createdAt - b.createdAt) // Mais antigas primeiro
+          for (let i = 1; i < map[key].length; i++) {
+            const eq = map[key][i]
+            const novoNome = `${eq.nome} ${i}`
+            await updateDoc(doc(db, 'equipes', eq.id), {
+              nome: novoNome,
+              nomeLower: novoNome.toLowerCase()
+            })
+            corrigidas++
+          }
+        }
+      }
+      alert(`Feito! ${corrigidas} equipes duplicadas foram renomeadas. Atualize a página.`)
+    } catch (err) {
+      alert('Erro: ' + err.message)
+    }
+    window.location.reload()
+  }
+
   if (carregando) return <p className='text-neutral-400 text-sm text-center py-10'>Carregando...</p>
   if (equipes.length === 0) return <p className='text-neutral-400 text-sm text-center py-10'>Nenhuma equipe cadastrada.</p>
 
   return (
     <div className='space-y-3'>
+      <div className='flex justify-end'>
+        <button onClick={handleCorrigirDuplicadas} className='text-xs bg-red-100 text-red-700 px-3 py-1 rounded-md hover:bg-red-200 transition-colors cursor-pointer font-bold'>
+          Corrigir Equipes Duplicadas
+        </button>
+      </div>
       {equipes.map((eq) => (
         <div key={eq.id} className='bg-white rounded-xl border border-neutral-200 p-4'>
           <button onClick={() => setExpanded(expanded === eq.id ? null : eq.id)}
@@ -400,7 +440,7 @@ const Page = () => {
                   ) : (
                     edicoes.map((ed) => (
                       <div key={ed.id} className='border border-neutral-200 rounded-xl overflow-hidden'>
-                        <button onClick={() => abrirEdicao(ed.id)}
+                        <div onClick={() => abrirEdicao(ed.id)}
                           className='w-full flex items-center justify-between p-4 hover:bg-neutral-50 transition-colors cursor-pointer'>
                           <div className='flex items-center gap-3'>
                             <div className='w-9 h-9 rounded-xl bg-[#82181A]/10 flex items-center justify-center font-bold text-[#82181A]'>{ed.nome?.charAt(0) || '?'}</div>
@@ -420,7 +460,7 @@ const Page = () => {
                               <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M19 9l-7 7-7-7' />
                             </svg>
                           </div>
-                        </button>
+                        </div>
 
                         {edicaoAberta === ed.id && (
                           <div className='border-t border-neutral-100 bg-neutral-50/50 p-4 space-y-4'>

@@ -20,6 +20,9 @@ function SingleTeamView({ equipeId, authUser, userData }) {
   const [slotInputs, setSlotInputs] = useState({})
   const [erro, setErro] = useState('')
   const [sucesso, setSucesso] = useState('')
+  
+  const [editandoNome, setEditandoNome] = useState(false)
+  const [novoNomeEquipe, setNovoNomeEquipe] = useState('')
 
   useEffect(() => {
     if (!equipeId) return
@@ -155,6 +158,57 @@ function SingleTeamView({ equipeId, authUser, userData }) {
     }
   }
 
+  const handleSalvarNome = async () => {
+    if (!novoNomeEquipe.trim()) { setErro('O nome da equipe não pode ser vazio.'); return }
+    if (novoNomeEquipe.trim() === equipe.nome) { setEditandoNome(false); return }
+
+    setCarregando(true)
+    setErro('')
+    try {
+      if (equipe.ultimoNomeEditadoEm) {
+        const diffDias = (Date.now() - equipe.ultimoNomeEditadoEm) / (1000 * 60 * 60 * 24)
+        if (diffDias < 25) {
+          setErro(`O nome só pode ser alterado a cada 25 dias. Tente novamente em ${Math.ceil(25 - diffDias)} dias.`)
+          setCarregando(false)
+          return
+        }
+      }
+
+      const fSnap = await getDocs(collection(db, 'edicoes', equipe.edicaoId, 'fases'))
+      const fasesIniciadas = fSnap.docs.some(d => d.data().status && d.data().status !== 'pendente')
+      if (fasesIniciadas) {
+        setErro('Não é possível alterar o nome porque a competição (fases) já foi iniciada.')
+        setCarregando(false)
+        return
+      }
+
+      const nomeLowerBusca = novoNomeEquipe.trim().toLowerCase()
+      const dupSnap = await getDocs(query(
+        collection(db, 'equipes'),
+        where('edicaoId', '==', equipe.edicaoId),
+        where('nomeLower', '==', nomeLowerBusca)
+      ))
+      if (!dupSnap.empty) {
+        setErro('Já existe uma equipe com este nome nesta edição.')
+        setCarregando(false)
+        return
+      }
+
+      await updateDoc(doc(db, 'equipes', equipeId), {
+        nome: novoNomeEquipe.trim(),
+        nomeLower: nomeLowerBusca,
+        ultimoNomeEditadoEm: Date.now()
+      })
+      
+      setSucesso('Nome da equipe alterado com sucesso!')
+      setEditandoNome(false)
+      setTimeout(() => setSucesso(''), 3000)
+    } catch (err) {
+      setErro('Erro ao alterar nome: ' + err.message)
+    }
+    setCarregando(false)
+  }
+
   const placeholderSlot = (slot) => {
     if (slot.papel === 'professor_orientador') return 'professor orientador'
     if (slot.papel === 'responsavel') return 'responsável'
@@ -191,9 +245,34 @@ function SingleTeamView({ equipeId, authUser, userData }) {
                   <p className="text-[13px] leading-tight text-white/80">Equipe #</p>
                   <p className="text-[13px] leading-tight text-white/80">{equipe.id}</p>
                 </div>
-                <h2 className="text-[1.35rem] font-medium leading-tight text-white sm:text-[1.55rem]">
-                  {equipe.nome || 'Nome da equipe'}
-                </h2>
+                <div className="flex items-center gap-3">
+                  {editandoNome ? (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <input 
+                        type="text" 
+                        value={novoNomeEquipe} 
+                        onChange={e => setNovoNomeEquipe(e.target.value)}
+                        className="text-black px-2 py-1 rounded-sm text-sm outline-none"
+                      />
+                      <button onClick={handleSalvarNome} className="bg-[#82181A] text-white px-3 py-1 rounded-sm text-xs font-semibold cursor-pointer">Salvar</button>
+                      <button onClick={() => setEditandoNome(false)} className="bg-gray-400 text-white px-3 py-1 rounded-sm text-xs font-semibold cursor-pointer">Cancelar</button>
+                    </div>
+                  ) : (
+                    <>
+                      <h2 className="text-[1.35rem] font-medium leading-tight text-white sm:text-[1.55rem]">
+                        {equipe.nome || 'Nome da equipe'}
+                      </h2>
+                      {podeAddMembro && (
+                        <button onClick={() => { setNovoNomeEquipe(equipe.nome); setEditandoNome(true) }} className="text-white/60 hover:text-white transition-colors cursor-pointer" title="Editar nome da equipe">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-pencil-square" viewBox="0 0 16 16">
+                            <path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/>
+                            <path fillRule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5z"/>
+                          </svg>
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-3 pt-10 text-[13px] leading-tight text-white/80 sm:max-w-[180px]">
