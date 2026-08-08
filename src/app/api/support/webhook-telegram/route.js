@@ -44,10 +44,10 @@ const assumirAtendimento = async (cb) => {
   const chamadoId = String(cb.data || '').replace('assumir_', '').trim()
   const telegramId = String(cb.from?.id || '')
   const nomeAtendente = cb.from?.first_name || cb.from?.username || 'Atendente'
+  const callbackRespondido = await responderCallback(cb.id, 'Processando atendimento...')
 
   if (!chamadoId || !telegramId) {
-    await responderCallback(cb.id, 'Chamado invalido.', true)
-    return NextResponse.json({ ok: false, erro: 'callback invalido' }, { status: 400 })
+    return NextResponse.json({ ok: true, erro: 'callback invalido' })
   }
 
   try {
@@ -56,8 +56,13 @@ const assumirAtendimento = async (cb) => {
     const chamadoSnap = await chamadoRef.get()
 
     if (!chamadoSnap.exists) {
-      await responderCallback(cb.id, 'Chamado nao encontrado.', true)
-      return NextResponse.json({ ok: false, erro: 'Chamado nao encontrado' }, { status: 404 })
+      if (cb.message) {
+        await callTelegram('sendMessage', {
+          chat_id: cb.message.chat.id,
+          text: 'Nao encontrei esse chamado no suporte. Talvez ele tenha sido removido ou o ID esteja incorreto.',
+        })
+      }
+      return NextResponse.json({ ok: true, erro: 'Chamado nao encontrado' })
     }
 
     await chamadoRef.update({
@@ -94,16 +99,29 @@ const assumirAtendimento = async (cb) => {
     })
 
     if (!privado.ok) {
-      await responderCallback(cb.id, 'Atendimento assumido. Abra uma conversa privada com o bot para receber mensagens.', true)
+      if (cb.message) {
+        await callTelegram('sendMessage', {
+          chat_id: cb.message.chat.id,
+          text: `${nomeAtendente} assumiu o atendimento, mas o bot nao conseguiu enviar mensagem no privado. Abra uma conversa privada com o bot e clique em Iniciar.`,
+        })
+      }
       return NextResponse.json({ ok: true, aviso: 'Privado do atendente indisponivel' })
     }
 
-    await responderCallback(cb.id, 'Atendimento assumido.')
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error('[webhook-telegram] falha ao assumir atendimento', err)
-    await responderCallback(cb.id, 'Nao foi possivel assumir agora. Veja os logs da Vercel.', true)
-    return NextResponse.json({ erro: 'Falha ao assumir atendimento' }, { status: 500 })
+    if (cb.message) {
+      await callTelegram('sendMessage', {
+        chat_id: cb.message.chat.id,
+        text: 'Nao foi possivel assumir esse atendimento agora. Verifique as variaveis SUPPORT_SERVICE_ACCOUNT/SUPPORT_SERVICE_ACCOUNT_BASE64 e os logs da Vercel.',
+      })
+    }
+    return NextResponse.json({
+      ok: true,
+      erro: 'Falha ao assumir atendimento',
+      callbackRespondido: Boolean(callbackRespondido?.ok),
+    })
   }
 }
 
