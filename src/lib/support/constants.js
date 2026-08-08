@@ -58,7 +58,10 @@ export const MENSAGEM_ERRO_IA =
   'Não consegui processar sua mensagem agora. Tente novamente em instantes ou peça para falar com um atendente humano.'
 
 export const MENSAGEM_BEM_VINDO =
-  'Olá! Seja bem-vindo(a) ao atendimento do DHPB. Para começar, pode me dizer o seu nome?'
+  'Olá! Seja bem-vindo(a) ao atendimento do DHPB. Antes de começarmos, me diga seu nome completo e seu e-mail, por favor.'
+
+export const MENSAGEM_PEDIR_CONTATO =
+  'Antes de começarmos o atendimento, preciso do seu nome completo e do seu e-mail. Pode enviar os dois na mesma mensagem?'
 
 export const MENSAGEM_ATENDENTE_48H =
   'Certo! Seu atendimento foi encaminhado para a equipe do DHPB. Um de nossos atendentes irá responder aqui no chat em até 48 horas.'
@@ -67,7 +70,7 @@ export const SUGESTOES_INICIAIS = [
   'Como faço minha inscrição?',
   'Como montar a equipe?',
   'Quando são as fases?',
-  'Como recuperar minha senha?',
+  'Minha conta do ano passado não entra',
 ]
 
 export const formatarDataHora = (ts) => {

@@ -16,7 +16,13 @@ import {
   where,
 } from 'firebase/firestore'
 import { supportAuth, supportDb } from '@/lib/support/firebase'
-import { AUTORES, MENSAGEM_ATENDENTE_48H, MENSAGEM_ERRO_IA, STATUS_CHAMADO } from '@/lib/support/constants'
+import {
+  AUTORES,
+  MENSAGEM_ATENDENTE_48H,
+  MENSAGEM_ERRO_IA,
+  MENSAGEM_PEDIR_CONTATO,
+  STATUS_CHAMADO,
+} from '@/lib/support/constants'
 import { buscarRespostasRapidas, encontrarRespostaRapida } from '@/lib/support/respostasRapidas'
 
 const CHAMADOS_ATIVOS = [
@@ -26,16 +32,103 @@ const CHAMADOS_ATIVOS = [
   STATUS_CHAMADO.AGUARDANDO_USUARIO,
 ]
 
+const EMAIL_REGEX = /[^\s@]+@[^\s@]+\.[^\s@]+/
+
 let promessaSessao = null
+
+const normalizar = (texto = '') =>
+  texto
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[º°]/g, 'o')
+    .replace(/ª/g, 'a')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 
 const mensagemErroSuporte = (erro) => {
   if (erro?.code === 'auth/operation-not-allowed') {
-    return 'O login anonimo do Firebase do suporte esta desativado. Ative Authentication > Sign-in method > Anonymous no projeto de suporte.'
+    return 'O login anônimo do Firebase do suporte está desativado. Ative Authentication > Sign-in method > Anonymous no projeto de suporte.'
   }
   if (erro?.code === 'permission-denied') {
-    return 'As regras do Firestore do suporte bloquearam o atendimento anonimo.'
+    return 'As regras do Firestore do suporte bloquearam o atendimento anônimo.'
   }
   return erro?.message || 'Falha ao iniciar o atendimento.'
+}
+
+const textoPareceNome = (texto = '') => {
+  const limpo = texto
+    .replace(EMAIL_REGEX, '')
+    .replace(/\b(meu nome e|meu nome é|me chamo|sou|nome|email|e-mail)\b/gi, ' ')
+    .replace(/[^a-zA-ZÀ-ÿ\s']/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  const n = normalizar(limpo)
+  if (limpo.length < 3 || limpo.length > 80) return false
+  if (['oi', 'oii', 'ola', 'olá', 'bom dia', 'boa tarde', 'boa noite'].includes(n)) return false
+  if (/\b(erro|problema|senha|conta|login|entrar|inscricao|inscrição|equipe|site|atendente|suporte|ajuda|nao|não|consigo)\b/i.test(limpo)) return false
+
+  const partes = limpo.split(' ').filter(Boolean)
+  return partes.length >= 2 && partes.length <= 5
+}
+
+const extrairContato = (texto = '') => {
+  const email = texto.match(EMAIL_REGEX)?.[0]?.trim().toLowerCase() || ''
+  const candidatoNome = texto
+    .replace(EMAIL_REGEX, '')
+    .replace(/\b(meu nome e|meu nome é|me chamo|sou|nome|email|e-mail)\b/gi, ' ')
+    .replace(/[,:;|()<>]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  return {
+    email,
+    nome: textoPareceNome(candidatoNome) ? candidatoNome.slice(0, 80) : '',
+  }
+}
+
+const detectarTransferenciaDireta = (texto = '') => {
+  const t = normalizar(texto)
+
+  if (/\b(atendente|humano|pessoa|suporte|telegram)\b/.test(t)) {
+    return { categoria: 'outros', prioridade: 'media', resumo: 'Usuário pediu atendimento humano.' }
+  }
+
+  if (/\b(ano passado|edicao passada|edicao anterior|3o dhpb|3 dhpb|terceiro dhpb|conta antiga)\b/.test(t)) {
+    return { categoria: 'acesso', prioridade: 'media', resumo: 'Usuário relata dificuldade com conta antiga do 3º DHPB/edição passada.' }
+  }
+
+  if (/\b(nao consigo|erro|bug|travou|falha|problema)\b/.test(t) && /\b(conta|login|entrar|senha|cadastro|inscricao|equipe|documento|comprovante|fase|prova|questao|tarefa)\b/.test(t)) {
+    const prioridade = /\b(fase|prova|questao|tarefa)\b/.test(t) ? 'alta' : 'media'
+    const categoria = /\b(senha|login|conta|entrar)\b/.test(t)
+      ? 'acesso'
+      : /\b(equipe|membro|aluno|professor)\b/.test(t)
+      ? 'equipes'
+      : /\b(fase|prova|questao|tarefa)\b/.test(t)
+      ? 'fases'
+      : 'tecnico'
+    return { categoria, prioridade, resumo: `Usuário relatou problema: ${texto.slice(0, 180)}` }
+  }
+
+  if (/\b(trocar|alterar|excluir|remover|corrigir|verificar|aprovar|reprovar)\b/.test(t) && /\b(equipe|membro|aluno|professor|cadastro|documento|comprovante|escola)\b/.test(t)) {
+    return { categoria: 'equipes', prioridade: 'media', resumo: `Usuário solicitou ação administrativa: ${texto.slice(0, 180)}` }
+  }
+
+  return null
+}
+
+const respostaAutomaticaTransferencia = (texto, info) => {
+  const t = normalizar(texto)
+
+  if (/\b(ano passado|edicao passada|edicao anterior|3o dhpb|3 dhpb|terceiro dhpb|conta antiga)\b/.test(t)) {
+    return `O site foi resetado para o 4º DHPB. Contas do 3º DHPB/ano passado não continuam válidas nesta edição, então alunos e professores precisam criar uma nova conta. Também encaminhei seu caso para a equipe de suporte. ${MENSAGEM_ATENDENTE_48H}`
+  }
+
+  if (info?.resumo === 'Usuário pediu atendimento humano.') return MENSAGEM_ATENDENTE_48H
+
+  return `Entendi o problema e encaminhei para a equipe de suporte do DHPB. ${MENSAGEM_ATENDENTE_48H}`
 }
 
 const autenticarSuporte = async () => {
@@ -108,7 +201,7 @@ export const useSupportChat = () => {
       setChamado(novo)
       setEncerrado(false)
       setMensagens([])
-      setColeta('nome')
+      setColeta('contato')
       setErro('')
     } catch {
       setErro('Não foi possível iniciar um novo atendimento.')
@@ -150,8 +243,9 @@ export const useSupportChat = () => {
       }
 
       setChamado(atual)
+      if (atual.nome) nomeRef.current = atual.nome
       setEncerrado(encerradoAnterior)
-      setColeta(!encerradoAnterior && !atual.nome ? 'nome' : null)
+      setColeta(!encerradoAnterior && (!atual.nome || !atual.email) ? 'contato' : null)
       const respostas = await buscarRespostasRapidas()
       setSugestoes(respostas.filter((r) => r.sugestao).map((r) => r.pergunta || r.titulo).filter(Boolean))
       setCarregando(false)
@@ -215,7 +309,7 @@ export const useSupportChat = () => {
     return ref
   }
 
-  const transferirParaHumano = async (infoIA) => {
+  const transferirParaHumano = async (infoIA, mensagemConfirmacao = MENSAGEM_ATENDENTE_48H) => {
     const dataHora = new Date().toLocaleString('pt-BR', {
       day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
     })
@@ -229,11 +323,13 @@ export const useSupportChat = () => {
       atualizadoEm: serverTimestamp(),
       naoLidasAdmin: 1,
     })
-    await gravarMensagem(AUTORES.IA, MENSAGEM_ATENDENTE_48H, { fonte: 'transferencia_humano' })
+    setChamado((prev) => prev ? { ...prev, status: STATUS_CHAMADO.AGUARDANDO_ATENDENTE, modo: 'humano' } : prev)
+    await gravarMensagem(AUTORES.IA, mensagemConfirmacao, { fonte: 'transferencia_humano' })
 
-    fetch('/api/support/notify-telegram', {
+    const res = await fetch('/api/support/notify-telegram', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      keepalive: true,
       body: JSON.stringify({
         chamadoId: chamado.id,
         resumo: infoIA.resumo || '',
@@ -243,7 +339,21 @@ export const useSupportChat = () => {
         email: chamado.email || '',
         dataHora,
       }),
-    }).catch(() => {})
+    })
+    if (!res.ok) {
+      const corpo = await res.text().catch(() => '')
+      console.error('[support/notify-telegram]', res.status, corpo)
+    }
+  }
+
+  const registrarContato = async (contato) => {
+    const atualizacao = { atualizadoEm: serverTimestamp() }
+    if (contato.nome) atualizacao.nome = contato.nome
+    if (contato.email) atualizacao.email = contato.email
+
+    await updateDoc(doc(supportDb, 'chamados', chamado.id), atualizacao)
+    setChamado((prev) => prev ? { ...prev, ...(contato.nome ? { nome: contato.nome } : {}), ...(contato.email ? { email: contato.email } : {}) } : prev)
+    if (contato.nome) nomeRef.current = contato.nome
   }
 
   const enviarMensagem = async (texto) => {
@@ -259,32 +369,55 @@ export const useSupportChat = () => {
     try {
       await gravarMensagem(AUTORES.USUARIO, conteudo)
 
+      if (coleta === 'contato') {
+        const contato = extrairContato(conteudo)
+        if (!contato.nome && !contato.email) {
+          await gravarMensagem(AUTORES.IA, MENSAGEM_PEDIR_CONTATO)
+          return
+        }
+
+        await registrarContato(contato)
+        const nomeAtual = contato.nome || chamado.nome || ''
+        const emailAtual = contato.email || chamado.email || ''
+
+        if (!nomeAtual) {
+          setColeta('nome')
+          await gravarMensagem(AUTORES.IA, 'Recebi seu e-mail. Agora me diga seu nome completo, por favor.')
+          return
+        }
+
+        if (!emailAtual) {
+          setColeta('email')
+          await gravarMensagem(AUTORES.IA, `Muito prazer, ${nomeAtual}! Agora me diga seu e-mail para registro, por favor.`)
+          return
+        }
+
+        setColeta(null)
+        await gravarMensagem(AUTORES.IA, `Perfeito, ${nomeAtual}! Como posso ajudar?`)
+        return
+      }
+
       if (coleta === 'nome') {
-        const nome = conteudo.slice(0, 80)
-        nomeRef.current = nome
-        await updateDoc(doc(supportDb, 'chamados', chamado.id), {
-          nome,
-          atualizadoEm: serverTimestamp(),
-        })
-        setColeta('email')
-        await gravarMensagem(AUTORES.IA, `Muito prazer, ${nome}! Qual é o seu e-mail para registro?`)
+        const contato = extrairContato(conteudo)
+        if (!contato.nome) {
+          await gravarMensagem(AUTORES.IA, 'Não consegui identificar seu nome completo. Pode enviar nome e sobrenome, por favor?')
+          return
+        }
+        await registrarContato({ nome: contato.nome })
+        setColeta(null)
+        await gravarMensagem(AUTORES.IA, `Perfeito, ${contato.nome}! Como posso ajudar?`)
         return
       }
 
       if (coleta === 'email') {
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(conteudo)) {
+        const email = conteudo.match(EMAIL_REGEX)?.[0]?.trim().toLowerCase() || ''
+        if (!email) {
           await gravarMensagem(AUTORES.IA, 'Hmm, esse e-mail não parece válido. Pode conferir e enviar de novo?')
           return
         }
-        await updateDoc(doc(supportDb, 'chamados', chamado.id), {
-          email: conteudo,
-          atualizadoEm: serverTimestamp(),
-        })
+        await registrarContato({ email })
         setColeta(null)
-        await gravarMensagem(
-          AUTORES.IA,
-          `Perfeito, ${nomeRef.current || 'tudo certo'}! Registramos seu atendimento. Como posso ajudar?`
-        )
+        await gravarMensagem(AUTORES.IA, `Perfeito, ${nomeRef.current || 'tudo certo'}! Como posso ajudar?`)
         return
       }
 
@@ -295,6 +428,12 @@ export const useSupportChat = () => {
             ? { status: STATUS_CHAMADO.EM_ATENDIMENTO }
             : {}),
         })
+        return
+      }
+
+      const transferenciaDireta = detectarTransferenciaDireta(conteudo)
+      if (transferenciaDireta) {
+        await transferirParaHumano(transferenciaDireta, respostaAutomaticaTransferencia(conteudo, transferenciaDireta))
         return
       }
 
@@ -327,7 +466,8 @@ export const useSupportChat = () => {
       if (respostaIA.transferir) {
         await transferirParaHumano(respostaIA)
       }
-    } catch {
+    } catch (e) {
+      console.error('[support/chat]', e)
       setErro('Não foi possível enviar. Tente novamente.')
     } finally {
       setDigitando(false)

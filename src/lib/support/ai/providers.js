@@ -1,10 +1,10 @@
 export const groqProvider = {
   nome: 'groq',
-  async completar({ mensagem, historico, systemPrompt, temperatura = 0.3 }) {
+  async completar({ mensagem, historico, systemPrompt, temperatura = 0.2 }) {
     const apiKey = process.env.GROQ_API_KEY
     if (!apiKey) throw new Error('GROQ_API_KEY não configurada')
 
-    const modelo = process.env.GROQ_MODEL || 'llama-3.1-8b-instant'
+    const modelo = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'
     const mensagens = [
       { role: 'system', content: systemPrompt },
       ...historico,
