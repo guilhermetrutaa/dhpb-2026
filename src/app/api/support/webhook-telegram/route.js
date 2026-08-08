@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server'
 import { getFirestore, FieldValue } from 'firebase-admin/firestore'
 import { getSupportAdminApp } from '@/lib/support/server/firebase-admin'
 
+export const runtime = 'nodejs'
+
+const WEBHOOK_VERSION = '2026-08-08-callback-fast-ack'
+
 const escaparHtml = (texto = '') =>
   String(texto)
     .replace(/&/g, '&amp;')
@@ -182,4 +186,18 @@ export async function POST(req) {
     console.error('[webhook-telegram]', err)
     return NextResponse.json({ erro: 'Falha interna do webhook' }, { status: 500 })
   }
+}
+
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    rota: 'support/webhook-telegram',
+    version: WEBHOOK_VERSION,
+    env: {
+      telegramBotToken: Boolean(process.env.TELEGRAM_BOT_TOKEN),
+      telegramChatId: Boolean(process.env.TELEGRAM_CHAT_ID),
+      supportServiceAccount: Boolean(process.env.SUPPORT_SERVICE_ACCOUNT),
+      supportServiceAccountBase64: Boolean(process.env.SUPPORT_SERVICE_ACCOUNT_BASE64),
+    },
+  })
 }
