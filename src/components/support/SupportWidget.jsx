@@ -5,6 +5,7 @@ import { Poppins } from 'next/font/google'
 import { usePathname } from 'next/navigation'
 import ChatWindow from './ChatWindow'
 import { suporteConfigurado } from '@/lib/support/firebase'
+import { useSupportChat } from '@/hooks/useSupportChat'
 
 const poppins = Poppins({ subsets: ['latin'], weight: ['400', '500', '600', '700'] })
 
@@ -18,6 +19,7 @@ const SupportWidget = () => {
   const [aberto, setAberto] = useState(false)
   const [visivel, setVisivel] = useState(false)
   const pathname = usePathname()
+  const { naoLidasUsuario } = useSupportChat()
 
   useEffect(() => {
     const t = setTimeout(() => setVisivel(true), 600)
@@ -36,8 +38,13 @@ const SupportWidget = () => {
           visivel ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
         }`}
       >
-        <span className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center shrink-0 group-hover:rotate-12 transition-transform duration-300">
+        <span className="relative w-9 h-9 rounded-full bg-white/15 flex items-center justify-center shrink-0 group-hover:rotate-12 transition-transform duration-300">
           <IconeHeadset />
+          {!aberto && naoLidasUsuario > 0 && (
+            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white shadow-sm ring-2 ring-[#82181A]">
+              {naoLidasUsuario > 9 ? '9+' : naoLidasUsuario}
+            </span>
+          )}
         </span>
         <span className="text-sm font-semibold whitespace-nowrap">
           {aberto ? 'Fechar atendimento' : 'Fale com o suporte'}

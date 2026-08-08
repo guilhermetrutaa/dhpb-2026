@@ -26,14 +26,7 @@ const escaparHtml = (texto = '') =>
 export async function POST(req) {
   try {
     const body = await req.json().catch(() => ({}))
-
-    const chamadoId = typeof body.chamadoId === 'string' ? body.chamadoId : ''
-    const resumo = typeof body.resumo === 'string' ? body.resumo.slice(0, 700) : ''
-    const categoria = typeof body.categoria === 'string' ? body.categoria : 'outros'
-    const prioridade = typeof body.prioridade === 'string' ? body.prioridade : 'media'
-    const nome = typeof body.nome === 'string' ? body.nome : ''
-    const email = typeof body.email === 'string' ? body.email : ''
-    const dataHora = typeof body.dataHora === 'string' ? body.dataHora : new Date().toLocaleString('pt-BR')
+    const { tipo, chamadoId, resumo, categoria, prioridade, nome, email, dataHora, telegramId, mensagem } = body
 
     if (!chamadoId) {
       return NextResponse.json({ erro: 'chamadoId obrigatório.' }, { status: 400 })
@@ -46,34 +39,46 @@ export async function POST(req) {
       return NextResponse.json({ erro: 'Telegram não configurado no servidor.' }, { status: 500 })
     }
 
-    const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || req.nextUrl.origin || '').replace(/\/$/, '')
-    const link = `${siteUrl}/admin/suporte/chamados/${encodeURIComponent(chamadoId)}`
-    const usuario = `${nome || 'Não informado'}${email ? ` (${email})` : ''}`
+    let chatToSend = chatId
+    let texto = ''
+    let replyMarkup = undefined
 
-    const texto = [
-      '<b>NOVO ATENDIMENTO SOLICITADO</b>',
-      '',
-      `<b>Usuário:</b> ${escaparHtml(usuario)}`,
-      `<b>Categoria:</b> ${escaparHtml(CATEGORIA_LABELS[categoria] || categoria)}`,
-      `<b>Prioridade:</b> ${escaparHtml(PRIORIDADE_LABELS[prioridade] || prioridade)}`,
-      `<b>Data/Hora:</b> ${escaparHtml(dataHora)}`,
-      `<b>ID do chamado:</b> <code>${escaparHtml(chamadoId)}</code>`,
-      '',
-      '<b>Resumo:</b>',
-      escaparHtml(resumo || 'Sem resumo informado.'),
-    ].join('\n')
+    if (tipo === 'nova_mensagem_usuario') {
+      if (!telegramId) return NextResponse.json({ erro: 'telegramId ausente para mensagem privada' }, { status: 400 })
+      chatToSend = telegramId
+      texto = `👤 <b>Nova mensagem de ${escaparHtml(nome || 'Usuário')}</b>\n\n${escaparHtml(mensagem)}\n\n<i>(Responda a esta mensagem para falar com o usuário. ID: ${chamadoId})</i>`
+    } else {
+      const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || req.nextUrl.origin || '').replace(/\/$/, '')
+      const link = `${siteUrl}/admin/suporte/chamados/${encodeURIComponent(chamadoId)}`
+      const usuario = `${nome || 'Não informado'}${email ? ` (${email})` : ''}`
+
+      texto = [
+        '<b>NOVO ATENDIMENTO SOLICITADO</b>',
+        '',
+        `<b>Usuário:</b> ${escaparHtml(usuario)}`,
+        `<b>Categoria:</b> ${escaparHtml(CATEGORIA_LABELS[categoria] || categoria || 'outros')}`,
+        `<b>Prioridade:</b> ${escaparHtml(PRIORIDADE_LABELS[prioridade] || prioridade || 'media')}`,
+        `<b>Data/Hora:</b> ${escaparHtml(dataHora || new Date().toLocaleString('pt-BR'))}`,
+        `<b>ID do chamado:</b> <code>${escaparHtml(chamadoId)}</code>`,
+        '',
+        '<b>Resumo:</b>',
+        escaparHtml(resumo || 'Sem resumo informado.'),
+      ].join('\n')
+
+      replyMarkup = {
+        inline_keyboard: [[{ text: 'Assumir atendimento', callback_data: `assumir_${chamadoId}` }]],
+      }
+    }
 
     const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        chat_id: chatId,
+        chat_id: chatToSend,
         text: texto,
         parse_mode: 'HTML',
         disable_web_page_preview: true,
-        reply_markup: {
-          inline_keyboard: [[{ text: 'Abrir atendimento', url: link }]],
-        },
+        reply_markup: replyMarkup,
       }),
     })
 

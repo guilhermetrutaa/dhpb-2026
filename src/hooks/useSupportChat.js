@@ -428,6 +428,19 @@ export const useSupportChat = () => {
             ? { status: STATUS_CHAMADO.EM_ATENDIMENTO }
             : {}),
         })
+        if (chamado.atendenteTelegramId) {
+          fetch('/api/support/notify-telegram', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tipo: 'nova_mensagem_usuario',
+              chamadoId: chamado.id,
+              telegramId: chamado.atendenteTelegramId,
+              mensagem: conteudo,
+              nome: chamado.nome || 'Usuário',
+            }),
+          }).catch(() => {})
+        }
         return
       }
 
@@ -475,7 +488,7 @@ export const useSupportChat = () => {
     }
   }
 
-  return { sessao, chamado, mensagens, carregando, digitando, erro, sugestoes, coleta, encerrado, inicializar, iniciarNovoAtendimento, enviarMensagem, encerrarSessao }
+  return { sessao, chamado, mensagens, carregando, digitando, erro, sugestoes, coleta, encerrado, inicializar, iniciarNovoAtendimento, enviarMensagem, encerrarSessao, naoLidasUsuario: chamado?.naoLidasUsuario || 0 }
 }
 
 export const getSupportSession = async () => {
