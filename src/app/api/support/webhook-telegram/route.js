@@ -4,7 +4,7 @@ import { getSupportAdminApp } from '@/lib/support/server/firebase-admin'
 
 export const runtime = 'nodejs'
 
-const WEBHOOK_VERSION = '2026-08-08-callback-fast-ack'
+const WEBHOOK_VERSION = '2026-08-08-v3-fix-imports'
 
 const escaparHtml = (texto = '') =>
   String(texto)
@@ -36,6 +36,7 @@ const callTelegram = async (metodo, corpo) => {
   }
 }
 
+// Responde o callback query do Telegram imediatamente para evitar "carregando"
 const responderCallback = (callbackId, texto = '', alerta = false) =>
   callTelegram('answerCallbackQuery', {
     callback_query_id: callbackId,
@@ -48,11 +49,16 @@ const assumirAtendimento = async (cb) => {
   const chamadoId = String(cb.data || '').replace('assumir_', '').trim()
   const telegramId = String(cb.from?.id || '')
   const nomeAtendente = cb.from?.first_name || cb.from?.username || 'Atendente'
-  const callbackRespondido = await responderCallback(cb.id, 'Processando atendimento...')
 
   if (!chamadoId || !telegramId) {
+    // Responde imediatamente para o Telegram não ficar esperando
+    await responderCallback(cb.id, 'Dados inválidos.', true)
     return NextResponse.json({ ok: true, erro: 'callback invalido' })
   }
+
+  // Responde o callback IMEDIATAMENTE para o Telegram parar de "carregar"
+  // Isso deve ser feito antes de qualquer operação async pesada
+  await responderCallback(cb.id, '⏳ Assumindo atendimento...')
 
   try {
     const db = getFirestore(getSupportAdminApp())
@@ -63,10 +69,24 @@ const assumirAtendimento = async (cb) => {
       if (cb.message) {
         await callTelegram('sendMessage', {
           chat_id: cb.message.chat.id,
-          text: 'Nao encontrei esse chamado no suporte. Talvez ele tenha sido removido ou o ID esteja incorreto.',
+          text: '❌ Chamado não encontrado. Pode ter sido removido.',
         })
       }
       return NextResponse.json({ ok: true, erro: 'Chamado nao encontrado' })
+    }
+
+    const dadosChamado = chamadoSnap.data()
+
+    // Verifica se já foi assumido por outro atendente
+    if (dadosChamado.status === 'em_atendimento' && dadosChamado.atendenteTelegramId && dadosChamado.atendenteTelegramId !== telegramId) {
+      if (cb.message) {
+        await callTelegram('sendMessage', {
+          chat_id: cb.message.chat.id,
+          text: `⚠️ Este chamado já foi assumido por ${escaparHtml(dadosChamado.atendenteNome || 'outro atendente')}.`,
+          parse_mode: 'HTML',
+        })
+      }
+      return NextResponse.json({ ok: true, aviso: 'Chamado já assumido' })
     }
 
     await chamadoRef.update({
@@ -98,7 +118,7 @@ const assumirAtendimento = async (cb) => {
 
     const privado = await callTelegram('sendMessage', {
       chat_id: telegramId,
-      text: `Você assumiu o chamado <code>${escaparHtml(chamadoId)}</code>.\n\nTudo que o usuário enviar aparecerá aqui. Para responder, use <b>Responder/Reply</b> na mensagem do usuário.`,
+      text: `✅ Você assumiu o chamado <code>${escaparHtml(chamadoId)}</code>.\n\nTudo que o usuário enviar aparecerá aqui. Para responder, use <b>Responder/Reply</b> na mensagem do usuário.`,
       parse_mode: 'HTML',
     })
 
@@ -106,7 +126,7 @@ const assumirAtendimento = async (cb) => {
       if (cb.message) {
         await callTelegram('sendMessage', {
           chat_id: cb.message.chat.id,
-          text: `${nomeAtendente} assumiu o atendimento, mas o bot nao conseguiu enviar mensagem no privado. Abra uma conversa privada com o bot e clique em Iniciar.`,
+          text: `${nomeAtendente} assumiu o atendimento, mas o bot não conseguiu enviar mensagem no privado. Abra uma conversa privada com o bot e clique em Iniciar.`,
         })
       }
       return NextResponse.json({ ok: true, aviso: 'Privado do atendente indisponivel' })
@@ -118,13 +138,12 @@ const assumirAtendimento = async (cb) => {
     if (cb.message) {
       await callTelegram('sendMessage', {
         chat_id: cb.message.chat.id,
-        text: 'Nao foi possivel assumir esse atendimento agora. Verifique as variaveis SUPPORT_SERVICE_ACCOUNT/SUPPORT_SERVICE_ACCOUNT_BASE64 e os logs da Vercel.',
+        text: `❌ Não foi possível assumir o atendimento.\n\nErro: ${escaparHtml(err?.message || String(err))}`,
       })
     }
     return NextResponse.json({
       ok: true,
       erro: 'Falha ao assumir atendimento',
-      callbackRespondido: Boolean(callbackRespondido?.ok),
     })
   }
 }
@@ -138,25 +157,30 @@ const responderUsuarioPeloReply = async (msg) => {
 
   const chamadoId = match[1]
   const nomeAtendente = msg.from?.first_name || msg.from?.username || 'Atendente'
-  const db = getFirestore(getSupportAdminApp())
-  const chamadoRef = db.collection('chamados').doc(chamadoId)
 
-  await chamadoRef.collection('mensagens').add({
-    autorTipo: 'admin',
-    autorNome: nomeAtendente,
-    conteudo: texto.trim(),
-    enviadoEm: FieldValue.serverTimestamp(),
-    lida: false,
-  })
+  try {
+    const db = getFirestore(getSupportAdminApp())
+    const chamadoRef = db.collection('chamados').doc(chamadoId)
 
-  await chamadoRef.update({
-    status: 'aguardando_usuario',
-    naoLidasUsuario: FieldValue.increment(1),
-    ultimaMensagem: texto.trim().slice(0, 160),
-    ultimaMensagemAutor: 'admin',
-    ultimaMensagemEm: FieldValue.serverTimestamp(),
-    atualizadoEm: FieldValue.serverTimestamp(),
-  })
+    await chamadoRef.collection('mensagens').add({
+      autorTipo: 'admin',
+      autorNome: nomeAtendente,
+      conteudo: texto.trim(),
+      enviadoEm: FieldValue.serverTimestamp(),
+      lida: false,
+    })
+
+    await chamadoRef.update({
+      status: 'aguardando_usuario',
+      naoLidasUsuario: FieldValue.increment(1),
+      ultimaMensagem: texto.trim().slice(0, 160),
+      ultimaMensagemAutor: 'admin',
+      ultimaMensagemEm: FieldValue.serverTimestamp(),
+      atualizadoEm: FieldValue.serverTimestamp(),
+    })
+  } catch (err) {
+    console.error('[webhook-telegram] erro ao responder usuario pelo reply', err)
+  }
 
   return NextResponse.json({ ok: true })
 }

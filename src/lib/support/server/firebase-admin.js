@@ -1,36 +1,54 @@
-import admin from 'firebase-admin'
+import { initializeApp, getApps, cert } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
 
 let app = null
 
 const carregarServiceAccount = () => {
-  const raw = process.env.SUPPORT_SERVICE_ACCOUNT || process.env.SUPPORT_SERVICE_ACCOUNT_BASE64
-  if (!raw) throw new Error('SUPPORT_SERVICE_ACCOUNT nao configurada')
+  const rawSa = process.env.SUPPORT_SERVICE_ACCOUNT
+  const rawB64 = process.env.SUPPORT_SERVICE_ACCOUNT_BASE64
 
-  const json = process.env.SUPPORT_SERVICE_ACCOUNT_BASE64
-    ? Buffer.from(raw, 'base64').toString('utf8')
-    : raw
-
-  const cert = JSON.parse(json)
-  if (typeof cert.private_key === 'string') {
-    cert.private_key = cert.private_key.replace(/\\n/g, '\n')
+  if (!rawSa && !rawB64) {
+    throw new Error(
+      'Nenhuma variavel de service account configurada. ' +
+        'Defina SUPPORT_SERVICE_ACCOUNT (JSON direto) ou SUPPORT_SERVICE_ACCOUNT_BASE64 (JSON em base64).'
+    )
   }
-  return cert
+
+  let json
+  if (rawB64) {
+    json = Buffer.from(rawB64, 'base64').toString('utf8')
+  } else {
+    json = rawSa
+  }
+
+  let parsed
+  try {
+    parsed = JSON.parse(json)
+  } catch (e) {
+    throw new Error(`SUPPORT_SERVICE_ACCOUNT invalido (erro ao parsear JSON): ${e.message}`)
+  }
+
+  if (typeof parsed.private_key === 'string') {
+    parsed.private_key = parsed.private_key.replace(/\\n/g, '\n')
+  }
+
+  return parsed
 }
 
 export const getSupportAdminApp = () => {
   if (app) return app
-  const existente = admin.apps?.find((a) => a?.name === 'support-admin')
+
+  const existente = getApps().find((a) => a?.name === 'support-admin')
   if (existente) {
     app = existente
     return app
   }
 
-  const cert = carregarServiceAccount()
-  app = admin.initializeApp(
+  const serviceAccount = carregarServiceAccount()
+  app = initializeApp(
     {
-      credential: admin.cert(cert),
-      projectId: cert.project_id,
+      credential: cert(serviceAccount),
+      projectId: serviceAccount.project_id,
     },
     'support-admin'
   )
