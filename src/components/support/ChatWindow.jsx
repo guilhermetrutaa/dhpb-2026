@@ -11,6 +11,7 @@ import {
   STATUS_LABELS,
   SUGESTOES_INICIAIS,
 } from '@/lib/support/constants'
+import { requestNotificationToken } from '@/lib/support/firebase'
 import MessageBubble from './MessageBubble'
 
 const poppins = Poppins({ subsets: ['latin'], weight: ['400', '500', '600', '700'] })
@@ -39,7 +40,14 @@ const IndicadorDigitando = () => (
 const ChatWindow = ({ chat, onFechar }) => {
   const { sessao, chamado, mensagens, carregando, digitando, erro, sugestoes, coleta, encerrado, inicializar, iniciarNovoAtendimento, enviarMensagem } = chat
   const [texto, setTexto] = useState('')
+  const [permissao, setPermissao] = useState('granted') // default para não piscar
   const fimRef = useRef(null)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setPermissao(Notification.permission)
+    }
+  }, [])
 
   useEffect(() => {
     if (sessao || carregando) return
@@ -100,16 +108,37 @@ const ChatWindow = ({ chat, onFechar }) => {
             {statusTexto}
           </p>
         </div>
-        <button
-          onClick={onFechar}
-          aria-label="Fechar chat"
-          className="p-1.5 rounded-lg hover:bg-white/15 transition-colors cursor-pointer shrink-0"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
+        <button onClick={onFechar} className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
         </button>
       </header>
+
+      {/* Banner de Permissão de Notificação */}
+      {permissao !== 'granted' && (
+        <div className="bg-amber-50 px-4 py-3 border-b border-amber-200 text-[12px] text-amber-900 leading-snug flex flex-col gap-2 shrink-0">
+          <p>
+            Ative as notificações para ser avisado sobre a resposta da nossa equipe e receber novidades do site, como abertura de fases e aprovações!
+          </p>
+          {permissao === 'default' ? (
+            <button
+              onClick={async () => {
+                const p = await Notification.requestPermission()
+                setPermissao(p)
+                if (p === 'granted') requestNotificationToken().catch(() => {})
+              }}
+              className="bg-amber-500 hover:bg-amber-600 text-white font-semibold py-1.5 px-3 rounded text-[11px] self-start transition-colors"
+            >
+              Ativar Notificações
+            </button>
+          ) : (
+            <p className="font-semibold text-amber-700">
+              Notificações bloqueadas. Habilite nas configurações do seu navegador (clique no cadeado da barra de endereço).
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-neutral-50/50">
         {carregando ? (

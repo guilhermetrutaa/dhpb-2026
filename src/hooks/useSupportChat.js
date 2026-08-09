@@ -146,7 +146,7 @@ const autenticarSuporte = async () => {
   return promessaSessao
 }
 
-export const useSupportChat = () => {
+export const useSupportChat = ({ isChatOpen = false } = {}) => {
   const [sessao, setSessao] = useState(null)
   const [chamado, setChamado] = useState(null)
   const [mensagens, setMensagens] = useState([])
@@ -317,12 +317,12 @@ export const useSupportChat = () => {
   }, [chamadoId])
 
   useEffect(() => {
-    if (!chamadoId || !mensagens.length) return
+    if (!chamadoId || !mensagens.length || !isChatOpen) return
     const temNaoLida = mensagens.some((m) => m.autorTipo !== AUTORES.USUARIO && !m.lida)
     if (temNaoLida && naoLidasUsuario > 0) {
       updateDoc(doc(supportDb, 'chamados', chamadoId), { naoLidasUsuario: 0 }).catch(() => {})
     }
-  }, [mensagens, chamadoId, naoLidasUsuario])
+  }, [mensagens, chamadoId, naoLidasUsuario, isChatOpen])
 
   const gravarMensagem = async (autorTipo, conteudo, extra = {}) => {
     const ref = await addDoc(collection(supportDb, 'chamados', chamado.id, 'mensagens'), {

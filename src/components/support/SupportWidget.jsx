@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { Poppins } from 'next/font/google'
 import { usePathname } from 'next/navigation'
 import ChatWindow from './ChatWindow'
-import { suporteConfigurado } from '@/lib/support/firebase'
+import { suporteConfigurado, requestNotificationToken } from '@/lib/support/firebase'
 import { useSupportChat } from '@/hooks/useSupportChat'
 
 const poppins = Poppins({ subsets: ['latin'], weight: ['400', '500', '600', '700'] })
@@ -19,11 +19,18 @@ const SupportWidget = () => {
   const [aberto, setAberto] = useState(false)
   const [visivel, setVisivel] = useState(false)
   const pathname = usePathname()
-  const chat = useSupportChat()
+  const chat = useSupportChat({ isChatOpen: aberto })
   const { naoLidasUsuario, inicializarBackground } = chat
 
   useEffect(() => {
-    const t = setTimeout(() => setVisivel(true), 600)
+    const t = setTimeout(() => {
+      setVisivel(true)
+      // Pede permissão logo na abertura do site se suportado
+      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+        requestNotificationToken().catch(() => {})
+      }
+    }, 600)
+    
     // Inicializa a escuta em background silenciosamente
     inicializarBackground?.()
     return () => clearTimeout(t)
