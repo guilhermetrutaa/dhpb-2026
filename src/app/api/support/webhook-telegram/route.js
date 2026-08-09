@@ -1,10 +1,16 @@
 import { NextResponse } from 'next/server'
-import { getFirestore, FieldValue } from 'firebase-admin/firestore'
-import { getSupportAdminApp } from '@/lib/support/server/firebase-admin'
+import {
+  getToken,
+  getProjectId,
+  fsGet,
+  fsUpdateComTimestamp,
+  fsAddComTimestamp,
+  fsUpdateComIncremento,
+} from '@/lib/support/server/firestore-rest'
 
 export const runtime = 'nodejs'
 
-const WEBHOOK_VERSION = '2026-08-08-v3-fix-imports'
+const WEBHOOK_VERSION = '2026-08-09-v1-rest-api'
 
 const escaparHtml = (texto = '') =>
   String(texto)
@@ -12,31 +18,29 @@ const escaparHtml = (texto = '') =>
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
 
+// ─── Telegram API ─────────────────────────────────────────────────────────────
 const callTelegram = async (metodo, corpo) => {
-  const token = process.env.TELEGRAM_BOT_TOKEN
-  if (!token) {
-    console.error('[webhook-telegram] TELEGRAM_BOT_TOKEN nao configurado')
-    return { ok: false, status: 500, body: 'TELEGRAM_BOT_TOKEN ausente' }
+  const botToken = process.env.TELEGRAM_BOT_TOKEN
+  if (!botToken) {
+    console.error('[webhook-telegram] TELEGRAM_BOT_TOKEN não configurado')
+    return { ok: false }
   }
-
   try {
-    const res = await fetch(`https://api.telegram.org/bot${token}/${metodo}`, {
+    const res = await fetch(`https://api.telegram.org/bot${botToken}/${metodo}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(corpo),
     })
-    const resposta = await res.text().catch(() => '')
-    if (!res.ok) {
-      console.error('[webhook-telegram] erro api telegram', metodo, res.status, resposta)
-    }
-    return { ok: res.ok, status: res.status, body: resposta }
+    const body = await res.text().catch(() => '')
+    if (!res.ok) console.error('[webhook-telegram] telegram error', metodo, res.status, body)
+    return { ok: res.ok, status: res.status, body }
   } catch (e) {
-    console.error('[webhook-telegram] erro api telegram', e)
-    return { ok: false, status: 500, body: e?.message || String(e) }
+    console.error('[webhook-telegram] telegram fetch error', e)
+    return { ok: false }
   }
 }
 
-// Responde o callback query do Telegram imediatamente para evitar "carregando"
+// Responde o callback_query IMEDIATAMENTE para o botão parar de "carregar"
 const responderCallback = (callbackId, texto = '', alerta = false) =>
   callTelegram('answerCallbackQuery', {
     callback_query_id: callbackId,
@@ -45,27 +49,28 @@ const responderCallback = (callbackId, texto = '', alerta = false) =>
     cache_time: 0,
   }).catch(() => null)
 
+// ─── Assumir Atendimento ──────────────────────────────────────────────────────
 const assumirAtendimento = async (cb) => {
   const chamadoId = String(cb.data || '').replace('assumir_', '').trim()
   const telegramId = String(cb.from?.id || '')
   const nomeAtendente = cb.from?.first_name || cb.from?.username || 'Atendente'
 
   if (!chamadoId || !telegramId) {
-    // Responde imediatamente para o Telegram não ficar esperando
     await responderCallback(cb.id, 'Dados inválidos.', true)
     return NextResponse.json({ ok: true, erro: 'callback invalido' })
   }
 
-  // Responde o callback IMEDIATAMENTE para o Telegram parar de "carregar"
-  // Isso deve ser feito antes de qualquer operação async pesada
+  // Responde o Telegram IMEDIATAMENTE antes de qualquer operação pesada
   await responderCallback(cb.id, '⏳ Assumindo atendimento...')
 
   try {
-    const db = getFirestore(getSupportAdminApp())
-    const chamadoRef = db.collection('chamados').doc(chamadoId)
-    const chamadoSnap = await chamadoRef.get()
+    const token = await getToken()
+    const projectId = getProjectId()
+    const docPath = `chamados/${chamadoId}`
 
-    if (!chamadoSnap.exists) {
+    // Verifica se o chamado existe
+    const snap = await fsGet(projectId, docPath, token)
+    if (!snap.exists) {
       if (cb.message) {
         await callTelegram('sendMessage', {
           chat_id: cb.message.chat.id,
@@ -75,36 +80,52 @@ const assumirAtendimento = async (cb) => {
       return NextResponse.json({ ok: true, erro: 'Chamado nao encontrado' })
     }
 
-    const dadosChamado = chamadoSnap.data()
-
     // Verifica se já foi assumido por outro atendente
-    if (dadosChamado.status === 'em_atendimento' && dadosChamado.atendenteTelegramId && dadosChamado.atendenteTelegramId !== telegramId) {
+    const dados = snap.data
+    if (
+      dados.status === 'em_atendimento' &&
+      dados.atendenteTelegramId &&
+      dados.atendenteTelegramId !== telegramId
+    ) {
       if (cb.message) {
         await callTelegram('sendMessage', {
           chat_id: cb.message.chat.id,
-          text: `⚠️ Este chamado já foi assumido por ${escaparHtml(dadosChamado.atendenteNome || 'outro atendente')}.`,
+          text: `⚠️ Este chamado já foi assumido por ${escaparHtml(dados.atendenteNome || 'outro atendente')}.`,
           parse_mode: 'HTML',
         })
       }
       return NextResponse.json({ ok: true, aviso: 'Chamado já assumido' })
     }
 
-    await chamadoRef.update({
-      status: 'em_atendimento',
-      atendenteTelegramId: telegramId,
-      atendenteNome: nomeAtendente,
-      atualizadoEm: FieldValue.serverTimestamp(),
-    })
+    // Atualiza o chamado
+    await fsUpdateComTimestamp(
+      projectId,
+      docPath,
+      {
+        status: 'em_atendimento',
+        atendenteTelegramId: telegramId,
+        atendenteNome: nomeAtendente,
+      },
+      ['atualizadoEm'],
+      token
+    )
 
-    await chamadoRef.collection('mensagens').add({
-      autorTipo: 'admin',
-      autorNome: nomeAtendente,
-      conteudo: `${nomeAtendente} assumiu o atendimento.`,
-      enviadoEm: FieldValue.serverTimestamp(),
-      lida: true,
-      sistema: true,
-    })
+    // Adiciona mensagem de sistema
+    await fsAddComTimestamp(
+      projectId,
+      `chamados/${chamadoId}/mensagens`,
+      {
+        autorTipo: 'admin',
+        autorNome: nomeAtendente,
+        conteudo: `${nomeAtendente} assumiu o atendimento.`,
+        lida: true,
+        sistema: true,
+      },
+      ['enviadoEm'],
+      token
+    )
 
+    // Edita a mensagem no grupo
     if (cb.message) {
       const textoOriginal = cb.message.text || cb.message.caption || 'Atendimento solicitado'
       await callTelegram('editMessageText', {
@@ -116,6 +137,7 @@ const assumirAtendimento = async (cb) => {
       })
     }
 
+    // Envia mensagem no privado do atendente
     const privado = await callTelegram('sendMessage', {
       chat_id: telegramId,
       text: `✅ Você assumiu o chamado <code>${escaparHtml(chamadoId)}</code>.\n\nTudo que o usuário enviar aparecerá aqui. Para responder, use <b>Responder/Reply</b> na mensagem do usuário.`,
@@ -126,7 +148,7 @@ const assumirAtendimento = async (cb) => {
       if (cb.message) {
         await callTelegram('sendMessage', {
           chat_id: cb.message.chat.id,
-          text: `${nomeAtendente} assumiu o atendimento, mas o bot não conseguiu enviar mensagem no privado. Abra uma conversa privada com o bot e clique em Iniciar.`,
+          text: `${nomeAtendente} assumiu o atendimento, mas o bot não conseguiu enviar mensagem no privado. Abra uma conversa com o bot e clique em Iniciar.`,
         })
       }
       return NextResponse.json({ ok: true, aviso: 'Privado do atendente indisponivel' })
@@ -138,16 +160,14 @@ const assumirAtendimento = async (cb) => {
     if (cb.message) {
       await callTelegram('sendMessage', {
         chat_id: cb.message.chat.id,
-        text: `❌ Não foi possível assumir o atendimento.\n\nErro: ${escaparHtml(err?.message || String(err))}`,
+        text: `❌ Erro ao assumir atendimento: ${escaparHtml(err?.message || String(err))}`,
       })
     }
-    return NextResponse.json({
-      ok: true,
-      erro: 'Falha ao assumir atendimento',
-    })
+    return NextResponse.json({ ok: true, erro: String(err?.message) })
   }
 }
 
+// ─── Responder usuário pelo Reply no Telegram ─────────────────────────────────
 const responderUsuarioPeloReply = async (msg) => {
   const replyText = msg.reply_to_message?.text || ''
   const texto = msg.text || ''
@@ -159,25 +179,36 @@ const responderUsuarioPeloReply = async (msg) => {
   const nomeAtendente = msg.from?.first_name || msg.from?.username || 'Atendente'
 
   try {
-    const db = getFirestore(getSupportAdminApp())
-    const chamadoRef = db.collection('chamados').doc(chamadoId)
+    const token = await getToken()
+    const projectId = getProjectId()
 
-    await chamadoRef.collection('mensagens').add({
-      autorTipo: 'admin',
-      autorNome: nomeAtendente,
-      conteudo: texto.trim(),
-      enviadoEm: FieldValue.serverTimestamp(),
-      lida: false,
-    })
+    // Adiciona mensagem do admin
+    await fsAddComTimestamp(
+      projectId,
+      `chamados/${chamadoId}/mensagens`,
+      {
+        autorTipo: 'admin',
+        autorNome: nomeAtendente,
+        conteudo: texto.trim(),
+        lida: false,
+      },
+      ['enviadoEm'],
+      token
+    )
 
-    await chamadoRef.update({
-      status: 'aguardando_usuario',
-      naoLidasUsuario: FieldValue.increment(1),
-      ultimaMensagem: texto.trim().slice(0, 160),
-      ultimaMensagemAutor: 'admin',
-      ultimaMensagemEm: FieldValue.serverTimestamp(),
-      atualizadoEm: FieldValue.serverTimestamp(),
-    })
+    // Atualiza chamado com increment em naoLidasUsuario + timestamps
+    await fsUpdateComIncremento(
+      projectId,
+      `chamados/${chamadoId}`,
+      {
+        status: 'aguardando_usuario',
+        ultimaMensagem: texto.trim().slice(0, 160),
+        ultimaMensagemAutor: 'admin',
+      },
+      [['naoLidasUsuario', 1]],
+      ['ultimaMensagemEm', 'atualizadoEm'],
+      token
+    )
   } catch (err) {
     console.error('[webhook-telegram] erro ao responder usuario pelo reply', err)
   }
@@ -185,6 +216,7 @@ const responderUsuarioPeloReply = async (msg) => {
   return NextResponse.json({ ok: true })
 }
 
+// ─── POST ─────────────────────────────────────────────────────────────────────
 export async function POST(req) {
   try {
     const body = await req.json().catch(() => ({}))
@@ -192,11 +224,7 @@ export async function POST(req) {
     if (body.callback_query) {
       const cb = body.callback_query
       const data = cb.data || ''
-
-      if (data.startsWith('assumir_')) {
-        return assumirAtendimento(cb)
-      }
-
+      if (data.startsWith('assumir_')) return assumirAtendimento(cb)
       await responderCallback(cb.id)
       return NextResponse.json({ ok: true })
     }
@@ -212,11 +240,13 @@ export async function POST(req) {
   }
 }
 
+// ─── GET (diagnóstico) ────────────────────────────────────────────────────────
 export async function GET() {
   return NextResponse.json({
     ok: true,
     rota: 'support/webhook-telegram',
     version: WEBHOOK_VERSION,
+    engine: 'firestore-rest-api',
     env: {
       telegramBotToken: Boolean(process.env.TELEGRAM_BOT_TOKEN),
       telegramChatId: Boolean(process.env.TELEGRAM_CHAT_ID),
