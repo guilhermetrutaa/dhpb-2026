@@ -6,11 +6,13 @@ import {
   fsUpdateComTimestamp,
   fsAddComTimestamp,
   fsUpdateComIncremento,
+  fsUpdate,
+  fsSendFcm,
 } from '@/lib/support/server/firestore-rest'
 
 export const runtime = 'nodejs'
 
-const WEBHOOK_VERSION = '2026-08-09-v1-rest-api'
+const WEBHOOK_VERSION = '2026-08-09-v2-link-button'
 
 const escaparHtml = (texto = '') =>
   String(texto)
@@ -137,11 +139,19 @@ const assumirAtendimento = async (cb) => {
       })
     }
 
-    // Envia mensagem no privado do atendente
+    // Envia mensagem no privado do atendente com botão de link
+    const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/$/, '')
+    const linkAtendimento = `${siteUrl}/admin/suporte/chamados/${encodeURIComponent(chamadoId)}`
+
     const privado = await callTelegram('sendMessage', {
       chat_id: telegramId,
-      text: `✅ Você assumiu o chamado <code>${escaparHtml(chamadoId)}</code>.\n\nTudo que o usuário enviar aparecerá aqui. Para responder, use <b>Responder/Reply</b> na mensagem do usuário.`,
+      text: `✅ Você assumiu o chamado <code>${escaparHtml(chamadoId)}</code>.\n\nTudo que o usuário enviar aparecerá aqui como resposta a esta mensagem.`,
       parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🔗 Abrir atendimento no site', url: linkAtendimento }],
+        ],
+      },
     })
 
     if (!privado.ok) {
@@ -152,6 +162,19 @@ const assumirAtendimento = async (cb) => {
         })
       }
       return NextResponse.json({ ok: true, aviso: 'Privado do atendente indisponivel' })
+    }
+
+    // Salva o message_id da mensagem privada para usar como reply nas notificações futuras
+    try {
+      const msgData = JSON.parse(privado.body || '{}')
+      const atendenteMsgId = msgData?.result?.message_id
+      if (atendenteMsgId) {
+        const token2 = await getToken()
+        const projectId2 = getProjectId()
+        await fsUpdate(projectId2, `chamados/${chamadoId}`, { atendenteMsgId }, token2)
+      }
+    } catch (e) {
+      console.error('[webhook-telegram] erro ao salvar atendenteMsgId', e)
     }
 
     return NextResponse.json({ ok: true })
@@ -181,11 +204,12 @@ const responderUsuarioPeloReply = async (msg) => {
   try {
     const token = await getToken()
     const projectId = getProjectId()
+    const docPath = `chamados/${chamadoId}`
 
     // Adiciona mensagem do admin
     await fsAddComTimestamp(
       projectId,
-      `chamados/${chamadoId}/mensagens`,
+      `${docPath}/mensagens`,
       {
         autorTipo: 'admin',
         autorNome: nomeAtendente,
@@ -199,7 +223,7 @@ const responderUsuarioPeloReply = async (msg) => {
     // Atualiza chamado com increment em naoLidasUsuario + timestamps
     await fsUpdateComIncremento(
       projectId,
-      `chamados/${chamadoId}`,
+      docPath,
       {
         status: 'aguardando_usuario',
         ultimaMensagem: texto.trim().slice(0, 160),
@@ -209,6 +233,20 @@ const responderUsuarioPeloReply = async (msg) => {
       ['ultimaMensagemEm', 'atualizadoEm'],
       token
     )
+
+    // Dispara notificação FCM Web Push para o usuário (se ele aceitou)
+    const snap = await fsGet(projectId, docPath, token)
+    if (snap.exists && snap.data.fcmToken) {
+      const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/$/, '')
+      await fsSendFcm(
+        projectId,
+        snap.data.fcmToken,
+        token,
+        `Suporte DHPB: Resposta de ${nomeAtendente}`,
+        texto.trim().slice(0, 100) + (texto.length > 100 ? '...' : ''),
+        siteUrl
+      )
+    }
   } catch (err) {
     console.error('[webhook-telegram] erro ao responder usuario pelo reply', err)
   }

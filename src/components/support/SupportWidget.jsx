@@ -19,12 +19,15 @@ const SupportWidget = () => {
   const [aberto, setAberto] = useState(false)
   const [visivel, setVisivel] = useState(false)
   const pathname = usePathname()
-  const { naoLidasUsuario } = useSupportChat()
+  const chat = useSupportChat()
+  const { naoLidasUsuario, inicializarBackground } = chat
 
   useEffect(() => {
     const t = setTimeout(() => setVisivel(true), 600)
+    // Inicializa a escuta em background silenciosamente
+    inicializarBackground?.()
     return () => clearTimeout(t)
-  }, [])
+  }, [inicializarBackground])
 
   if (pathname?.startsWith('/admin')) return null
   if (!suporteConfigurado) return null
@@ -50,7 +53,7 @@ const SupportWidget = () => {
           {aberto ? 'Fechar atendimento' : 'Fale com o suporte'}
         </span>
       </button>
-      {aberto && <ChatWindow onFechar={() => setAberto(false)} />}
+      {aberto && <ChatWindow chat={chat} onFechar={() => setAberto(false)} />}
     </>
   )
 }

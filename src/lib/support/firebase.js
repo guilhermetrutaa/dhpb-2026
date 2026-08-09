@@ -1,6 +1,7 @@
 import { initializeApp, getApps } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
 import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore'
+import { getMessaging, getToken } from 'firebase/messaging'
 
 const supportConfig = {
   apiKey: process.env.NEXT_PUBLIC_SUPPORT_FIREBASE_API_KEY,
@@ -28,4 +29,33 @@ if (typeof window !== 'undefined' && suporteConfigurado) {
   }
 }
 
-export { supportAuth, supportDb, suporteConfigurado }
+let supportMessaging = null
+if (typeof window !== 'undefined' && suporteConfigurado && 'Notification' in window) {
+  try {
+    const app = getApps().find((a) => a.name === 'support')
+    supportMessaging = getMessaging(app)
+  } catch (e) {
+    console.error('Falha ao inicializar FCM do suporte:', e)
+  }
+}
+
+export const requestNotificationToken = async () => {
+  if (!supportMessaging) return null
+  try {
+    const permission = await Notification.requestPermission()
+    if (permission !== 'granted') return null
+
+    const vapidKey = process.env.NEXT_PUBLIC_SUPPORT_FIREBASE_VAPID_KEY
+    if (!vapidKey) {
+      console.error('VAPID Key não configurada para o FCM do Suporte.')
+      return null
+    }
+
+    return await getToken(supportMessaging, { vapidKey })
+  } catch (e) {
+    console.error('Erro ao pedir token FCM:', e)
+    return null
+  }
+}
+
+export { supportAuth, supportDb, supportMessaging, suporteConfigurado }

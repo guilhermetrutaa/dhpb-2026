@@ -36,8 +36,7 @@ const IndicadorDigitando = () => (
   </div>
 )
 
-const ChatWindow = ({ onFechar }) => {
-  const chat = useSupportChat()
+const ChatWindow = ({ chat, onFechar }) => {
   const { sessao, chamado, mensagens, carregando, digitando, erro, sugestoes, coleta, encerrado, inicializar, iniciarNovoAtendimento, enviarMensagem } = chat
   const [texto, setTexto] = useState('')
   const fimRef = useRef(null)

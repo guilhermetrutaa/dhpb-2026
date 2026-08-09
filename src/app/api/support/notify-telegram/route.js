@@ -26,7 +26,7 @@ const escaparHtml = (texto = '') =>
 export async function POST(req) {
   try {
     const body = await req.json().catch(() => ({}))
-    const { tipo, chamadoId, resumo, categoria, prioridade, nome, email, dataHora, telegramId, mensagem } = body
+    const { tipo, chamadoId, resumo, categoria, prioridade, nome, email, dataHora, telegramId, mensagem, atendenteMsgId } = body
 
     if (!chamadoId) {
       return NextResponse.json({ erro: 'chamadoId obrigatório.' }, { status: 400 })
@@ -47,6 +47,10 @@ export async function POST(req) {
       if (!telegramId) return NextResponse.json({ erro: 'telegramId ausente para mensagem privada' }, { status: 400 })
       chatToSend = telegramId
       texto = `👤 <b>Nova mensagem de ${escaparHtml(nome || 'Usuário')}</b>\n\n${escaparHtml(mensagem)}\n\n<i>(Responda a esta mensagem para falar com o usuário. ID: ${chamadoId})</i>`
+      // Se tiver o ID da mensagem de "assumido", responde diretamente a ela
+      if (atendenteMsgId) {
+        replyMarkup = undefined
+      }
     } else {
       const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || req.nextUrl.origin || '').replace(/\/$/, '')
       const link = `${siteUrl}/admin/suporte/chamados/${encodeURIComponent(chamadoId)}`
@@ -79,6 +83,9 @@ export async function POST(req) {
         parse_mode: 'HTML',
         disable_web_page_preview: true,
         reply_markup: replyMarkup,
+        ...(tipo === 'nova_mensagem_usuario' && atendenteMsgId
+          ? { reply_to_message_id: atendenteMsgId }
+          : {}),
       }),
     })
 

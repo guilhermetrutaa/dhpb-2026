@@ -54,7 +54,7 @@ const gerarJWT = async (sa) => {
   const payload = base64url(
     JSON.stringify({
       iss: sa.client_email,
-      scope: 'https://www.googleapis.com/auth/datastore',
+      scope: 'https://www.googleapis.com/auth/datastore https://www.googleapis.com/auth/firebase.messaging',
       aud: 'https://oauth2.googleapis.com/token',
       exp: agora + 3600,
       iat: agora,
@@ -261,4 +261,35 @@ export const fsAddComTimestamp = async (
     ],
     token
   )
+}
+
+// ─── Envio de FCM (Push) ──────────────────────────────────────────────────────
+export const fsSendFcm = async (projectId, tokenFCM, accessToken, title, bodyStr, url) => {
+  const res = await fetch(
+    `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message: {
+          token: tokenFCM,
+          notification: {
+            title,
+            body: bodyStr,
+          },
+          webpush: {
+            fcm_options: {
+              link: url || '/',
+            },
+          },
+        },
+      }),
+    }
+  )
+  if (!res.ok) {
+    console.error(`[fsSendFcm] Falha: ${res.status} ${await res.text()}`)
+  }
 }

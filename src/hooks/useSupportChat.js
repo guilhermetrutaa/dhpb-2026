@@ -15,7 +15,7 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore'
-import { supportAuth, supportDb } from '@/lib/support/firebase'
+import { supportAuth, supportDb, requestNotificationToken } from '@/lib/support/firebase'
 import {
   AUTORES,
   MENSAGEM_ATENDENTE_48H,
@@ -246,6 +246,14 @@ export const useSupportChat = () => {
       if (atual.nome) nomeRef.current = atual.nome
       setEncerrado(encerradoAnterior)
       setColeta(!encerradoAnterior && (!atual.nome || !atual.email) ? 'contato' : null)
+
+      // Solicita permissão e salva o token de notificação
+      requestNotificationToken().then((token) => {
+        if (token && atual.id) {
+          updateDoc(doc(supportDb, 'chamados', atual.id), { fcmToken: token }).catch(() => {})
+        }
+      })
+
       const respostas = await buscarRespostasRapidas()
       setSugestoes(respostas.filter((r) => r.sugestao).map((r) => r.pergunta || r.titulo).filter(Boolean))
       setCarregando(false)
@@ -253,6 +261,31 @@ export const useSupportChat = () => {
       setErro(mensagemErroSuporte(e))
       setCarregando(false)
     }
+  }, [])
+
+  const inicializarBackground = useCallback(() => {
+    if (!supportAuth || !supportDb) return
+    // Aguarda o firebase carregar a sessão salva
+    const unsub = onAuthStateChanged(supportAuth, async (usuario) => {
+      unsub() // escuta só a primeira resolução
+      if (usuario) {
+        try {
+          const q = query(
+            collection(supportDb, 'chamados'),
+            where('uid', '==', usuario.uid),
+            orderBy('criadoEm', 'desc'),
+            limit(1)
+          )
+          const snap = await getDocs(q)
+          const ultimo = snap.docs[0]
+          if (ultimo && CHAMADOS_ATIVOS.includes(ultimo.data().status)) {
+            setChamado({ id: ultimo.id, ...ultimo.data() })
+          }
+        } catch (e) {
+          console.error('[support] background init falhou', e)
+        }
+      }
+    })
   }, [])
 
   const chamadoId = chamado?.id
@@ -436,6 +469,7 @@ export const useSupportChat = () => {
               tipo: 'nova_mensagem_usuario',
               chamadoId: chamado.id,
               telegramId: chamado.atendenteTelegramId,
+              atendenteMsgId: chamado.atendenteMsgId || null,
               mensagem: conteudo,
               nome: chamado.nome || 'Usuário',
             }),
@@ -488,7 +522,7 @@ export const useSupportChat = () => {
     }
   }
 
-  return { sessao, chamado, mensagens, carregando, digitando, erro, sugestoes, coleta, encerrado, inicializar, iniciarNovoAtendimento, enviarMensagem, encerrarSessao, naoLidasUsuario: chamado?.naoLidasUsuario || 0 }
+  return { sessao, chamado, mensagens, carregando, digitando, erro, sugestoes, coleta, encerrado, inicializar, inicializarBackground, iniciarNovoAtendimento, enviarMensagem, encerrarSessao, naoLidasUsuario: chamado?.naoLidasUsuario || 0 }
 }
 
 export const getSupportSession = async () => {
