@@ -5,7 +5,6 @@ import { Poppins } from 'next/font/google'
 import { useSupportChat } from '@/hooks/useSupportChat'
 import {
   AUTORES,
-  MENSAGEM_ATENDENTE_48H,
   MENSAGEM_BEM_VINDO,
   STATUS_CHAMADO,
   STATUS_LABELS,
@@ -41,7 +40,23 @@ const ChatWindow = ({ chat, onFechar }) => {
   const { sessao, chamado, mensagens, carregando, digitando, erro, sugestoes, coleta, encerrado, inicializar, iniciarNovoAtendimento, enviarMensagem } = chat
   const [texto, setTexto] = useState('')
   const [permissao, setPermissao] = useState('granted') // default para não piscar
+  const [tempoFila, setTempoFila] = useState(0)
   const fimRef = useRef(null)
+
+  useEffect(() => {
+    if (chamado?.status !== STATUS_CHAMADO.AGUARDANDO_ATENDENTE || !chamado?.transferidoEm) {
+      setTempoFila(0)
+      return
+    }
+    const calc = () => {
+      const ts = chamado.transferidoEm
+      const ms = Date.now() - (ts.toMillis ? ts.toMillis() : new Date(ts).getTime())
+      setTempoFila(Math.floor(ms / 1000))
+    }
+    calc()
+    const t = setInterval(calc, 5000)
+    return () => clearInterval(t)
+  }, [chamado?.status, chamado?.transferidoEm])
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
@@ -140,6 +155,7 @@ const ChatWindow = ({ chat, onFechar }) => {
         </div>
       )}
 
+
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-neutral-50/50">
         {carregando ? (
           <div className="h-full flex items-center justify-center">
@@ -147,26 +163,45 @@ const ChatWindow = ({ chat, onFechar }) => {
           </div>
         ) : (
           <>
-            {chamado?.modo === 'humano' && chamado.status === STATUS_CHAMADO.AGUARDANDO_ATENDENTE && (
-              <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs px-4 py-3 rounded-xl">
-                {MENSAGEM_ATENDENTE_48H}
-              </div>
-            )}
-            {encerrado && (
-              <div className="bg-neutral-100 border border-neutral-200 text-neutral-700 text-xs px-4 py-3 rounded-xl">
-                Este atendimento foi encerrado e o histórico foi salvo. Precisa de mais ajuda?
-                <button
-                  onClick={iniciarNovoAtendimento}
-                  className="block mt-2 bg-[#82181A] text-white text-xs font-semibold px-4 py-2 rounded-xl hover:bg-[#631214] transition-colors cursor-pointer"
-                >
-                  Iniciar novo atendimento
-                </button>
-              </div>
-            )}
+
             {erro && <div className="bg-red-50 border border-red-200 text-red-700 text-xs px-4 py-3 rounded-xl">{erro}</div>}
             {mensagensExibidas.map((m) => (
               <MessageBubble key={m.id} mensagem={m} />
             ))}
+
+            {/* Bolha de status: Buscando atendente */}
+            {chamado?.modo === 'humano' && chamado.status === STATUS_CHAMADO.AGUARDANDO_ATENDENTE && (
+              <div className="flex flex-col items-start">
+                <div className="max-w-[85%] px-4 py-2.5 text-sm leading-relaxed bg-neutral-100 text-neutral-900 rounded-2xl rounded-bl-md border border-neutral-200/60 flex items-center gap-2.5 animate-support-in">
+                  {tempoFila >= 600 ? (
+                    <span>Nosso sistema está mais cheio do que parece, mas não saia da tela! Em breve alguém falará com você. 🙏</span>
+                  ) : (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                      <span>Buscando um atendente disponível...</span>
+                    </>
+                  )}
+                </div>
+                <span className="text-[10px] text-neutral-400 mt-1 px-1">Atendimento DHPB · agora</span>
+              </div>
+            )}
+
+            {/* Bolha de encerramento — aparece como última mensagem */}
+            {encerrado && (
+              <div className="flex flex-col items-start">
+                <div className="max-w-[85%] px-4 py-3 text-sm leading-relaxed bg-neutral-100 text-neutral-900 rounded-2xl rounded-bl-md border border-neutral-200/60 flex flex-col gap-2.5 animate-support-in">
+                  <span>Este atendimento foi encerrado e o histórico foi salvo. Precisa de mais ajuda?</span>
+                  <button
+                    onClick={iniciarNovoAtendimento}
+                    className="bg-[#82181A] text-white text-xs font-semibold px-4 py-2 rounded-xl hover:bg-[#631214] transition-colors cursor-pointer self-start"
+                  >
+                    Iniciar novo atendimento
+                  </button>
+                </div>
+                <span className="text-[10px] text-neutral-400 mt-1 px-1">Atendimento DHPB · agora</span>
+              </div>
+            )}
+
             {digitando && <IndicadorDigitando />}
             {mensagens.length === 0 && !coleta && sugestoesExibidas.length > 0 && (
               <div className="flex flex-wrap gap-2 pt-1">

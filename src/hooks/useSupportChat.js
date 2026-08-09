@@ -18,7 +18,6 @@ import {
 import { supportAuth, supportDb, requestNotificationToken } from '@/lib/support/firebase'
 import {
   AUTORES,
-  MENSAGEM_ATENDENTE_48H,
   MENSAGEM_ERRO_IA,
   MENSAGEM_PEDIR_CONTATO,
   STATUS_CHAMADO,
@@ -123,12 +122,12 @@ const respostaAutomaticaTransferencia = (texto, info) => {
   const t = normalizar(texto)
 
   if (/\b(ano passado|edicao passada|edicao anterior|3o dhpb|3 dhpb|terceiro dhpb|conta antiga)\b/.test(t)) {
-    return `O site foi resetado para o 4º DHPB. Contas do 3º DHPB/ano passado não continuam válidas nesta edição, então alunos e professores precisam criar uma nova conta. Também encaminhei seu caso para a equipe de suporte. ${MENSAGEM_ATENDENTE_48H}`
+    return `O site foi resetado para o 4º DHPB. Contas do 3º DHPB/ano passado não continuam válidas nesta edição, então alunos e professores precisam criar uma nova conta. Também encaminhei seu caso para a equipe de suporte.`
   }
 
-  if (info?.resumo === 'Usuário pediu atendimento humano.') return MENSAGEM_ATENDENTE_48H
+  if (info?.resumo === 'Usuário pediu atendimento humano.') return ''
 
-  return `Entendi o problema e encaminhei para a equipe de suporte do DHPB. ${MENSAGEM_ATENDENTE_48H}`
+  return `Entendi o problema e encaminhei para a equipe de suporte do DHPB.`
 }
 
 const autenticarSuporte = async () => {
@@ -305,7 +304,13 @@ export const useSupportChat = ({ isChatOpen = false } = {}) => {
     const unsubChamado = onSnapshot(
       doc(supportDb, 'chamados', chamadoId),
       (snap) => {
-        if (snap.exists()) setChamado((prev) => ({ ...prev, ...snap.data() }))
+        if (snap.exists()) {
+          const data = snap.data()
+          setChamado((prev) => ({ ...prev, ...data }))
+          if (!CHAMADOS_ATIVOS.includes(data.status)) {
+            setEncerrado(true)
+          }
+        }
       },
       () => {}
     )
@@ -342,7 +347,7 @@ export const useSupportChat = ({ isChatOpen = false } = {}) => {
     return ref
   }
 
-  const transferirParaHumano = async (infoIA, mensagemConfirmacao = MENSAGEM_ATENDENTE_48H) => {
+  const transferirParaHumano = async (infoIA, mensagemConfirmacao = '') => {
     const dataHora = new Date().toLocaleString('pt-BR', {
       day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
     })
@@ -357,7 +362,10 @@ export const useSupportChat = ({ isChatOpen = false } = {}) => {
       naoLidasAdmin: 1,
     })
     setChamado((prev) => prev ? { ...prev, status: STATUS_CHAMADO.AGUARDANDO_ATENDENTE, modo: 'humano' } : prev)
-    await gravarMensagem(AUTORES.IA, mensagemConfirmacao, { fonte: 'transferencia_humano' })
+    
+    if (mensagemConfirmacao) {
+      await gravarMensagem(AUTORES.IA, mensagemConfirmacao, { fonte: 'transferencia_humano' })
+    }
 
     const res = await fetch('/api/support/notify-telegram', {
       method: 'POST',

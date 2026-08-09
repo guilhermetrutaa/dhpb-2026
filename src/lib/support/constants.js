@@ -63,8 +63,6 @@ export const MENSAGEM_BEM_VINDO =
 export const MENSAGEM_PEDIR_CONTATO =
   'Antes de começarmos o atendimento, preciso do seu nome completo e do seu e-mail. Pode enviar os dois na mesma mensagem?'
 
-export const MENSAGEM_ATENDENTE_48H =
-  'Certo! Seu atendimento foi encaminhado para a equipe do DHPB. Um de nossos atendentes irá responder aqui no chat em até 48 horas.'
 
 export const SUGESTOES_INICIAIS = [
   'Como faço minha inscrição?',
