@@ -136,6 +136,20 @@ export const fsGet = async (projectId, docPath, token) => {
   return { exists: true, data: fromFsFields(doc.fields || {}) }
 }
 
+export const fsGetCollection = async (projectId, collectionPath, token) => {
+  const res = await fetch(`${BASE(projectId)}/${collectionPath}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (res.status === 404) return []
+  if (!res.ok) throw new Error(`fsGetCollection ${res.status}: ${await res.text()}`)
+  const data = await res.json()
+  if (!data.documents) return []
+  return data.documents.map((doc) => ({
+    id: doc.name.split('/').pop(),
+    ...fromFsFields(doc.fields || {}),
+  }))
+}
+
 // ─── UPDATE simples ───────────────────────────────────────────────────────────
 export const fsUpdate = async (projectId, docPath, fields, token) => {
   const keys = Object.keys(fields)

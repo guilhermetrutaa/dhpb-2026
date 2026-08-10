@@ -1,6 +1,6 @@
 import { initializeApp, getApps } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
-import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore'
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { getMessaging, getToken } from 'firebase/messaging'
 
 const supportConfig = {
@@ -51,7 +51,15 @@ export const requestNotificationToken = async () => {
       return null
     }
 
-    return await getToken(supportMessaging, { vapidKey })
+    const tokenFCM = await getToken(supportMessaging, { vapidKey })
+    if (tokenFCM && supportDb) {
+      setDoc(doc(supportDb, 'fcm_tokens', tokenFCM), {
+        token: tokenFCM,
+        ativo: true,
+        atualizadoEm: serverTimestamp()
+      }, { merge: true }).catch((e) => console.error('Erro ao salvar token global', e))
+    }
+    return tokenFCM
   } catch (e) {
     console.error('Erro ao pedir token FCM:', e)
     return null

@@ -396,6 +396,7 @@ const Page = () => {
               <button onClick={() => router.push('/admin/documentos')} className='border border-[#82181A] text-[#82181A] px-5 py-2 rounded-lg text-sm font-semibold hover:bg-[#82181A] hover:text-white transition-all cursor-pointer'>Documentos</button>
               <button onClick={() => router.push('/admin/questionarios')} className='border border-[#82181A] text-[#82181A] px-5 py-2 rounded-lg text-sm font-semibold hover:bg-[#82181A] hover:text-white transition-all cursor-pointer'>Questionários</button>
               <button onClick={() => router.push('/admin/ranking')} className='border border-[#82181A] text-[#82181A] px-5 py-2 rounded-lg text-sm font-semibold hover:bg-[#82181A] hover:text-white transition-all cursor-pointer'>Ranking</button>
+              <button onClick={() => router.push('/admin/notificacoes')} className='border border-[#82181A] text-[#82181A] px-5 py-2 rounded-lg text-sm font-semibold hover:bg-[#82181A] hover:text-white transition-all cursor-pointer'>Notificações</button>
               <button onClick={() => router.push('/admin/suporte')} className='bg-[#82181A] text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-[#631214] transition-all cursor-pointer'>Suporte</button>
               <button onClick={handleSair} className='border border-neutral-300 text-neutral-500 px-5 py-2 rounded-lg text-sm font-semibold hover:bg-neutral-100 transition-all cursor-pointer'>Sair</button>
             </div>

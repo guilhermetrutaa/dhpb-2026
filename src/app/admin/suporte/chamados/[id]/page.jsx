@@ -123,6 +123,14 @@ const Page = () => {
         atualizadoEm: serverTimestamp(),
       })
       setTexto('')
+      
+      // Dispara a notificação Push (FCM) em background
+      fetch('/api/support/send-fcm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chamadoId, texto: conteudo }),
+      }).catch((e) => console.error('Erro ao enviar FCM', e))
+
     } catch {}
     setEnviando(false)
   }
