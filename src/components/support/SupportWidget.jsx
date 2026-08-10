@@ -25,9 +25,11 @@ const SupportWidget = () => {
   useEffect(() => {
     const t = setTimeout(() => {
       setVisivel(true)
-      // Pede permissão logo na abertura do site se suportado
-      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
-        requestNotificationToken().catch(() => {})
+      // Pede permissão logo na abertura do site se suportado (ou atualiza o token se já permitido)
+      if (typeof window !== 'undefined' && 'Notification' in window) {
+        if (Notification.permission === 'default' || Notification.permission === 'granted') {
+          requestNotificationToken().catch(() => {})
+        }
       }
     }, 600)
     
