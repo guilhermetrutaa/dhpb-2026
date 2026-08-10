@@ -11,36 +11,5 @@ firebase.initializeApp({
 })
 
 const messaging = firebase.messaging()
+// O Firebase se encarrega de renderizar as notificações automaticamente.
 
-messaging.onBackgroundMessage((payload) => {
-  console.log('[firebase-messaging-sw.js] Recebeu mensagem em background: ', payload)
-
-  const notificationTitle = payload.notification?.title || 'DHPB - Suporte'
-  const notificationOptions = {
-    body: payload.notification?.body || 'Você tem uma nova mensagem.',
-    icon: '/favicon.ico',
-    badge: '/favicon.ico',
-    data: payload.data
-  }
-
-  self.registration.showNotification(notificationTitle, notificationOptions)
-})
-
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close()
-  event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // Se já houver uma aba aberta com o site, foca nela
-      for (let i = 0; i < clientList.length; i++) {
-        const client = clientList[i]
-        if (client.url.includes(self.registration.scope) && 'focus' in client) {
-          return client.focus()
-        }
-      }
-      // Se não, abre uma nova
-      if (clients.openWindow) {
-        return clients.openWindow('/')
-      }
-    })
-  )
-})

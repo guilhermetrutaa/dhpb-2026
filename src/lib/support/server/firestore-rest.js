@@ -295,6 +295,9 @@ export const fsSendFcm = async (projectId, tokenFCM, accessToken, title, bodyStr
             body: bodyStr,
           },
           webpush: {
+            notification: {
+              icon: '/favicon.ico',
+            },
             fcm_options: {
               link: url || '/',
             },
