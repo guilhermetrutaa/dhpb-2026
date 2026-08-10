@@ -416,8 +416,10 @@ function MultiTeamView({ authUser, userData, edicoes }) {
         getDocs(query(collection(db, 'equipes'), where('criadorUid', '==', authUser.uid))),
       ])
 
+      // 1. Equipes via participacoes
       const teamPromises = pSnap.docs.map(async (pDoc) => {
         const pData = pDoc.data()
+        if (!pData.equipeId) return null
         try {
           const eSnap = await getDoc(doc(db, 'equipes', pData.equipeId))
           if (eSnap.exists()) {
@@ -432,6 +434,8 @@ function MultiTeamView({ authUser, userData, edicoes }) {
       })
       const teams = (await Promise.all(teamPromises)).filter(Boolean)
       teams.forEach(t => mapa.set(t.id, t))
+
+      // 2. Equipes criadas diretamente pelo professor
       for (const doc_ of minhasSnap.docs) {
         if (!mapa.has(doc_.id)) {
           mapa.set(doc_.id, {
@@ -442,12 +446,44 @@ function MultiTeamView({ authUser, userData, edicoes }) {
         }
       }
 
+      // 3. Fallback via membro-index para garantir que todas as equipes apareçam
+      // Cobre casos onde o professor foi adicionado mas participacoes não foi criado
+      if (authUser.email) {
+        const emailBase = btoa(authUser.email).replace(/=+$/, '')
+        const edicaoIds = (edicoes || []).map(e => e.id)
+        const miPromises = edicaoIds.map(async (edicaoId) => {
+          const miKey = emailBase + '_' + edicaoId
+          try {
+            const miSnap = await getDoc(doc(db, 'membro-index', miKey))
+            if (!miSnap.exists()) return null
+            const miData = miSnap.data()
+            if (mapa.has(miData.equipeId)) return null // já encontrado antes
+            const eSnap = await getDoc(doc(db, 'equipes', miData.equipeId))
+            if (!eSnap.exists()) return null
+            // Sincroniza participacoes para que próximas cargas sejam mais rápidas
+            setDoc(doc(db, 'users', authUser.uid, 'participacoes', edicaoId), {
+              equipeId: miData.equipeId,
+              papel: miData.papel || 'professor_orientador',
+            }).catch(() => {})
+            return {
+              id: eSnap.id,
+              edicaoNome: edMap[edicaoId]?.nome || 'Edição',
+              ...eSnap.data(),
+            }
+          } catch {}
+          return null
+        })
+        const miTeams = (await Promise.all(miPromises)).filter(Boolean)
+        miTeams.forEach(t => mapa.set(t.id, t))
+      }
+
       setEquipes(Array.from(mapa.values()))
       setCarregando(false)
     }
 
     carregarTudo()
   }, [authUser, edicoes])
+
 
   useEffect(() => {
     if (equipes.length === 0) return
