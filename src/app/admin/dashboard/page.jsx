@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Poppins } from 'next/font/google'
 import { useRouter } from 'next/navigation'
-import { collection, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, orderBy, query, getDocs, limit, startAfter } from 'firebase/firestore'
+import { collection, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, orderBy, query, getDocs, getDocsFromServer, getCountFromServer, limit, startAfter, documentId } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { db, auth } from '@/lib/firebase'
 import Image from 'next/image'
@@ -13,9 +13,24 @@ const poppins = Poppins({
   weight: ['400', '500', '600', '700'],
 })
 
+function mapEquipeDoc(d, edMap) {
+  const data = d.data()
+  return { ...data, id: d.id, edicaoNome: edMap[data.edicaoId] || '—' }
+}
+
+function dedupeEquipes(list) {
+  const seen = new Set()
+  return list.filter((eq) => {
+    if (seen.has(eq.id)) return false
+    seen.add(eq.id)
+    return true
+  })
+}
+
 function TabEquipes() {
   const [equipes, setEquipes] = useState([])
   const [edicoes, setEdicoes] = useState([])
+  const [totalServidor, setTotalServidor] = useState(null)
   const [carregando, setCarregando] = useState(true)
   const [expanded, setExpanded] = useState(null)
 
@@ -24,15 +39,19 @@ function TabEquipes() {
 
   useEffect(() => {
     const carregar = async () => {
-      const edSnap = await getDocs(collection(db, 'edicoes'))
+      const [edSnap, countSnap] = await Promise.all([
+        getDocsFromServer(collection(db, 'edicoes')),
+        getCountFromServer(collection(db, 'equipes')),
+      ])
       const edMap = {}
       edSnap.docs.forEach((d) => { edMap[d.id] = d.data().nome || '—' })
       setEdicoes(edSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      setTotalServidor(countSnap.data().count)
 
-      const q = query(collection(db, 'equipes'), limit(50))
-      const eSnap = await getDocs(q)
-      setEquipes(eSnap.docs.map((d) => ({ id: d.id, edicaoNome: edMap[d.data().edicaoId] || '—', ...d.data() })))
-      setLastVisible(eSnap.docs[eSnap.docs.length - 1])
+      const q = query(collection(db, 'equipes'), orderBy(documentId()), limit(50))
+      const eSnap = await getDocsFromServer(q)
+      setEquipes(eSnap.docs.map((d) => mapEquipeDoc(d, edMap)))
+      setLastVisible(eSnap.docs[eSnap.docs.length - 1] || null)
       setTemMais(eSnap.docs.length === 50)
       setCarregando(false)
     }
@@ -43,10 +62,10 @@ function TabEquipes() {
     if (!lastVisible) return
     const edMap = {}
     edicoes.forEach((ed) => { edMap[ed.id] = ed.nome })
-    const q = query(collection(db, 'equipes'), startAfter(lastVisible), limit(50))
-    const eSnap = await getDocs(q)
-    setEquipes((prev) => [...prev, ...eSnap.docs.map((d) => ({ id: d.id, edicaoNome: edMap[d.data().edicaoId] || '—', ...d.data() }))])
-    setLastVisible(eSnap.docs[eSnap.docs.length - 1])
+    const q = query(collection(db, 'equipes'), orderBy(documentId()), startAfter(lastVisible), limit(50))
+    const eSnap = await getDocsFromServer(q)
+    setEquipes((prev) => dedupeEquipes([...prev, ...eSnap.docs.map((d) => mapEquipeDoc(d, edMap))]))
+    setLastVisible(eSnap.docs[eSnap.docs.length - 1] || null)
     setTemMais(eSnap.docs.length === 50)
   }
 
@@ -54,7 +73,7 @@ function TabEquipes() {
     if (!window.confirm('Custo de ~2.000 leituras. Isto irá varrer todas as equipes e renomear as duplicadas. Tem certeza?')) return
     setCarregando(true)
     try {
-      const snap = await getDocs(collection(db, 'equipes'))
+      const snap = await getDocsFromServer(collection(db, 'equipes'))
       const map = {}
       snap.docs.forEach(d => {
         const data = d.data()
@@ -90,8 +109,13 @@ function TabEquipes() {
 
   return (
     <div className='space-y-3'>
-      <div className='flex justify-end'>
-        <button onClick={handleCorrigirDuplicadas} className='text-xs bg-red-100 text-red-700 px-3 py-1 rounded-md hover:bg-red-200 transition-colors cursor-pointer font-bold'>
+      <div className='flex items-center justify-between gap-3'>
+        {totalServidor !== null && (
+          <p className='text-xs text-neutral-500'>
+            {equipes.length} exibida(s) · {totalServidor} no servidor
+          </p>
+        )}
+        <button onClick={handleCorrigirDuplicadas} className='text-xs bg-red-100 text-red-700 px-3 py-1 rounded-md hover:bg-red-200 transition-colors cursor-pointer font-bold ml-auto'>
           Corrigir Equipes Duplicadas
         </button>
       </div>
