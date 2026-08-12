@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react'
 import Image from 'next/image'
 import { Poppins } from 'next/font/google'
-import { doc, getDoc, updateDoc, arrayUnion, setDoc, collection, query, where, getDocs, deleteDoc, onSnapshot } from 'firebase/firestore'
+import { doc, getDoc, updateDoc, arrayUnion, arrayRemove, setDoc, collection, query, where, getDocs, deleteDoc, onSnapshot } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -93,9 +93,13 @@ function SingleTeamView({ equipeId, authUser, userData }) {
       }
 
       const nome = `${userDoc.data().nome || ''} ${userDoc.data().sobrenome || ''}`.trim()
-      await updateDoc(doc(db, 'equipes', equipeId), {
+      const updates = {
         membros: arrayUnion({ uid: userDoc.id, nome, email: data.email.trim(), papel, status: 'ativo' }),
-      })
+      }
+      if (papel === 'professor_orientador') {
+        updates.orientadorUids = arrayUnion(userDoc.id)
+      }
+      await updateDoc(doc(db, 'equipes', equipeId), updates)
       const pExist = await getDoc(doc(db, 'users', userDoc.id, 'participacoes', equipe.edicaoId))
       if (!pExist.exists()) {
         await setDoc(doc(db, 'users', userDoc.id, 'participacoes', equipe.edicaoId), { equipeId, papel })
@@ -147,7 +151,8 @@ function SingleTeamView({ equipeId, authUser, userData }) {
     setSucesso('')
     try {
       await updateDoc(doc(db, 'equipes', equipeId), {
-        membros: membrosAtivos.filter(m => m.uid !== membro.uid)
+        membros: membrosAtivos.filter(m => m.uid !== membro.uid),
+        ...(membro.papel === 'professor_orientador' ? { orientadorUids: arrayRemove(membro.uid) } : {}),
       })
       await deleteDoc(doc(db, 'users', membro.uid, 'participacoes', equipe.edicaoId))
       await deleteDoc(doc(db, 'membro-index', btoa(membro.email).replace(/=+$/, '') + '_' + equipe.edicaoId))
@@ -395,7 +400,9 @@ function SingleTeamView({ equipeId, authUser, userData }) {
 }
 
 function MultiTeamView({ authUser, userData, edicoes }) {
-  const [equipes, setEquipes] = useState([])
+  const POR_PAGINA = 3
+  const [todasEquipes, setTodasEquipes] = useState([])
+  const [visiveis, setVisiveis] = useState(POR_PAGINA)
   const [carregando, setCarregando] = useState(true)
   const [multiSlotInputs, setMultiSlotInputs] = useState({})
   const [dragSource, setDragSource] = useState(null)
@@ -411,45 +418,56 @@ function MultiTeamView({ authUser, userData, edicoes }) {
     const carregarTudo = async () => {
       const mapa = new Map()
 
-      const [pSnap, minhasSnap] = await Promise.all([
+      const consultas = [
         getDocs(query(collection(db, 'users', authUser.uid, 'participacoes'))),
         getDocs(query(collection(db, 'equipes'), where('criadorUid', '==', authUser.uid))),
-      ])
+      ]
+      if (userData?.tipo === 'professor') {
+        consultas.push(getDocs(query(collection(db, 'equipes'), where('orientadorUids', 'array-contains', authUser.uid))))
+      }
 
-      // 1. Equipes via participacoes
+      const resultados = await Promise.all(consultas)
+      const pSnap = resultados[0]
+      const minhasSnap = resultados[1]
+      const orientadorSnap = userData?.tipo === 'professor' ? resultados[2] : null
+
+      const adicionarEquipe = (id, data, edicaoIdFallback) => {
+        if (!id || mapa.has(id)) return
+        mapa.set(id, {
+          id,
+          edicaoNome: edMap[data.edicaoId || edicaoIdFallback]?.nome || 'Edição',
+          ...data,
+        })
+      }
+
+      // 1. Equipes via participacoes (no máximo 1 por edição)
       const teamPromises = pSnap.docs.map(async (pDoc) => {
         const pData = pDoc.data()
         if (!pData.equipeId) return null
         try {
           const eSnap = await getDoc(doc(db, 'equipes', pData.equipeId))
           if (eSnap.exists()) {
-            return {
-              id: eSnap.id,
-              edicaoNome: edMap[pDoc.id]?.nome || 'Edição',
-              ...eSnap.data(),
-            }
+            return { id: eSnap.id, edicaoId: pDoc.id, ...eSnap.data() }
           }
         } catch {}
         return null
       })
       const teams = (await Promise.all(teamPromises)).filter(Boolean)
-      teams.forEach(t => mapa.set(t.id, t))
+      teams.forEach((t) => adicionarEquipe(t.id, t, t.edicaoId))
 
       // 2. Equipes criadas diretamente pelo professor
-      for (const doc_ of minhasSnap.docs) {
-        if (!mapa.has(doc_.id)) {
-          mapa.set(doc_.id, {
-            id: doc_.id,
-            edicaoNome: edMap[doc_.data().edicaoId]?.nome || 'Edição',
-            ...doc_.data(),
-          })
-        }
-      }
+      minhasSnap.docs.forEach((doc_) => {
+        adicionarEquipe(doc_.id, doc_.data(), doc_.data().edicaoId)
+      })
 
-      // 3. Fallback via membro-index para garantir que todas as equipes apareçam
-      // Cobre casos onde o professor foi adicionado mas participacoes não foi criado
+      // 3. Equipes onde o professor é orientador (suporta várias por edição)
+      orientadorSnap?.docs.forEach((doc_) => {
+        adicionarEquipe(doc_.id, doc_.data(), doc_.data().edicaoId)
+      })
+
+      // 4. Fallback via membro-index (legado — 1 equipe por edição)
       if (authUser.email) {
-        const emailBase = btoa(authUser.email).replace(/=+$/, '')
+        const emailBase = btoa(authUser.email.trim().toLowerCase()).replace(/=+$/, '')
         const edicaoIds = (edicoes || []).map(e => e.id)
         const miPromises = edicaoIds.map(async (edicaoId) => {
           const miKey = emailBase + '_' + edicaoId
@@ -457,37 +475,57 @@ function MultiTeamView({ authUser, userData, edicoes }) {
             const miSnap = await getDoc(doc(db, 'membro-index', miKey))
             if (!miSnap.exists()) return null
             const miData = miSnap.data()
-            if (mapa.has(miData.equipeId)) return null // já encontrado antes
+            if (mapa.has(miData.equipeId)) return null
             const eSnap = await getDoc(doc(db, 'equipes', miData.equipeId))
             if (!eSnap.exists()) return null
-            // Sincroniza participacoes para que próximas cargas sejam mais rápidas
-            setDoc(doc(db, 'users', authUser.uid, 'participacoes', edicaoId), {
-              equipeId: miData.equipeId,
-              papel: miData.papel || 'professor_orientador',
-            }).catch(() => {})
-            return {
-              id: eSnap.id,
-              edicaoNome: edMap[edicaoId]?.nome || 'Edição',
-              ...eSnap.data(),
-            }
+            return { id: eSnap.id, edicaoId, ...eSnap.data() }
           } catch {}
           return null
         })
         const miTeams = (await Promise.all(miPromises)).filter(Boolean)
-        miTeams.forEach(t => mapa.set(t.id, t))
+        miTeams.forEach((t) => adicionarEquipe(t.id, t, t.edicaoId))
       }
 
-      setEquipes(Array.from(mapa.values()))
+      // 5. Sincronização legada: professor em várias equipes na mesma edição
+      // participacoes/membro-index só guardam 1 equipe por edição — varre 1x e preenche orientadorUids
+      if (userData?.tipo === 'professor' && (edicoes || []).length > 0) {
+        const syncKey = `dhpb_prof_equipes_sync_${authUser.uid}`
+        let precisaSync = true
+        try { precisaSync = !localStorage.getItem(syncKey) } catch {}
+
+        if (precisaSync) {
+          for (const edicao of edicoes) {
+            try {
+              const snap = await getDocs(query(collection(db, 'equipes'), where('edicaoId', '==', edicao.id)))
+              for (const d of snap.docs) {
+                const data = d.data()
+                const isOrientador = (data.membros || []).some(
+                  (m) => m.uid === authUser.uid && m.papel === 'professor_orientador' && m.status === 'ativo'
+                )
+                if (!isOrientador) continue
+                adicionarEquipe(d.id, data, edicao.id)
+                if (!(data.orientadorUids || []).includes(authUser.uid)) {
+                  updateDoc(doc(db, 'equipes', d.id), { orientadorUids: arrayUnion(authUser.uid) }).catch(() => {})
+                }
+              }
+            } catch {}
+          }
+          try { localStorage.setItem(syncKey, '1') } catch {}
+        }
+      }
+
+      setTodasEquipes(Array.from(mapa.values()))
+      setVisiveis(POR_PAGINA)
       setCarregando(false)
     }
 
     carregarTudo()
-  }, [authUser, edicoes])
+  }, [authUser, edicoes, userData?.tipo])
 
 
   useEffect(() => {
-    if (equipes.length === 0) return
-    const edicaoIds = [...new Set(equipes.map(e => e.edicaoId).filter(Boolean))]
+    if (todasEquipes.length === 0) return
+    const edicaoIds = [...new Set(todasEquipes.map(e => e.edicaoId).filter(Boolean))]
     const carregarFases = async () => {
       const mapa = {}
       for (const edId of edicaoIds) {
@@ -502,9 +540,12 @@ function MultiTeamView({ authUser, userData, edicoes }) {
       setFasesPorEdicao(mapa)
     }
     carregarFases()
-  }, [equipes])
+  }, [todasEquipes])
 
-  const equipesOrientador = equipes.filter(eq =>
+  const equipesExibidas = todasEquipes.slice(0, visiveis)
+  const temMaisEquipes = visiveis < todasEquipes.length
+
+  const equipesOrientador = todasEquipes.filter(eq =>
     eq.membros?.some(m => m.uid === authUser?.uid && m.papel === 'professor_orientador')
   )
   const podeArrastar = equipesOrientador.length >= 2
@@ -529,8 +570,8 @@ function MultiTeamView({ authUser, userData, edicoes }) {
     if (sourceTeamId === targetTeamId) return
     if (sourceMembro.uid === targetMembro.uid) return
 
-    const sourceTeam = equipes.find(e => e.id === sourceTeamId)
-    const targetTeam = equipes.find(e => e.id === targetTeamId)
+    const sourceTeam = todasEquipes.find(e => e.id === sourceTeamId)
+    const targetTeam = todasEquipes.find(e => e.id === targetTeamId)
 
     if (!sourceTeam || !targetTeam) return
     if (!podeFazerSwap(sourceTeam, targetTeam)) {
@@ -571,7 +612,7 @@ function MultiTeamView({ authUser, userData, edicoes }) {
       }
       await Promise.all(promises)
 
-      setEquipes(prev => prev.map(eq => {
+      setTodasEquipes(prev => prev.map(eq => {
         if (eq.id === sourceTeamId) return { ...eq, membros: updateSource.membros }
         if (eq.id === targetTeamId) return { ...eq, membros: updateTarget.membros }
         return eq
@@ -598,11 +639,16 @@ function MultiTeamView({ authUser, userData, edicoes }) {
             </a>
           </div>
 
-          {equipes.length === 0 ? (
+          {todasEquipes.length === 0 ? (
             <p className="text-white/80 text-center mt-16 text-lg">Você não participa de nenhuma equipe ainda.</p>
           ) : (
             <div className="mt-8 space-y-8">
-              {equipes.map((equipe) => {
+              {todasEquipes.length > POR_PAGINA && (
+                <p className="text-center text-white/70 text-sm">
+                  Mostrando {equipesExibidas.length} de {todasEquipes.length} equipes
+                </p>
+              )}
+              {equipesExibidas.map((equipe) => {
                 const membrosAtivos = equipe.membros?.filter((m) => m.status === 'ativo') || []
                 const formatarModalidade = equipe.modalidade?.replaceAll('_', ' ') || '(selecionada na inscrição)'
                 const memberRole = equipe.membros?.find(m => m.uid === authUser?.uid)?.papel
@@ -615,11 +661,12 @@ function MultiTeamView({ authUser, userData, edicoes }) {
                   if (!window.confirm(`Tem certeza que deseja remover ${membro.nome} da equipe?`)) return
                   try {
                     await updateDoc(doc(db, 'equipes', equipe.id), {
-                      membros: membrosAtivos.filter(m => m.uid !== membro.uid)
+                      membros: membrosAtivos.filter(m => m.uid !== membro.uid),
+                      ...(membro.papel === 'professor_orientador' ? { orientadorUids: arrayRemove(membro.uid) } : {}),
                     })
                     await deleteDoc(doc(db, 'users', membro.uid, 'participacoes', equipe.edicaoId))
                     await deleteDoc(doc(db, 'membro-index', btoa(membro.email).replace(/=+$/, '') + '_' + equipe.edicaoId))
-                    setEquipes(prev => prev.map(eq =>
+                    setTodasEquipes(prev => prev.map(eq =>
                       eq.id === equipe.id ? { ...eq, membros: eq.membros.filter(m => m.uid !== membro.uid) } : eq
                     ))
                   } catch (err) {
@@ -659,9 +706,11 @@ function MultiTeamView({ authUser, userData, edicoes }) {
 
                     const nome = `${userDoc.data().nome || ''} ${userDoc.data().sobrenome || ''}`.trim()
                     const novoMembro = { uid: userDoc.id, nome, email: data.email.trim(), papel, status: 'ativo' }
-                    await updateDoc(doc(db, 'equipes', equipe.id), {
-                      membros: arrayUnion(novoMembro),
-                    })
+                    const updates = { membros: arrayUnion(novoMembro) }
+                    if (papel === 'professor_orientador') {
+                      updates.orientadorUids = arrayUnion(userDoc.id)
+                    }
+                    await updateDoc(doc(db, 'equipes', equipe.id), updates)
                     const pExist = await getDoc(doc(db, 'users', userDoc.id, 'participacoes', equipe.edicaoId))
                     if (!pExist.exists()) {
                       await setDoc(doc(db, 'users', userDoc.id, 'participacoes', equipe.edicaoId), { equipeId: equipe.id, papel })
@@ -674,7 +723,7 @@ function MultiTeamView({ authUser, userData, edicoes }) {
                       })
                     }
                     setMultiSlotInputs(prev => ({ ...prev, [slotStateKey]: {} }))
-                    setEquipes(prev => prev.map(eq =>
+                    setTodasEquipes(prev => prev.map(eq =>
                       eq.id === equipe.id ? { ...eq, membros: [...(eq.membros || []), novoMembro] } : eq
                     ))
                   } catch (err) {
@@ -864,6 +913,18 @@ function MultiTeamView({ authUser, userData, edicoes }) {
                   </React.Fragment>
                 )
               })}
+
+              {temMaisEquipes && (
+                <div className="text-center pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setVisiveis((v) => v + POR_PAGINA)}
+                    className="inline-block bg-white/90 px-8 py-3 text-sm font-semibold text-[#830000] transition-colors hover:bg-white cursor-pointer"
+                  >
+                    Carregar mais 3 equipes
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

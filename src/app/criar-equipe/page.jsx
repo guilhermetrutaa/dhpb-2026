@@ -243,6 +243,7 @@ function CriarEquipeForm() {
             status: 'ativo',
           },
         ],
+        ...(userData?.tipo === 'professor' ? { orientadorUids: [authUser.uid] } : {}),
         createdAt: new Date().toISOString(),
       })
 
