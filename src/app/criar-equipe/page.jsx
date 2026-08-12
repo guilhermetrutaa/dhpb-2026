@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react'
 import Image from 'next/image'
 import { Poppins } from 'next/font/google'
-import { collection, query, where, orderBy, getDocs, getDoc, addDoc, doc, setDoc } from 'firebase/firestore'
+import { collection, query, where, orderBy, getDocs, getDoc, getDocsFromServer, addDoc, doc, setDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -209,7 +209,9 @@ function CriarEquipeForm() {
     try {
       // Check for duplicate team name using nomeLower (to catch older teams)
       const nomeLowerBusca = nomeEquipe.trim().toLowerCase()
-      const dupSnap = await getDocs(query(
+      // Usamos getDocsFromServer para FORÇAR que o aluno esteja online.
+      // Se ele estiver offline ou bloqueado pelo Wi-Fi da escola, isso vai falhar e impedir a criação fantasma.
+      const dupSnap = await getDocsFromServer(query(
         collection(db, 'equipes'),
         where('edicaoId', '==', edicaoId),
         where('nomeLower', '==', nomeLowerBusca)
