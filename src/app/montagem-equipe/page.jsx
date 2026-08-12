@@ -486,33 +486,7 @@ function MultiTeamView({ authUser, userData, edicoes }) {
         miTeams.forEach((t) => adicionarEquipe(t.id, t, t.edicaoId))
       }
 
-      // 5. Sincronização legada: professor em várias equipes na mesma edição
-      // participacoes/membro-index só guardam 1 equipe por edição — varre 1x e preenche orientadorUids
-      if (userData?.tipo === 'professor' && (edicoes || []).length > 0) {
-        const syncKey = `dhpb_prof_equipes_sync_${authUser.uid}`
-        let precisaSync = true
-        try { precisaSync = !localStorage.getItem(syncKey) } catch {}
 
-        if (precisaSync) {
-          for (const edicao of edicoes) {
-            try {
-              const snap = await getDocs(query(collection(db, 'equipes'), where('edicaoId', '==', edicao.id)))
-              for (const d of snap.docs) {
-                const data = d.data()
-                const isOrientador = (data.membros || []).some(
-                  (m) => m.uid === authUser.uid && m.papel === 'professor_orientador' && m.status === 'ativo'
-                )
-                if (!isOrientador) continue
-                adicionarEquipe(d.id, data, edicao.id)
-                if (!(data.orientadorUids || []).includes(authUser.uid)) {
-                  updateDoc(doc(db, 'equipes', d.id), { orientadorUids: arrayUnion(authUser.uid) }).catch(() => {})
-                }
-              }
-            } catch {}
-          }
-          try { localStorage.setItem(syncKey, '1') } catch {}
-        }
-      }
 
       setTodasEquipes(Array.from(mapa.values()))
       setVisiveis(POR_PAGINA)

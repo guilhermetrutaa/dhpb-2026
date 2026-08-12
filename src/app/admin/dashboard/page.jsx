@@ -104,20 +104,74 @@ function TabEquipes() {
     window.location.reload()
   }
 
+  const handleMigrarOrientadores = async (simular = true) => {
+    if (!window.confirm(simular ? 'Custo de ~2.000 leituras. Isto irá varrer todas as equipes e simular a adição de orientadorUids. Tem certeza?' : 'Isto fará gravações reais no banco para todas as equipes que precisam do orientadorUids. Tem certeza absoluta?')) return
+    setCarregando(true)
+    try {
+      const snap = await getDocsFromServer(collection(db, 'equipes'))
+      let precisamUpdate = 0
+      let total = snap.docs.length
+
+      for (const d of snap.docs) {
+        const data = d.data()
+        const orientadoresEncontrados = (data.membros || [])
+          .filter(m => m.papel === 'professor_orientador' && m.status === 'ativo')
+          .map(m => m.uid)
+
+        const orientadorUidsAtual = data.orientadorUids || []
+        
+        // Verifica se falta algum uid que está em membros[] mas não em orientadorUids[]
+        const uidsFaltando = orientadoresEncontrados.filter(uid => !orientadorUidsAtual.includes(uid))
+
+        if (uidsFaltando.length > 0) {
+          precisamUpdate++
+          if (!simular) {
+            const novoArray = [...orientadorUidsAtual, ...uidsFaltando]
+            await updateDoc(doc(db, 'equipes', d.id), { orientadorUids: novoArray })
+          }
+        }
+      }
+
+      if (simular) {
+        alert(`SIMULAÇÃO CONCLUÍDA:\n\nTotal de equipes verificadas: ${total}\nEquipes precisando de atualização: ${precisamUpdate}\n\nNenhuma gravação foi feita. Se os números parecerem corretos, você pode fazer a migração real.`)
+        // Adicionando um estado (temporário/escondido na interface) que habilita o botão real
+        setMostraBotaoReal(true)
+      } else {
+        alert(`MIGRAÇÃO CONCLUÍDA!\n\n${precisamUpdate} equipes foram atualizadas com sucesso.`)
+        setMostraBotaoReal(false)
+      }
+    } catch (err) {
+      alert('Erro: ' + err.message)
+    }
+    setCarregando(false)
+  }
+
+  const [mostraBotaoReal, setMostraBotaoReal] = useState(false)
+
   if (carregando) return <p className='text-neutral-400 text-sm text-center py-10'>Carregando...</p>
   if (equipes.length === 0) return <p className='text-neutral-400 text-sm text-center py-10'>Nenhuma equipe cadastrada.</p>
 
   return (
     <div className='space-y-3'>
-      <div className='flex items-center justify-between gap-3'>
+      <div className='flex items-center justify-between gap-3 flex-wrap'>
         {totalServidor !== null && (
           <p className='text-xs text-neutral-500'>
             {equipes.length} exibida(s) · {totalServidor} no servidor
           </p>
         )}
-        <button onClick={handleCorrigirDuplicadas} className='text-xs bg-red-100 text-red-700 px-3 py-1 rounded-md hover:bg-red-200 transition-colors cursor-pointer font-bold ml-auto'>
-          Corrigir Equipes Duplicadas
-        </button>
+        <div className='flex items-center gap-2 ml-auto flex-wrap justify-end'>
+          <button onClick={() => handleMigrarOrientadores(true)} className='text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-md hover:bg-blue-200 transition-colors cursor-pointer font-bold'>
+            Simular Migração (orientadorUids)
+          </button>
+          {mostraBotaoReal && (
+             <button onClick={() => handleMigrarOrientadores(false)} className='text-xs bg-orange-100 text-orange-700 px-3 py-1 rounded-md hover:bg-orange-200 transition-colors cursor-pointer font-bold border border-orange-300'>
+               CONFIRMAR MIGRAÇÃO REAL
+             </button>
+          )}
+          <button onClick={handleCorrigirDuplicadas} className='text-xs bg-red-100 text-red-700 px-3 py-1 rounded-md hover:bg-red-200 transition-colors cursor-pointer font-bold'>
+            Corrigir Equipes Duplicadas
+          </button>
+        </div>
       </div>
       {equipes.map((eq) => (
         <div key={eq.id} className='bg-white rounded-xl border border-neutral-200 p-4'>
