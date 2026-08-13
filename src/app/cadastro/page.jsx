@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import Image from 'next/image'
 import { Poppins } from 'next/font/google';
 import { createUserWithEmailAndPassword } from 'firebase/auth'
-import { doc, setDoc } from 'firebase/firestore'
+import { doc, setDoc, getDocFromServer } from 'firebase/firestore'
 import { auth, db } from '@/lib/firebase'
 import { useRouter } from 'next/navigation'
 
@@ -51,15 +51,20 @@ const Page = () => {
       const credencial = await createUserWithEmailAndPassword(auth, email, senha)
 
       try {
+        // Salva localmente (cache persistente responde na hora)
+        await setDoc(doc(db, 'users', credencial.user.uid), {
+          nome,
+          sobrenome,
+          email,
+          tipo,
+          createdAt: new Date().toISOString(),
+        })
+
+        // FORÇA uma comunicação com o servidor real para garantir que não estamos offline (Conta Fantasma)
+        // Se a internet tiver caído ou bloqueado, isso vai falhar e o bloco catch será ativado.
         await Promise.race([
-          setDoc(doc(db, 'users', credencial.user.uid), {
-            nome,
-            sobrenome,
-            email,
-            tipo,
-            createdAt: new Date().toISOString(),
-          }),
-          timeout(8000),
+          getDocFromServer(doc(db, 'users', credencial.user.uid)),
+          timeout(8000)
         ])
       } catch (err) {
         if (err.message === 'TIMEOUT') {
