@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { doc, getDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
@@ -13,7 +13,7 @@ const meses = [
     'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'
 ]
 
-const CertificadoPage = () => {
+const CertificadoContent = () => {
     const { authUser, userData, loading } = useAuth()
     const searchParams = useSearchParams()
     const router = useRouter()
@@ -159,4 +159,10 @@ const CertificadoPage = () => {
     )
 }
 
-export default CertificadoPage
+export default function CertificadoPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center font-bold text-xl">Carregando...</div>}>
+      <CertificadoContent />
+    </Suspense>
+  )
+}
