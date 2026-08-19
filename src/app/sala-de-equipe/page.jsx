@@ -79,7 +79,7 @@ function SalaEquipeContent() {
     return `${partes[2]}/${partes[1]}/${partes[0]}`
   }
 
-  const niveisAprovacao = ['fase1', 'fase2', 'fase3', 'fase4']
+  const niveisAprovacao = ['fase1', 'fase2', 'fase3', 'fase4', 'fase_final']
   const fasesVisiveis = fases.slice(0, 4)
   const quantidadeFases = fasesVisiveis.length
   const timelineGridClass = {
@@ -135,6 +135,27 @@ function SalaEquipeContent() {
 
   const handleQuestionarioComplete = () => {
     setQuestionarioPendente(false)
+  }
+
+  // LOGICA DE CERTIFICADOS
+  let faseConcluidaNumero = null
+  let isEliminated = false
+  let isFinalist = false
+  let premiacaoFinal = null
+
+  if (equipe && fases.length > 0) {
+    const aprovadoIndex = niveisAprovacao.indexOf(equipe.aprovadoAte || 'fase1')
+    if (equipe.aprovadoAte === 'fase_final') {
+      isFinalist = true
+      premiacaoFinal = equipe.premiacao || null
+    } else {
+      fases.forEach((fase, index) => {
+        if (fase.status === 'finalizada' && aprovadoIndex <= index) {
+           isEliminated = true
+           faseConcluidaNumero = index + 1
+        }
+      })
+    }
   }
 
   return (
@@ -227,6 +248,34 @@ function SalaEquipeContent() {
                         )
                       })}
                     </div>
+                  </div>
+                )}
+
+                {isEliminated && faseConcluidaNumero && (
+                  <div className="mt-16 flex justify-center">
+                    <button 
+                      onClick={() => router.push(`/certificado?equipeId=${equipe.id}&fase=${faseConcluidaNumero}`)}
+                      className="bg-[#82181A] text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-[#631214] transition-colors shadow-lg flex items-center gap-3"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg>
+                      Baixar Certificado de Participação (Fase {faseConcluidaNumero})
+                    </button>
+                  </div>
+                )}
+
+                {isFinalist && premiacaoFinal && premiacaoFinal !== 'pendente' && (
+                  <div className="mt-16 flex justify-center">
+                    <button 
+                      onClick={() => router.push(
+                        premiacaoFinal === 'finalista' 
+                          ? `/certificado?equipeId=${equipe.id}&fase=final` 
+                          : `/certificado-medalha?equipeId=${equipe.id}&premiacao=${premiacaoFinal}`
+                      )}
+                      className="bg-yellow-500 text-black px-8 py-4 rounded-xl font-bold text-lg hover:bg-yellow-600 transition-colors shadow-lg flex items-center gap-3"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg>
+                      {premiacaoFinal === 'finalista' ? 'Baixar Certificado de Finalista' : 'Baixar Certificado de Medalhista'}
+                    </button>
                   </div>
                 )}
               </>

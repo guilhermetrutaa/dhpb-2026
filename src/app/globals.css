@@ -127,3 +127,7 @@ body {
 
 /* Remove default margin on first child */
 .tiptap-editor > *:first-child { margin-top: 0; }
+
+.font-times {
+  font-family: "Times New Roman", Times, serif;
+}

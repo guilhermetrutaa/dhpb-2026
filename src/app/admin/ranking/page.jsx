@@ -88,7 +88,8 @@ function RankingContent() {
 
     if (filtroAprov === 'aprovados_f2' && (!eq.aprovadoAte || eq.aprovadoAte === 'fase1')) return false
     if (filtroAprov === 'aprovados_f3' && (eq.aprovadoAte !== 'fase3' && eq.aprovadoAte !== 'fase4')) return false
-    if (filtroAprov === 'aprovados_f4' && eq.aprovadoAte !== 'fase4') return false
+    if (filtroAprov === 'aprovados_f4' && eq.aprovadoAte !== 'fase4' && eq.aprovadoAte !== 'fase_final') return false
+    if (filtroAprov === 'aprovados_final' && eq.aprovadoAte !== 'fase_final') return false
 
     return true
   })
@@ -97,7 +98,7 @@ function RankingContent() {
     if (!aprovarPara) { setMsg('Selecione para qual fase aprovar.'); return }
     setMsg('')
 
-    const faseOrigem = aprovarPara === 'fase2' ? fases[0]?.id : aprovarPara === 'fase3' ? fases[1]?.id : fases[2]?.id
+    const faseOrigem = aprovarPara === 'fase2' ? fases[0]?.id : aprovarPara === 'fase3' ? fases[1]?.id : aprovarPara === 'fase4' ? fases[2]?.id : fases[3]?.id
     if (!faseOrigem) { setMsg('Fase de origem não encontrada.'); return }
 
     const categorias = [
@@ -183,6 +184,7 @@ function RankingContent() {
                       <option value="aprovados_f2">Aprovados para Fase 2</option>
                       <option value="aprovados_f3">Aprovados para Fase 3</option>
                       <option value="aprovados_f4">Aprovados para Fase 4</option>
+                      <option value="aprovados_final">Aprovados para Fase Final</option>
                     </select>
                   </div>
                 </div>
@@ -211,6 +213,7 @@ function RankingContent() {
                       <option value="fase2">Fase 2 (baseado no Df da Fase 1)</option>
                       <option value="fase3">Fase 3 (baseado no Df da Fase 2)</option>
                       <option value="fase4">Fase 4 (baseado no Df da Fase 3)</option>
+                      <option value="fase_final">Fase Final Presencial (baseado no Df da Fase 4)</option>
                     </select>
                   </div>
                   <button onClick={handleConfirmar} className='bg-[#82181A] text-white font-semibold px-8 py-3 rounded-xl hover:bg-[#631214] transition-all cursor-pointer'>Confirmar Aprovação</button>
