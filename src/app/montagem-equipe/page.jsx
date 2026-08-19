@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, Suspense } from 'react'
+import React, { useState, useEffect, useRef, Suspense } from 'react'
 import Image from 'next/image'
 import { Poppins } from 'next/font/google'
 import { doc, getDoc, updateDoc, arrayUnion, arrayRemove, setDoc, collection, query, where, getDocs, deleteDoc, onSnapshot } from 'firebase/firestore'
@@ -20,6 +20,8 @@ function SingleTeamView({ equipeId, authUser, userData }) {
   const [slotInputs, setSlotInputs] = useState({})
   const [erro, setErro] = useState('')
   const [sucesso, setSucesso] = useState('')
+  const [autoAddAviso, setAutoAddAviso] = useState(null)
+  const autoAddTimeoutRef = useRef({})
   
   const [editandoNome, setEditandoNome] = useState(false)
   const [novoNomeEquipe, setNovoNomeEquipe] = useState('')
@@ -48,6 +50,28 @@ function SingleTeamView({ equipeId, authUser, userData }) {
   const currentUserPapel = currentUserMembro?.papel
   const podeAddMembro = currentUserPapel === 'professor_orientador' || currentUserPapel === 'responsavel'
 
+  useEffect(() => () => {
+    Object.values(autoAddTimeoutRef.current).forEach((t) => clearTimeout(t))
+  }, [])
+
+  const programarAutoAdd = (slotKey, papel, nome, email) => {
+    if (!nome?.trim() || !email?.trim()) {
+      if (autoAddTimeoutRef.current[slotKey]) {
+        clearTimeout(autoAddTimeoutRef.current[slotKey])
+        delete autoAddTimeoutRef.current[slotKey]
+      }
+      setAutoAddAviso(prev => (prev?.slotKey === slotKey ? null : prev))
+      return
+    }
+    if (autoAddTimeoutRef.current[slotKey]) clearTimeout(autoAddTimeoutRef.current[slotKey])
+    setAutoAddAviso({ slotKey })
+    autoAddTimeoutRef.current[slotKey] = setTimeout(() => {
+      delete autoAddTimeoutRef.current[slotKey]
+      setAutoAddAviso(prev => (prev?.slotKey === slotKey ? null : prev))
+      handleAddSlot(slotKey, papel, { nome: nome.trim(), email: email.trim() })
+    }, 5000)
+  }
+
   const slotsDisponiveis = () => {
     if (!equipe) return { professor: 0, aluno: 0, responsavel: 0, total: 0 }
     const p = membrosAtivos.filter(m => m.papel === 'professor_orientador').length
@@ -58,8 +82,13 @@ function SingleTeamView({ equipeId, authUser, userData }) {
     return { professor: 1 - p, responsavel: 1 - r, aluno: 2 - a, total: 4 - t }
   }
 
-  const handleAddSlot = async (slotKey, papel) => {
-    const data = slotInputs[slotKey]
+  const handleAddSlot = async (slotKey, papel, dados = null) => {
+    const data = dados || slotInputs[slotKey]
+    if (autoAddTimeoutRef.current[slotKey]) {
+      clearTimeout(autoAddTimeoutRef.current[slotKey])
+      delete autoAddTimeoutRef.current[slotKey]
+    }
+    setAutoAddAviso(prev => (prev?.slotKey === slotKey ? null : prev))
     if (!data?.email?.trim()) { setErro('Digite o email do participante.'); return }
     if (slotsDisponiveis().total <= 0) { setErro('Equipe já está completa.'); return }
     setErro('')
@@ -343,9 +372,13 @@ function SingleTeamView({ equipeId, authUser, userData }) {
                         <input
                           placeholder={`Nome do ${placeholderSlot(slot)}`}
                           value={slotInputs[slot.key]?.nome || ''}
-                          onChange={(e) => setSlotInputs(prev => ({
-                            ...prev, [slot.key]: { ...prev[slot.key], nome: e.target.value }
-                          }))}
+                          onChange={(e) => {
+                            const novoNome = e.target.value
+                            setSlotInputs(prev => ({
+                              ...prev, [slot.key]: { ...prev[slot.key], nome: novoNome }
+                            }))
+                            programarAutoAdd(slot.key, slot.papel, novoNome, slotInputs[slot.key]?.email || '')
+                          }}
                           className="h-[30px] min-w-0 flex-1 rounded-[3px] bg-[#e7e7e7] px-2 text-[12px] italic leading-none shadow-[inset_1px_3px_5px_rgba(0,0,0,0.15)] text-[#555] outline-none placeholder:text-[#aaa]"
                         />
                       </label>
@@ -354,12 +387,21 @@ function SingleTeamView({ equipeId, authUser, userData }) {
                         <input
                           placeholder={`Email do ${placeholderSlot(slot)}`}
                           value={slotInputs[slot.key]?.email || ''}
-                          onChange={(e) => setSlotInputs(prev => ({
-                            ...prev, [slot.key]: { ...prev[slot.key], email: e.target.value }
-                          }))}
+                          onChange={(e) => {
+                            const novoEmail = e.target.value
+                            setSlotInputs(prev => ({
+                              ...prev, [slot.key]: { ...prev[slot.key], email: novoEmail }
+                            }))
+                            programarAutoAdd(slot.key, slot.papel, slotInputs[slot.key]?.nome || '', novoEmail)
+                          }}
                           className="h-[30px] min-w-0 flex-1 rounded-[3px] bg-[#e7e7e7] px-2 text-[12px] italic shadow-[inset_1px_3px_5px_rgba(0,0,0,0.15)] leading-none text-[#555] outline-none placeholder:text-[#aaa]"
                         />
                       </label>
+                      {autoAddAviso?.slotKey === slot.key && (
+                        <p className="sm:col-span-2 text-[10px] font-semibold text-[#650000]">
+                          Os dados serão adicionados automaticamente em 5 segundos. Aperte Enter para adicionar antes.
+                        </p>
+                      )}
                       <button type="submit" className="sr-only">Adicionar integrante</button>
                     </form>
                     <div className="bg-[#4f4f4f] px-5 py-[10px] text-[11px] font-semibold leading-tight text-white">
@@ -405,9 +447,33 @@ function MultiTeamView({ authUser, userData, edicoes }) {
   const [visiveis, setVisiveis] = useState(POR_PAGINA)
   const [carregando, setCarregando] = useState(true)
   const [multiSlotInputs, setMultiSlotInputs] = useState({})
+  const [autoAddAvisoMulti, setAutoAddAvisoMulti] = useState(null)
+  const autoAddTimeoutRefMulti = useRef({})
   const [dragSource, setDragSource] = useState(null)
   const [fasesPorEdicao, setFasesPorEdicao] = useState({})
   const [dropTargetId, setDropTargetId] = useState(null)
+
+  useEffect(() => () => {
+    Object.values(autoAddTimeoutRefMulti.current).forEach((t) => clearTimeout(t))
+  }, [])
+
+  const programarAutoAddMulti = (slotStateKey, papel, nome, email) => {
+    if (!nome?.trim() || !email?.trim()) {
+      if (autoAddTimeoutRefMulti.current[slotStateKey]) {
+        clearTimeout(autoAddTimeoutRefMulti.current[slotStateKey])
+        delete autoAddTimeoutRefMulti.current[slotStateKey]
+      }
+      setAutoAddAvisoMulti(prev => (prev?.slotStateKey === slotStateKey ? null : prev))
+      return
+    }
+    if (autoAddTimeoutRefMulti.current[slotStateKey]) clearTimeout(autoAddTimeoutRefMulti.current[slotStateKey])
+    setAutoAddAvisoMulti({ slotStateKey })
+    autoAddTimeoutRefMulti.current[slotStateKey] = setTimeout(() => {
+      delete autoAddTimeoutRefMulti.current[slotStateKey]
+      setAutoAddAvisoMulti(prev => (prev?.slotStateKey === slotStateKey ? null : prev))
+      handleAddMembroMulti(papel, { nome: nome.trim(), email: email.trim() }, slotStateKey)
+    }, 5000)
+  }
 
   useEffect(() => {
     if (!authUser) return
@@ -418,19 +484,6 @@ function MultiTeamView({ authUser, userData, edicoes }) {
     const carregarTudo = async () => {
       const mapa = new Map()
 
-      const consultas = [
-        getDocs(query(collection(db, 'users', authUser.uid, 'participacoes'))),
-        getDocs(query(collection(db, 'equipes'), where('criadorUid', '==', authUser.uid))),
-      ]
-      if (userData?.tipo === 'professor') {
-        consultas.push(getDocs(query(collection(db, 'equipes'), where('orientadorUids', 'array-contains', authUser.uid))))
-      }
-
-      const resultados = await Promise.all(consultas)
-      const pSnap = resultados[0]
-      const minhasSnap = resultados[1]
-      const orientadorSnap = userData?.tipo === 'professor' ? resultados[2] : null
-
       const adicionarEquipe = (id, data, edicaoIdFallback) => {
         if (!id || mapa.has(id)) return
         mapa.set(id, {
@@ -440,57 +493,72 @@ function MultiTeamView({ authUser, userData, edicoes }) {
         })
       }
 
-      // 1. Equipes via participacoes (no máximo 1 por edição)
-      const teamPromises = pSnap.docs.map(async (pDoc) => {
-        const pData = pDoc.data()
-        if (!pData.equipeId) return null
-        try {
-          const eSnap = await getDoc(doc(db, 'equipes', pData.equipeId))
-          if (eSnap.exists()) {
-            return { id: eSnap.id, edicaoId: pDoc.id, ...eSnap.data() }
-          }
-        } catch {}
-        return null
-      })
-      const teams = (await Promise.all(teamPromises)).filter(Boolean)
-      teams.forEach((t) => adicionarEquipe(t.id, t, t.edicaoId))
+      try {
+        const consultas = [
+          getDocs(query(collection(db, 'users', authUser.uid, 'participacoes'))),
+          getDocs(query(collection(db, 'equipes'), where('criadorUid', '==', authUser.uid))),
+        ]
+        if (userData?.tipo === 'professor') {
+          consultas.push(getDocs(query(collection(db, 'equipes'), where('orientadorUids', 'array-contains', authUser.uid))))
+        }
 
-      // 2. Equipes criadas diretamente pelo professor
-      minhasSnap.docs.forEach((doc_) => {
-        adicionarEquipe(doc_.id, doc_.data(), doc_.data().edicaoId)
-      })
+        const resultados = await Promise.all(consultas)
+        const pSnap = resultados[0]
+        const minhasSnap = resultados[1]
+        const orientadorSnap = userData?.tipo === 'professor' ? resultados[2] : null
 
-      // 3. Equipes onde o professor é orientador (suporta várias por edição)
-      orientadorSnap?.docs.forEach((doc_) => {
-        adicionarEquipe(doc_.id, doc_.data(), doc_.data().edicaoId)
-      })
-
-      // 4. Fallback via membro-index (legado — 1 equipe por edição)
-      if (authUser.email) {
-        const emailBase = btoa(authUser.email.trim().toLowerCase()).replace(/=+$/, '')
-        const edicaoIds = (edicoes || []).map(e => e.id)
-        const miPromises = edicaoIds.map(async (edicaoId) => {
-          const miKey = emailBase + '_' + edicaoId
+        // 1. Equipes via participacoes (no máximo 1 por edição)
+        const teamPromises = pSnap.docs.map(async (pDoc) => {
+          const pData = pDoc.data()
+          if (!pData.equipeId) return null
           try {
-            const miSnap = await getDoc(doc(db, 'membro-index', miKey))
-            if (!miSnap.exists()) return null
-            const miData = miSnap.data()
-            if (mapa.has(miData.equipeId)) return null
-            const eSnap = await getDoc(doc(db, 'equipes', miData.equipeId))
-            if (!eSnap.exists()) return null
-            return { id: eSnap.id, edicaoId, ...eSnap.data() }
+            const eSnap = await getDoc(doc(db, 'equipes', pData.equipeId))
+            if (eSnap.exists()) {
+              return { id: eSnap.id, edicaoId: pDoc.id, ...eSnap.data() }
+            }
           } catch {}
           return null
         })
-        const miTeams = (await Promise.all(miPromises)).filter(Boolean)
-        miTeams.forEach((t) => adicionarEquipe(t.id, t, t.edicaoId))
+        const teams = (await Promise.all(teamPromises)).filter(Boolean)
+        teams.forEach((t) => adicionarEquipe(t.id, t, t.edicaoId))
+
+        // 2. Equipes criadas diretamente pelo professor
+        minhasSnap.docs.forEach((doc_) => {
+          adicionarEquipe(doc_.id, doc_.data(), doc_.data().edicaoId)
+        })
+
+        // 3. Equipes onde o professor é orientador (suporta várias por edição)
+        orientadorSnap?.docs.forEach((doc_) => {
+          adicionarEquipe(doc_.id, doc_.data(), doc_.data().edicaoId)
+        })
+
+        // 4. Fallback via membro-index (legado — 1 equipe por edição)
+        if (authUser.email) {
+          const emailBase = btoa(authUser.email.trim().toLowerCase()).replace(/=+$/, '')
+          const edicaoIds = (edicoes || []).map(e => e.id)
+          const miPromises = edicaoIds.map(async (edicaoId) => {
+            const miKey = emailBase + '_' + edicaoId
+            try {
+              const miSnap = await getDoc(doc(db, 'membro-index', miKey))
+              if (!miSnap.exists()) return null
+              const miData = miSnap.data()
+              if (mapa.has(miData.equipeId)) return null
+              const eSnap = await getDoc(doc(db, 'equipes', miData.equipeId))
+              if (!eSnap.exists()) return null
+              return { id: eSnap.id, edicaoId, ...eSnap.data() }
+            } catch {}
+            return null
+          })
+          const miTeams = (await Promise.all(miPromises)).filter(Boolean)
+          miTeams.forEach((t) => adicionarEquipe(t.id, t, t.edicaoId))
+        }
+      } catch (err) {
+        console.error('Erro ao carregar equipes:', err)
+      } finally {
+        setTodasEquipes(Array.from(mapa.values()))
+        setVisiveis(POR_PAGINA)
+        setCarregando(false)
       }
-
-
-
-      setTodasEquipes(Array.from(mapa.values()))
-      setVisiveis(POR_PAGINA)
-      setCarregando(false)
     }
 
     carregarTudo()
@@ -649,6 +717,11 @@ function MultiTeamView({ authUser, userData, edicoes }) {
                 }
 
                 const handleAddMembroMulti = async (papel, data, slotStateKey) => {
+                  if (autoAddTimeoutRefMulti.current[slotStateKey]) {
+                    clearTimeout(autoAddTimeoutRefMulti.current[slotStateKey])
+                    delete autoAddTimeoutRefMulti.current[slotStateKey]
+                  }
+                  setAutoAddAvisoMulti(prev => (prev?.slotStateKey === slotStateKey ? null : prev))
                   if (!data?.email?.trim()) return
                   try {
                     const usersSnap = await getDocs(query(collection(db, 'users'), where('email', '==', data.email.trim())))
@@ -824,7 +897,11 @@ function MultiTeamView({ authUser, userData, edicoes }) {
                                   <input
                                     placeholder={`Nome do ${papelLabel}`}
                                     value={multiInput.nome || ''}
-                                    onChange={(e) => setMultiSlotInputs(prev => ({ ...prev, [slotStateKey]: { ...prev[slotStateKey], nome: e.target.value } }))}
+                                    onChange={(e) => {
+                                      const novoNome = e.target.value
+                                      setMultiSlotInputs(prev => ({ ...prev, [slotStateKey]: { ...prev[slotStateKey], nome: novoNome } }))
+                                      programarAutoAddMulti(slotStateKey, slot.papel, novoNome, multiInput.email || '')
+                                    }}
                                     className="h-[20px] min-w-0 flex-1 rounded-[3px] bg-[#e7e7e7] px-2 text-[10px] italic leading-none text-[#555] outline-none placeholder:text-[#aaa]"
                                   />
                                 </label>
@@ -833,10 +910,19 @@ function MultiTeamView({ authUser, userData, edicoes }) {
                                   <input
                                     placeholder={`Email do ${papelLabel}`}
                                     value={multiInput.email || ''}
-                                    onChange={(e) => setMultiSlotInputs(prev => ({ ...prev, [slotStateKey]: { ...prev[slotStateKey], email: e.target.value } }))}
+                                    onChange={(e) => {
+                                      const novoEmail = e.target.value
+                                      setMultiSlotInputs(prev => ({ ...prev, [slotStateKey]: { ...prev[slotStateKey], email: novoEmail } }))
+                                      programarAutoAddMulti(slotStateKey, slot.papel, multiInput.nome || '', novoEmail)
+                                    }}
                                     className="h-[20px] min-w-0 flex-1 rounded-[3px] bg-[#e7e7e7] px-2 text-[10px] italic leading-none text-[#555] outline-none placeholder:text-[#aaa]"
                                   />
                                 </label>
+                                {autoAddAvisoMulti?.slotStateKey === slotStateKey && (
+                                  <p className="sm:col-span-2 text-[10px] font-semibold text-[#650000]">
+                                    Os dados serão adicionados automaticamente em 5 segundos. Aperte Enter para adicionar antes.
+                                  </p>
+                                )}
                                 <button type="submit" className="sr-only">Adicionar integrante</button>
                               </form>
                               <div className="bg-[#4f4f4f] px-5 py-[10px] text-[11px] font-semibold leading-tight text-white">
