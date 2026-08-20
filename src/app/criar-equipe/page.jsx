@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react'
 import Image from 'next/image'
 import { Poppins } from 'next/font/google'
-import { collection, query, where, orderBy, getDocs, getDoc, getDocsFromServer, addDoc, doc, setDoc } from 'firebase/firestore'
+import { collection, query, where, orderBy, getDocs, getDoc, getDocsFromServer, doc, writeBatch } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -223,8 +223,17 @@ function CriarEquipeForm() {
       }
 
       const papelCriador = userData?.tipo === 'professor' ? 'professor_orientador' : 'responsavel'
+      const nomeMembro = `${userData?.nome || ''} ${userData?.sobrenome || ''}`.trim()
 
-      const equipeRef = await addDoc(collection(db, 'equipes'), {
+      // Gera o ID da equipe antes do batch (writeBatch nao suporta addDoc)
+      const equipeRef = doc(collection(db, 'equipes'))
+      const miRef = btoa(authUser.email.trim().toLowerCase()).replace(/=+$/, '') + '_' + edicaoId
+
+      // Operacao atomica: cria equipe + participacao + membro-index de uma vez
+      // Se qualquer parte falhar (ex: sem internet), NADA e gravado no banco
+      const batch = writeBatch(db)
+
+      batch.set(equipeRef, {
         edicaoId,
         nome: nomeEquipe.trim(),
         nomeLower: nomeLowerBusca,
@@ -234,45 +243,43 @@ function CriarEquipeForm() {
         tipoEscola,
         modalidade,
         criadorUid: authUser.uid,
-        criadorNome: `${userData?.nome || ''} ${userData?.sobrenome || ''}`.trim(),
+        criadorNome: nomeMembro,
         criadorEmail: authUser.email,
         membros: [
-          {
-            uid: authUser.uid,
-            nome: `${userData?.nome || ''} ${userData?.sobrenome || ''}`.trim(),
-            email: authUser.email,
-            papel: papelCriador,
-            status: 'ativo',
-          },
+          { uid: authUser.uid, nome: nomeMembro, email: authUser.email, papel: papelCriador, status: 'ativo' },
         ],
         ...(userData?.tipo === 'professor' ? { orientadorUids: [authUser.uid] } : {}),
         createdAt: new Date().toISOString(),
       })
 
-      // Only create participacao if user isn't already in another team for this edition
-      const pExist = await getDoc(doc(db, 'users', authUser.uid, 'participacoes', edicaoId))
-      if (!pExist.exists()) {
-        await setDoc(doc(db, 'users', authUser.uid, 'participacoes', edicaoId), {
-          equipeId: equipeRef.id,
-          papel: papelCriador,
-        })
-      }
-      // Only create membro-index if not already registered for this edition
-      const miRef = btoa(authUser.email).replace(/=+$/, '') + '_' + edicaoId
-      const miExist = await getDoc(doc(db, 'membro-index', miRef))
-      if (!miExist.exists()) {
-        await setDoc(doc(db, 'membro-index', miRef), {
-          equipeId: equipeRef.id, papel: papelCriador, uid: authUser.uid,
-        })
-      }
+      batch.set(doc(db, 'users', authUser.uid, 'participacoes', edicaoId), {
+        equipeId: equipeRef.id,
+        papel: papelCriador,
+      })
+
+      batch.set(doc(db, 'membro-index', miRef), {
+        equipeId: equipeRef.id,
+        papel: papelCriador,
+        uid: authUser.uid,
+      })
+
+      await batch.commit()
 
       router.push(userData?.tipo === 'professor' ? '/montagem-equipe' : `/montagem-equipe?equipeId=${equipeRef.id}`)
     } catch (err) {
       console.error('Erro ao criar equipe:', err)
-      const msg = err?.message?.includes('index')
+      const code = err?.code || ''
+      const msg = err?.message || ''
+      const isInternet = code === 'unavailable' || code === 'failed-precondition' ||
+        msg.toLowerCase().includes('unavailable') || msg.toLowerCase().includes('offline') ||
+        msg.toLowerCase().includes('network') || msg.toLowerCase().includes('failed to get')
+      const isIndex = msg.includes('index')
+      const errMsg = isInternet
+        ? 'Não foi possível criar a equipe. Sua internet está fraca ou bloqueando a conexão. Tente novamente em outra rede ou desative o Wi-Fi da escola momentaneamente.'
+        : isIndex
         ? 'O índice composto está faltando no Firebase. Vá em Firestore > Índices e crie: coleção "equipes", campos "edicaoId" (Asc) + "nomeNormalized" (Asc).'
-        : 'Erro: ' + (err?.message || JSON.stringify(err) || 'Erro desconhecido')
-      setErro(msg)
+        : 'Erro ao criar equipe: ' + (msg || JSON.stringify(err) || 'Erro desconhecido')
+      setErro(errMsg)
     } finally {
       setCarregando(false)
     }

@@ -109,28 +109,6 @@ const Page = () => {
       }
     } catch {}
 
-    // 3) Fallback otimizado: busca so equipes criadas por este usuario (max. 1-2 leituras)
-    // Evita varrer toda a colecao - busca por criadorUid e filtra edicaoId em memoria
-    try {
-      const eqSnap = await getDocs(query(
-        collection(db, 'equipes'),
-        where('criadorUid', '==', authUser.uid)
-      ))
-      for (const d of eqSnap.docs) {
-        const data = d.data()
-        if (data.edicaoId !== edicaoId) continue
-        if (verificarMembro(data)) {
-          const papel = (data.membros || []).find(m => m.uid === authUser.uid)?.papel || ''
-          const batch = writeBatch(db)
-          batch.set(doc(db, 'users', authUser.uid, 'participacoes', edicaoId), { equipeId: d.id, papel })
-          batch.set(doc(db, 'membro-index', miKey), { equipeId: d.id, papel, uid: authUser.uid })
-          await batch.commit()
-          setEquipes((prev) => ({ ...prev, [edicaoId]: { equipeId: d.id } }))
-          router.push(`/montagem-equipe`)
-          return
-        }
-      }
-    } catch {}
 
     router.push(`/criar-equipe?edicaoId=${edicaoId}`)
   }
