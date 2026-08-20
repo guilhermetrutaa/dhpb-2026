@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Poppins } from 'next/font/google'
 import { useRouter } from 'next/navigation'
-import { collection, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, orderBy, query, getDocs, getDocsFromServer, getCountFromServer, limit, startAfter, documentId, writeBatch, setDoc } from 'firebase/firestore'
+import { collection, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, orderBy, query, where, getDocs, getDocsFromServer, getCountFromServer, limit, startAfter, documentId, writeBatch, setDoc } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { db, auth } from '@/lib/firebase'
 import Image from 'next/image'
@@ -31,6 +31,7 @@ function TabEquipes() {
   const [equipes, setEquipes] = useState([])
   const [edicoes, setEdicoes] = useState([])
   const [totalServidor, setTotalServidor] = useState(null)
+  const [totalParticular, setTotalParticular] = useState(null)
   const [carregando, setCarregando] = useState(true)
   const [expanded, setExpanded] = useState(null)
   const [mostrarFerramentas, setMostrarFerramentas] = useState(false)
@@ -40,14 +41,16 @@ function TabEquipes() {
 
   useEffect(() => {
     const carregar = async () => {
-      const [edSnap, countSnap] = await Promise.all([
+      const [edSnap, countSnap, particularSnap] = await Promise.all([
         getDocsFromServer(collection(db, 'edicoes')),
         getCountFromServer(collection(db, 'equipes')),
+        getCountFromServer(query(collection(db, 'equipes'), where('tipoEscola', '==', 'particular'))),
       ])
       const edMap = {}
       edSnap.docs.forEach((d) => { edMap[d.id] = d.data().nome || '—' })
       setEdicoes(edSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
       setTotalServidor(countSnap.data().count)
+      setTotalParticular(particularSnap.data().count)
 
       const q = query(collection(db, 'equipes'), orderBy(documentId()), limit(50))
       const eSnap = await getDocsFromServer(q)
@@ -212,6 +215,13 @@ function TabEquipes() {
         {totalServidor !== null && (
           <p className='text-xs text-neutral-500'>
             {equipes.length} exibida(s) · {totalServidor} no servidor
+            {totalParticular !== null && (
+              <span className='ml-2'>
+                · <span className='text-blue-600 font-medium'>{totalServidor - totalParticular} públicas</span>
+                {' · '}
+                <span className='text-purple-600 font-medium'>{totalParticular} privadas</span>
+              </span>
+            )}
           </p>
         )}
         <div className='flex items-center gap-2 ml-auto flex-wrap justify-end'>
