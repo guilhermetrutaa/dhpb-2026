@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Poppins } from 'next/font/google'
 import { useRouter } from 'next/navigation'
-import { collection, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, orderBy, query, getDocs, getDocsFromServer, getCountFromServer, limit, startAfter, documentId } from 'firebase/firestore'
+import { collection, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, orderBy, query, getDocs, getDocsFromServer, getCountFromServer, limit, startAfter, documentId, writeBatch, setDoc } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { db, auth } from '@/lib/firebase'
 import Image from 'next/image'
@@ -33,6 +33,7 @@ function TabEquipes() {
   const [totalServidor, setTotalServidor] = useState(null)
   const [carregando, setCarregando] = useState(true)
   const [expanded, setExpanded] = useState(null)
+  const [mostrarFerramentas, setMostrarFerramentas] = useState(false)
 
   const [lastVisible, setLastVisible] = useState(null)
   const [temMais, setTemMais] = useState(true)
@@ -67,6 +68,60 @@ function TabEquipes() {
     setEquipes((prev) => dedupeEquipes([...prev, ...eSnap.docs.map((d) => mapEquipeDoc(d, edMap))]))
     setLastVisible(eSnap.docs[eSnap.docs.length - 1] || null)
     setTemMais(eSnap.docs.length === 50)
+  }
+
+  const handleReconsolidarMembroIndex = async () => {
+    if (!window.confirm(
+      'Esta operação vai ler TODAS as equipes (~600 leituras) e criar/corrigir os documentos membro-index faltando.\n\n' +
+      'Execute UMA vez para corrigir usuários que ficaram sem acesso à equipe.\n\nConfirmar?'
+    )) return
+    setCarregando(true)
+    let verificados = 0
+    let criados = 0
+    let pulados = 0
+    try {
+      const snap = await getDocsFromServer(collection(db, 'equipes'))
+      // Monta a lista de membro-index que DEVERIAM existir
+      const paraGravar = []
+      for (const equipeDoc of snap.docs) {
+        const equipe = equipeDoc.data()
+        const edicaoId = equipe.edicaoId
+        if (!edicaoId) continue
+        const membrosAtivos = (equipe.membros || []).filter(
+          (m) => m.status === 'ativo' && m.email && m.uid
+        )
+        for (const membro of membrosAtivos) {
+          verificados++
+          // Professores orientadores podem estar em múltiplas equipes — pular
+          if (membro.papel === 'professor_orientador') { pulados++; continue }
+          const emailNorm = membro.email.trim().toLowerCase()
+          const miKey = btoa(emailNorm).replace(/=+$/, '') + '_' + edicaoId
+          paraGravar.push({
+            key: miKey,
+            data: { equipeId: equipeDoc.id, papel: membro.papel || 'aluno', uid: membro.uid },
+          })
+          criados++
+        }
+      }
+      // Grava em lotes de 450 (limite do Firestore é 500)
+      const LOTE = 450
+      for (let i = 0; i < paraGravar.length; i += LOTE) {
+        const batch = writeBatch(db)
+        paraGravar.slice(i, i + LOTE).forEach((item) => {
+          batch.set(doc(db, 'membro-index', item.key), item.data, { merge: true })
+        })
+        await batch.commit()
+      }
+      alert(
+        `✅ Reconsolidação concluída!\n\n` +
+        `Membros verificados: ${verificados}\n` +
+        `Membro-index criados/atualizados: ${criados}\n` +
+        `Professores orientadores pulados: ${pulados} (podem estar em múltiplas equipes)`
+      )
+    } catch (err) {
+      alert('Erro na reconsolidação: ' + err.message)
+    }
+    setCarregando(false)
   }
 
   const handleCorrigirDuplicadas = async () => {
@@ -160,18 +215,38 @@ function TabEquipes() {
           </p>
         )}
         <div className='flex items-center gap-2 ml-auto flex-wrap justify-end'>
-          <button onClick={() => handleMigrarOrientadores(true)} className='text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-md hover:bg-blue-200 transition-colors cursor-pointer font-bold'>
-            Simular Migração (orientadorUids)
+          <button
+            onClick={handleReconsolidarMembroIndex}
+            className='text-xs bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-md hover:bg-emerald-200 transition-colors cursor-pointer font-bold border border-emerald-300'
+            title='Cria membro-index faltando para usuários que perderam acesso à equipe. Execute uma vez.'
+          >
+            🔧 Reconsolidar membro-index
           </button>
-          {mostraBotaoReal && (
-             <button onClick={() => handleMigrarOrientadores(false)} className='text-xs bg-orange-100 text-orange-700 px-3 py-1 rounded-md hover:bg-orange-200 transition-colors cursor-pointer font-bold border border-orange-300'>
-               CONFIRMAR MIGRAÇÃO REAL
-             </button>
-          )}
-          <button onClick={handleCorrigirDuplicadas} className='text-xs bg-red-100 text-red-700 px-3 py-1 rounded-md hover:bg-red-200 transition-colors cursor-pointer font-bold'>
-            Corrigir Equipes Duplicadas
+          <button
+            onClick={() => setMostrarFerramentas((v) => !v)}
+            className='text-xs bg-neutral-100 text-neutral-500 px-3 py-1.5 rounded-md hover:bg-neutral-200 transition-colors cursor-pointer font-semibold border border-neutral-300'
+          >
+            {mostrarFerramentas ? '▲' : '▼'} Ferramentas de manutenção
           </button>
         </div>
+        {mostrarFerramentas && (
+          <div className='mt-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 space-y-2'>
+            <p className='font-bold'>⚠️ Atenção: estas operações varrrem TODAS as equipes e têm custo alto (~600+ leituras). Use somente quando necessário.</p>
+            <div className='flex gap-2 flex-wrap'>
+              <button onClick={() => handleMigrarOrientadores(true)} className='bg-blue-100 text-blue-700 px-3 py-1 rounded-md hover:bg-blue-200 transition-colors cursor-pointer font-bold'>
+                Simular Migração (orientadorUids)
+              </button>
+              {mostraBotaoReal && (
+                <button onClick={() => handleMigrarOrientadores(false)} className='bg-orange-100 text-orange-700 px-3 py-1 rounded-md hover:bg-orange-200 transition-colors cursor-pointer font-bold border border-orange-300'>
+                  CONFIRMAR MIGRAÇÃO REAL
+                </button>
+              )}
+              <button onClick={handleCorrigirDuplicadas} className='bg-red-100 text-red-700 px-3 py-1 rounded-md hover:bg-red-200 transition-colors cursor-pointer font-bold'>
+                Corrigir Equipes Duplicadas
+              </button>
+            </div>
+          </div>
+        )}
       </div>
       {equipes.map((eq) => (
         <div key={eq.id} className='bg-white rounded-xl border border-neutral-200 p-4'>

@@ -104,14 +104,16 @@ const Page = () => {
       }
     } catch {}
 
-    // 3) Fallback legado: busca direta nas equipes (raro, dados antigos)
+    // 3) Fallback otimizado: busca so equipes criadas por este usuario (max. 1-2 leituras)
+    // Evita varrer toda a colecao - busca por criadorUid e filtra edicaoId em memoria
     try {
       const eqSnap = await getDocs(query(
         collection(db, 'equipes'),
-        where('edicaoId', '==', edicaoId)
+        where('criadorUid', '==', authUser.uid)
       ))
       for (const d of eqSnap.docs) {
         const data = d.data()
+        if (data.edicaoId !== edicaoId) continue
         if (verificarMembro(data)) {
           const papel = (data.membros || []).find(m => m.uid === authUser.uid)?.papel || ''
           const batch = writeBatch(db)
