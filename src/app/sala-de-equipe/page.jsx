@@ -98,9 +98,9 @@ function SalaEquipeContent() {
   const faseEstaAcessivel = (fase, index) => {
     if (!fase || !equipe) return false
     const status = fase.status || 'pendente'
-    const aprovadoAteIndex = niveisAprovacao.indexOf(equipe.aprovadoAte || 'fase1')
-
-    return (status === 'aberta' || status === 'correcao') && (index === 0 || aprovadoAteIndex >= index)
+    if (status === 'correcao') return true
+    const aprovadoAteIndex = niveisAprovacao.indexOf(equipe.aprovadoAte || '')
+    return status === 'aberta' && (index === 0 || aprovadoAteIndex >= index)
   }
 
   const faseStatus = (fase, index) => {
@@ -109,16 +109,29 @@ function SalaEquipeContent() {
     const status = fase.status || 'pendente'
     const aprovadoAteIndex = niveisAprovacao.indexOf(equipe?.aprovadoAte || '')
 
-    if (status === 'aberta' || status === 'correcao') {
+    if (status === 'aberta') {
       if (index === 0 || aprovadoAteIndex >= index) {
         return { texto: 'Em andamento...', classe: 'text-black' }
       }
       return { texto: 'Bloqueado.', classe: 'text-neutral-400' }
     }
 
+    if (status === 'correcao') {
+      return { texto: 'Fase encerrada. Em correção — entre para ver os comentários.', classe: 'text-blue-600' }
+    }
+
     if (status === 'finalizada') {
       if (aprovadoAteIndex > index) {
         return { texto: 'Participou e foi aprovada.', classe: 'text-[#009a22]' }
+      }
+      const ehFaseAtualDaEquipe = index === 0 ? aprovadoAteIndex <= 0 : aprovadoAteIndex === index
+      if (!ehFaseAtualDaEquipe) {
+        return { texto: `Equipe eliminada na Fase ${Math.max(aprovadoAteIndex, 0) + 1}.`, classe: 'text-red-600' }
+      }
+      const proximaFase = fases[index + 1]
+      const resultadoPendente = !proximaFase || !proximaFase.status || proximaFase.status === 'pendente'
+      if (resultadoPendente) {
+        return { texto: 'Aguardando resultados...', classe: 'text-amber-600' }
       }
       return { texto: 'Participou e não foi aprovada.', classe: 'text-red-600' }
     }
@@ -149,12 +162,16 @@ function SalaEquipeContent() {
       isFinalist = true
       premiacaoFinal = equipe.premiacao || null
     } else {
-      fases.forEach((fase, index) => {
-        if (fase.status === 'finalizada' && aprovadoIndex <= index) {
-           isEliminated = true
-           faseConcluidaNumero = index + 1
+      const faseDaEquipe = fases[aprovadoIndex]
+      if (faseDaEquipe) {
+        const faseConcluida = faseDaEquipe.status === 'finalizada' || faseDaEquipe.status === 'correcao'
+        const proximaFase = fases[aprovadoIndex + 1]
+        const resultadoPublicado = !!proximaFase?.status && proximaFase.status !== 'pendente'
+        if (faseConcluida && resultadoPublicado) {
+          isEliminated = true
+          faseConcluidaNumero = aprovadoIndex + 1
         }
-      })
+      }
     }
   }
 
@@ -255,7 +272,7 @@ function SalaEquipeContent() {
                   <div className="mt-16 flex justify-center">
                     <button 
                       onClick={() => router.push(`/certificado?equipeId=${equipe.id}&fase=${faseConcluidaNumero}`)}
-                      className="bg-[#82181A] text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-[#631214] transition-colors shadow-lg flex items-center gap-3"
+                      className="bg-[#fff] text-[#82181A] border-2 border-[#82181A] px-8 py-4 font-medium text-lg  transition-colors flex items-center gap-3 cursor-pointer"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg>
                       Baixar Certificado de Participação (Fase {faseConcluidaNumero})
@@ -271,7 +288,7 @@ function SalaEquipeContent() {
                           ? `/certificado?equipeId=${equipe.id}&fase=final` 
                           : `/certificado-medalha?equipeId=${equipe.id}&premiacao=${premiacaoFinal}`
                       )}
-                      className="bg-yellow-500 text-black px-8 py-4 rounded-xl font-bold text-lg hover:bg-yellow-600 transition-colors shadow-lg flex items-center gap-3"
+                      className="bg-[#fff] text-[#82181A] border-2 border-[#82181A] px-8 py-4 font-medium text-lg  transition-colors flex items-center gap-3 cursor-pointer"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg>
                       {premiacaoFinal === 'finalista' ? 'Baixar Certificado de Finalista' : 'Baixar Certificado de Medalhista'}

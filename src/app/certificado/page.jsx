@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
+import { Poppins } from 'next/font/google'
 import { doc, getDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { useAuth } from "@/context/AuthContext"
@@ -15,6 +16,11 @@ const cargas = {
   '4': 32,
   'final': 40
 }
+
+const poppins = Poppins({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+})
 
 const meses = [
   'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
@@ -107,14 +113,16 @@ const CertificadoContent = () => {
 
   return (
     <main className="min-h-screen bg-neutral-200 p-2 font-times text-black print:bg-white print:p-0 flex flex-col items-center py-10 relative">
-      <div className="mb-6 print:hidden">
-        <button
-          onClick={handleDownloadPDF}
-          disabled={baixando}
-          className="bg-[#82181A] text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-[#631214] transition-all shadow-lg disabled:opacity-50"
-        >
-          {baixando ? 'Gerando PDF...' : 'Baixar PDF em Alta Qualidade'}
-        </button>
+      <div className={poppins.className}>
+        <div className="mb-6 print:hidden">
+          <button
+            onClick={handleDownloadPDF}
+            disabled={baixando}
+            className="bg-neutral-200 text-[#82181A] border-2 border-[#82181A] px-8 py-4 font-medium text-lg  transition-colors flex items-center gap-3 cursor-pointer"
+          >
+            {baixando ? 'Gerando PDF...' : 'Baixar PDF em Alta Qualidade'}
+          </button>
+        </div>
       </div>
 
       <section

@@ -22,7 +22,11 @@ function SingleTeamView({ equipeId, authUser, userData }) {
   const [sucesso, setSucesso] = useState('')
   const [autoAddAviso, setAutoAddAviso] = useState(null)
   const autoAddTimeoutRef = useRef({})
-  
+
+  useEffect(() => () => {
+    Object.values(autoAddTimeoutRef.current).forEach((t) => clearTimeout(t))
+  }, [])
+
   const [editandoNome, setEditandoNome] = useState(false)
   const [novoNomeEquipe, setNovoNomeEquipe] = useState('')
 
@@ -49,28 +53,6 @@ function SingleTeamView({ equipeId, authUser, userData }) {
   const currentUserMembro = membrosAtivos.find(m => m.uid === authUser?.uid)
   const currentUserPapel = currentUserMembro?.papel
   const podeAddMembro = currentUserPapel === 'professor_orientador' || currentUserPapel === 'responsavel'
-
-  useEffect(() => () => {
-    Object.values(autoAddTimeoutRef.current).forEach((t) => clearTimeout(t))
-  }, [])
-
-  const programarAutoAdd = (slotKey, papel, nome, email) => {
-    if (!nome?.trim() || !email?.trim()) {
-      if (autoAddTimeoutRef.current[slotKey]) {
-        clearTimeout(autoAddTimeoutRef.current[slotKey])
-        delete autoAddTimeoutRef.current[slotKey]
-      }
-      setAutoAddAviso(prev => (prev?.slotKey === slotKey ? null : prev))
-      return
-    }
-    if (autoAddTimeoutRef.current[slotKey]) clearTimeout(autoAddTimeoutRef.current[slotKey])
-    setAutoAddAviso({ slotKey })
-    autoAddTimeoutRef.current[slotKey] = setTimeout(() => {
-      delete autoAddTimeoutRef.current[slotKey]
-      setAutoAddAviso(prev => (prev?.slotKey === slotKey ? null : prev))
-      handleAddSlot(slotKey, papel, { nome: nome.trim(), email: email.trim() })
-    }, 5000)
-  }
 
   const slotsDisponiveis = () => {
     if (!equipe) return { professor: 0, aluno: 0, responsavel: 0, total: 0 }
@@ -147,6 +129,24 @@ function SingleTeamView({ equipeId, authUser, userData }) {
     } catch (err) {
       setErro('Erro: ' + (err.code || err.message || 'Erro ao adicionar membro.'))
     }
+  }
+
+  const programarAutoAdd = (slotKey, papel, nome, email) => {
+    if (!nome?.trim() || !email?.trim()) {
+      if (autoAddTimeoutRef.current[slotKey]) {
+        clearTimeout(autoAddTimeoutRef.current[slotKey])
+        delete autoAddTimeoutRef.current[slotKey]
+      }
+      setAutoAddAviso(prev => (prev?.slotKey === slotKey ? null : prev))
+      return
+    }
+    if (autoAddTimeoutRef.current[slotKey]) clearTimeout(autoAddTimeoutRef.current[slotKey])
+    setAutoAddAviso({ slotKey })
+    autoAddTimeoutRef.current[slotKey] = setTimeout(() => {
+      delete autoAddTimeoutRef.current[slotKey]
+      setAutoAddAviso(prev => (prev?.slotKey === slotKey ? null : prev))
+      handleAddSlot(slotKey, papel, { nome: nome.trim(), email: email.trim() })
+    }, 5000)
   }
 
   const s = slotsDisponiveis()
@@ -457,7 +457,7 @@ function MultiTeamView({ authUser, userData, edicoes }) {
     Object.values(autoAddTimeoutRefMulti.current).forEach((t) => clearTimeout(t))
   }, [])
 
-  const programarAutoAddMulti = (slotStateKey, papel, nome, email) => {
+  const programarAutoAddMulti = (slotStateKey, papel, nome, email, addMembro) => {
     if (!nome?.trim() || !email?.trim()) {
       if (autoAddTimeoutRefMulti.current[slotStateKey]) {
         clearTimeout(autoAddTimeoutRefMulti.current[slotStateKey])
@@ -471,7 +471,7 @@ function MultiTeamView({ authUser, userData, edicoes }) {
     autoAddTimeoutRefMulti.current[slotStateKey] = setTimeout(() => {
       delete autoAddTimeoutRefMulti.current[slotStateKey]
       setAutoAddAvisoMulti(prev => (prev?.slotStateKey === slotStateKey ? null : prev))
-      handleAddMembroMulti(papel, { nome: nome.trim(), email: email.trim() }, slotStateKey)
+      addMembro(papel, { nome: nome.trim(), email: email.trim() }, slotStateKey)
     }, 5000)
   }
 
@@ -900,7 +900,7 @@ function MultiTeamView({ authUser, userData, edicoes }) {
                                     onChange={(e) => {
                                       const novoNome = e.target.value
                                       setMultiSlotInputs(prev => ({ ...prev, [slotStateKey]: { ...prev[slotStateKey], nome: novoNome } }))
-                                      programarAutoAddMulti(slotStateKey, slot.papel, novoNome, multiInput.email || '')
+                                      programarAutoAddMulti(slotStateKey, slot.papel, novoNome, multiInput.email || '', handleAddMembroMulti)
                                     }}
                                     className="h-[20px] min-w-0 flex-1 rounded-[3px] bg-[#e7e7e7] px-2 text-[10px] italic leading-none text-[#555] outline-none placeholder:text-[#aaa]"
                                   />
@@ -913,7 +913,7 @@ function MultiTeamView({ authUser, userData, edicoes }) {
                                     onChange={(e) => {
                                       const novoEmail = e.target.value
                                       setMultiSlotInputs(prev => ({ ...prev, [slotStateKey]: { ...prev[slotStateKey], email: novoEmail } }))
-                                      programarAutoAddMulti(slotStateKey, slot.papel, multiInput.nome || '', novoEmail)
+                                      programarAutoAddMulti(slotStateKey, slot.papel, multiInput.nome || '', novoEmail, handleAddMembroMulti)
                                     }}
                                     className="h-[20px] min-w-0 flex-1 rounded-[3px] bg-[#e7e7e7] px-2 text-[10px] italic leading-none text-[#555] outline-none placeholder:text-[#aaa]"
                                   />
