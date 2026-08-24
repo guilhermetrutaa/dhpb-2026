@@ -32,6 +32,9 @@ function TabEquipes() {
   const [edicoes, setEdicoes] = useState([])
   const [totalServidor, setTotalServidor] = useState(null)
   const [totalParticular, setTotalParticular] = useState(null)
+  const [totalMunicipal, setTotalMunicipal] = useState(null)
+  const [totalEstadual, setTotalEstadual] = useState(null)
+  const [totalFederal, setTotalFederal] = useState(null)
   const [carregando, setCarregando] = useState(true)
   const [expanded, setExpanded] = useState(null)
   const [mostrarFerramentas, setMostrarFerramentas] = useState(false)
@@ -41,16 +44,22 @@ function TabEquipes() {
 
   useEffect(() => {
     const carregar = async () => {
-      const [edSnap, countSnap, particularSnap] = await Promise.all([
+      const [edSnap, countSnap, particularSnap, municipalSnap, estadualSnap, federalSnap] = await Promise.all([
         getDocsFromServer(collection(db, 'edicoes')),
         getCountFromServer(collection(db, 'equipes')),
         getCountFromServer(query(collection(db, 'equipes'), where('tipoEscola', '==', 'particular'))),
+        getCountFromServer(query(collection(db, 'equipes'), where('tipoEscola', '==', 'municipal'))),
+        getCountFromServer(query(collection(db, 'equipes'), where('tipoEscola', '==', 'estadual'))),
+        getCountFromServer(query(collection(db, 'equipes'), where('tipoEscola', '==', 'federal'))),
       ])
       const edMap = {}
       edSnap.docs.forEach((d) => { edMap[d.id] = d.data().nome || '—' })
       setEdicoes(edSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
       setTotalServidor(countSnap.data().count)
       setTotalParticular(particularSnap.data().count)
+      setTotalMunicipal(municipalSnap.data().count)
+      setTotalEstadual(estadualSnap.data().count)
+      setTotalFederal(federalSnap.data().count)
 
       const q = query(collection(db, 'equipes'), orderBy(documentId()), limit(50))
       const eSnap = await getDocsFromServer(q)
@@ -177,7 +186,7 @@ function TabEquipes() {
           .map(m => m.uid)
 
         const orientadorUidsAtual = data.orientadorUids || []
-        
+
         // Verifica se falta algum uid que está em membros[] mas não em orientadorUids[]
         const uidsFaltando = orientadoresEncontrados.filter(uid => !orientadorUidsAtual.includes(uid))
 
@@ -206,6 +215,22 @@ function TabEquipes() {
 
   const [mostraBotaoReal, setMostraBotaoReal] = useState(false)
 
+  const handleShareGlayds = () => {
+    if (totalServidor === null) return
+    const pub = totalServidor - (totalParticular || 0)
+    const msg = `*Relação de Equipes - DHPB*\n\n` +
+      ` *Total:* ${totalServidor}\n` +
+      ` *Públicas:* ${pub}\n` +
+      ` *Privadas:* ${totalParticular || 0}\n\n` +
+      `*Detalhes Escolas Públicas:*\n` +
+      ` *Municipal:* ${totalMunicipal || 0}\n` +
+      ` *Estadual:* ${totalEstadual || 0}\n` +
+      ` *Federal:* ${totalFederal || 0}`
+
+    const url = `https://wa.me/558399600143?text=${encodeURIComponent(msg)}`
+    window.open(url, '_blank')
+  }
+
   if (carregando) return <p className='text-neutral-400 text-sm text-center py-10'>Carregando...</p>
   if (equipes.length === 0) return <p className='text-neutral-400 text-sm text-center py-10'>Nenhuma equipe cadastrada.</p>
 
@@ -213,20 +238,34 @@ function TabEquipes() {
     <div className='space-y-3'>
       <div className='flex items-center justify-between gap-3 flex-wrap'>
         {totalServidor !== null && (
-          <p className='text-xs text-neutral-500'>
+          <p className='text-xs text-neutral-500 flex justify-center items-center gap-2'>
             {equipes.length} exibida(s) · {totalServidor} no servidor
             {totalParticular !== null && (
               <span className='ml-2'>
                 · <span className='text-blue-600 font-medium'>{totalServidor - totalParticular} públicas</span>
-                {' · '}
+                {' ('}
+                <span className='text-neutral-500 font-medium' title='Municipal, Estadual, Federal'>
+                  {totalMunicipal}M · {totalEstadual}E · {totalFederal}F
+                </span>
+                {') · '}
                 <span className='text-purple-600 font-medium'>{totalParticular} privadas</span>
               </span>
             )}
+            <button
+              onClick={handleShareGlayds}
+              className='flex items-center gap-1 text-xs bg-[#25D366] text-white px-3 py-1.5 rounded-md hover:bg-[#128C7E] transition-colors cursor-pointer font-bold shadow-sm'
+              title='Enviar relatório para Glayds no WhatsApp'
+            >
+              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.347-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.876 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" /></svg>
+              Compartilhar com Glayds
+            </button>
           </p>
         )}
         <div className='flex items-center gap-2 ml-auto flex-wrap justify-end'>
+
           <button
             onClick={handleReconsolidarMembroIndex}
+
             className='text-xs bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-md hover:bg-emerald-200 transition-colors cursor-pointer font-bold border border-emerald-300'
             title='Cria membro-index faltando para usuários que perderam acesso à equipe. Execute uma vez.'
           >
@@ -345,9 +384,9 @@ function TabUsuarios() {
                 <td className='px-4 py-3'>
                   {u.tipo === 'professor' ? (
                     u.documentoStatus === 'aprovado' ? <span className='text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold'>Aprovado</span>
-                    : u.documentoStatus === 'recusado' ? <span className='text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-semibold'>Recusado</span>
-                    : u.documentoURL ? <span className='text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold'>Pendente</span>
-                    : <span className='text-[10px] bg-neutral-100 text-neutral-400 px-2 py-0.5 rounded-full font-semibold'>Não enviado</span>
+                      : u.documentoStatus === 'recusado' ? <span className='text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-semibold'>Recusado</span>
+                        : u.documentoURL ? <span className='text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold'>Pendente</span>
+                          : <span className='text-[10px] bg-neutral-100 text-neutral-400 px-2 py-0.5 rounded-full font-semibold'>Não enviado</span>
                   ) : <span className='text-neutral-400'>—</span>}
                 </td>
               </tr>
@@ -465,7 +504,7 @@ const Page = () => {
     try {
       const snap = await getDocs(query(collection(db, 'edicoes', edId, 'fases'), orderBy('dataInicio', 'asc')))
       setFases((prev) => ({ ...prev, [edId]: snap.docs.map((d) => ({ id: d.id, ...d.data() })) }))
-    } catch {}
+    } catch { }
   }
 
   const abrirEdicao = (edId) => {
@@ -515,19 +554,19 @@ const Page = () => {
   }
 
   const atualizarStatus = async (edId, faseId, status) => {
-    try { await updateDoc(doc(db, 'edicoes', edId, 'fases', faseId), { status }); carregarFases(edId) } catch {}
+    try { await updateDoc(doc(db, 'edicoes', edId, 'fases', faseId), { status }); carregarFases(edId) } catch { }
   }
 
   const deletarFase = async (edId, faseId) => {
-    try { await deleteDoc(doc(db, 'edicoes', edId, 'fases', faseId)); carregarFases(edId) } catch {}
+    try { await deleteDoc(doc(db, 'edicoes', edId, 'fases', faseId)); carregarFases(edId) } catch { }
   }
 
   const salvarPdfUrl = async (edId, faseId, url) => {
-    try { await updateDoc(doc(db, 'edicoes', edId, 'fases', faseId), { provaPdfUrl: url }); carregarFases(edId) } catch {}
+    try { await updateDoc(doc(db, 'edicoes', edId, 'fases', faseId), { provaPdfUrl: url }); carregarFases(edId) } catch { }
   }
 
   const handleSair = async () => {
-    try { await signOut(auth) } catch {}
+    try { await signOut(auth) } catch { }
     localStorage.removeItem('admin-authenticated')
     router.push('/admin')
   }
@@ -686,30 +725,30 @@ const Page = () => {
                                           <button onClick={() => atualizarStatus(ed.id, f.id, 'finalizada')}
                                             className='text-xs font-semibold text-red-600 hover:underline cursor-pointer'>Fechar Correção</button>
                                         )}
-                                          {f.status === 'pendente' && <><span className='text-neutral-300'>|</span>
-                                            <button onClick={() => deletarFase(ed.id, f.id)}
-                                              className='text-xs font-semibold text-red-600 hover:underline cursor-pointer'>Excluir</button></>}
-                                        </div>
-                                        <div className='flex items-center gap-2 pt-2 border-t border-neutral-100'>
-                                          <input type="text" placeholder="URL da prova em PDF (Google Drive, etc)" defaultValue={f.provaPdfUrl || ''}
-                                            id={`pdf-${f.id}`} className='flex-1 rounded-lg border border-neutral-300 p-2 text-xs outline-none focus:border-[#82181A]' />
-                                          <button onClick={() => {
-                                            const url = document.getElementById(`pdf-${f.id}`).value
-                                            salvarPdfUrl(ed.id, f.id, url)
-                                          }}
-                                            className='text-xs font-semibold text-blue-600 hover:underline cursor-pointer'>Salvar</button>
-                                        </div>
+                                        {f.status === 'pendente' && <><span className='text-neutral-300'>|</span>
+                                          <button onClick={() => deletarFase(ed.id, f.id)}
+                                            className='text-xs font-semibold text-red-600 hover:underline cursor-pointer'>Excluir</button></>}
                                       </div>
-                                    )
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      ))
-                    )}
-                  </div>
+                                      <div className='flex items-center gap-2 pt-2 border-t border-neutral-100'>
+                                        <input type="text" placeholder="URL da prova em PDF (Google Drive, etc)" defaultValue={f.provaPdfUrl || ''}
+                                          id={`pdf-${f.id}`} className='flex-1 rounded-lg border border-neutral-300 p-2 text-xs outline-none focus:border-[#82181A]' />
+                                        <button onClick={() => {
+                                          const url = document.getElementById(`pdf-${f.id}`).value
+                                          salvarPdfUrl(ed.id, f.id, url)
+                                        }}
+                                          className='text-xs font-semibold text-blue-600 hover:underline cursor-pointer'>Salvar</button>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             )}
 
