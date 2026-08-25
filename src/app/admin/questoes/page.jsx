@@ -839,6 +839,7 @@ function QuestoesForm() {
                       <p className='text-xs text-neutral-500 truncate'>{q.instrucao?.replace(/<[^>]*>/g, '').substring(0, 80)}...</p>
                     </div>
                     <div className='flex items-center gap-2 shrink-0'>
+                      <button onClick={() => window.open(`/admin/questoes/visualizar?questaoId=${q.id}&faseId=${faseId}&edicaoId=${edicaoId}`, '_blank')} className='text-neutral-600 text-xs font-semibold hover:underline cursor-pointer'>Visualizar</button>
                       <button onClick={() => handleEditarQuestao(q)} className='text-[#82181A] text-xs font-semibold hover:underline cursor-pointer'>Editar</button>
                       <button onClick={() => handleDeletarQuestao(q.id)} className='text-red-600 text-xs font-semibold hover:underline cursor-pointer'>Excluir</button>
                     </div>
