@@ -74,10 +74,10 @@ const CertificadoContent = () => {
   const nomeParticipante = userData?.nome ? `${userData.nome} ${userData.sobrenome || ''}`.trim() : 'Nome Indisponível'
   const membros = equipe.membros || []
 
-  const orientadora = membros.find(m => m.papel === 'professor' || m.tipo === 'professor')
+  const orientadora = membros.find(m => m.papel === 'professor_orientador')
   const nomeOrientadora = orientadora ? orientadora.nome : 'Sem orientador(a)'
 
-  const colegas = membros.filter(m => (m.papel !== 'professor' && m.tipo !== 'professor') && m.uid !== authUser.uid)
+  const colegas = membros.filter(m => m.papel !== 'professor_orientador' && m.uid !== authUser.uid)
   const nomeColegas = colegas.map(c => c.nome).join(', ') || 'Nenhum outro membro'
 
   const cargaHoraria = cargas[fase] || 8
