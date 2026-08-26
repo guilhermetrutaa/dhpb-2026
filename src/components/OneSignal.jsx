@@ -22,6 +22,10 @@ export default function OneSignalInit() {
           appId,
           safari_web_id: process.env.NEXT_PUBLIC_ONESIGNAL_SAFARI_WEB_ID,
           notifyButton: { enable: false },
+          // O Firebase também possui um worker no escopo raiz. O OneSignal
+          // deve usar um escopo separado para não disputar o mesmo registro.
+          serviceWorkerPath: 'push/onesignal/OneSignalSDKWorker.js',
+          serviceWorkerParam: { scope: '/push/onesignal/' },
         })
 
         OneSignal.User.PushSubscription.addEventListener('change', ({ current }) => {
