@@ -209,7 +209,6 @@ export const fsUpdateComTimestamp = async (projectId, docPath, fields, camposTim
     token
   )
 }
-
 /**
  * Update com increment + server timestamp.
  * incrementos: [['nomeCampo', quantidade], ...]
@@ -277,36 +276,3 @@ export const fsAddComTimestamp = async (
   )
 }
 
-// ─── Envio de FCM (Push) ──────────────────────────────────────────────────────
-export const fsSendFcm = async (projectId, tokenFCM, accessToken, title, bodyStr, url) => {
-  const res = await fetch(
-    `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        message: {
-          token: tokenFCM,
-          notification: {
-            title,
-            body: bodyStr,
-          },
-          webpush: {
-            notification: {
-              icon: '/favicon.ico',
-            },
-            fcm_options: {
-              link: url || '/',
-            },
-          },
-        },
-      }),
-    }
-  )
-  if (!res.ok) {
-    console.error(`[fsSendFcm] Falha: ${res.status} ${await res.text()}`)
-  }
-}

@@ -7,7 +7,6 @@ import {
   fsAddComTimestamp,
   fsUpdateComIncremento,
   fsUpdate,
-  fsSendFcm,
 } from '@/lib/support/server/firestore-rest'
 
 export const runtime = 'nodejs'
@@ -234,19 +233,6 @@ const responderUsuarioPeloReply = async (msg) => {
       token
     )
 
-    // Dispara notificação FCM Web Push para o usuário (se ele aceitou)
-    const snap = await fsGet(projectId, docPath, token)
-    if (snap.exists && snap.data.fcmToken) {
-      const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/$/, '')
-      await fsSendFcm(
-        projectId,
-        snap.data.fcmToken,
-        token,
-        `Suporte DHPB: Resposta de ${nomeAtendente}`,
-        texto.trim().slice(0, 100) + (texto.length > 100 ? '...' : ''),
-        siteUrl
-      )
-    }
   } catch (err) {
     console.error('[webhook-telegram] erro ao responder usuario pelo reply', err)
   }

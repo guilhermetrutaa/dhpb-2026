@@ -15,7 +15,7 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore'
-import { supportAuth, supportDb, requestNotificationToken } from '@/lib/support/firebase'
+import { supportAuth, supportDb } from '@/lib/support/firebase'
 import {
   AUTORES,
   MENSAGEM_ERRO_IA,
@@ -245,13 +245,6 @@ export const useSupportChat = ({ isChatOpen = false } = {}) => {
       if (atual.nome) nomeRef.current = atual.nome
       setEncerrado(encerradoAnterior)
       setColeta(!encerradoAnterior && (!atual.nome || !atual.email) ? 'contato' : null)
-
-      // Solicita permissão e salva o token de notificação
-      requestNotificationToken().then((token) => {
-        if (token && atual.id) {
-          updateDoc(doc(supportDb, 'chamados', atual.id), { fcmToken: token }).catch(() => {})
-        }
-      })
 
       const respostas = await buscarRespostasRapidas()
       setSugestoes(respostas.filter((r) => r.sugestao).map((r) => r.pergunta || r.titulo).filter(Boolean))

@@ -1,7 +1,6 @@
 import { initializeApp, getApps } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
-import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, setDoc, serverTimestamp } from 'firebase/firestore'
-import { getMessaging, getToken } from 'firebase/messaging'
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore'
 
 const supportConfig = {
   apiKey: process.env.NEXT_PUBLIC_SUPPORT_FIREBASE_API_KEY,
@@ -29,43 +28,4 @@ if (typeof window !== 'undefined' && suporteConfigurado) {
   }
 }
 
-let supportMessaging = null
-if (typeof window !== 'undefined' && suporteConfigurado && 'Notification' in window) {
-  try {
-    const app = getApps().find((a) => a.name === 'support')
-    supportMessaging = getMessaging(app)
-  } catch (e) {
-    console.error('Falha ao inicializar FCM do suporte:', e)
-  }
-}
-
-export const requestNotificationToken = async () => {
-  if (!supportMessaging) return null
-  try {
-    const permission = await Notification.requestPermission()
-    if (permission !== 'granted') return null
-
-    const vapidKey = process.env.NEXT_PUBLIC_SUPPORT_FIREBASE_VAPID_KEY
-    if (!vapidKey) {
-      console.error('VAPID Key não configurada para o FCM do Suporte.')
-      return null
-    }
-
-    const swRegistration = await navigator.serviceWorker.register('/support-sw.js', { scope: '/support-sw-scope' })
-
-    const tokenFCM = await getToken(supportMessaging, { vapidKey, serviceWorkerRegistration: swRegistration })
-    if (tokenFCM && supportDb) {
-      setDoc(doc(supportDb, 'fcm_tokens', tokenFCM), {
-        token: tokenFCM,
-        ativo: true,
-        atualizadoEm: serverTimestamp()
-      }, { merge: true }).catch((e) => console.error('Erro ao salvar token global', e))
-    }
-    return tokenFCM
-  } catch (e) {
-    console.error('Erro ao pedir token FCM:', e)
-    return null
-  }
-}
-
-export { supportAuth, supportDb, supportMessaging, suporteConfigurado }
+export { supportAuth, supportDb, suporteConfigurado }

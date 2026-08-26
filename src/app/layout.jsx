@@ -2,7 +2,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import SupportWidget from "@/components/support/SupportWidget";
-import OneSignalInit from "@/components/OneSignal";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,7 +27,6 @@ export default function RootLayout({ children }) {
       <body className="min-h-full flex flex-col">
         <AuthProvider>
           {children}
-          <OneSignalInit />
           <SupportWidget />
         </AuthProvider>
       </body>

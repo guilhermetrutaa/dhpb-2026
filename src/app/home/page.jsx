@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from 'react'
 import Image from 'next/image'
-import NotificationBlockerModal from '@/components/NotificationBlockerModal'
 import { Poppins } from 'next/font/google';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -20,7 +19,6 @@ const Page = () => {
   const router = useRouter()
   const [equipes, setEquipes] = useState({})
   const [showAvatares, setShowAvatares] = useState(false)
-  const [showBlocker, setShowBlocker] = useState(false)
   const [abaAvatar, setAbaAvatar] = useState('avatares')
   const [erro, setErro] = useState('')
   const [edicaoQuestionarioPendente, setEdicaoQuestionarioPendente] = useState(null)
@@ -63,20 +61,8 @@ const Page = () => {
     })()
   }, [authUser])
 
-  const checkNotificationPermission = () => {
-    if (typeof window === 'undefined') return true
-    if (window.Notification && window.Notification.permission === 'granted') return true
-    if (window.OneSignal && window.OneSignal.Notifications && window.OneSignal.Notifications.permission) return true
-    return false
-  }
-
   const handleEdicaoClick = async (edicaoId) => {
     setErro('')
-
-    if (!checkNotificationPermission()) {
-      setShowBlocker(true)
-      return
-    }
 
     // Check individual questionnaire (student)
     const qSnap = await getDoc(doc(db, 'users', authUser.uid, 'questionarios', edicaoId))
@@ -273,7 +259,6 @@ const Page = () => {
                     </div>
                 </div>
             </div>
-          <NotificationBlockerModal isOpen={showBlocker} onClose={() => setShowBlocker(false)} />
         </main>
 
         <footer className="w-full pt-12 md:pt-20 pb-5">
