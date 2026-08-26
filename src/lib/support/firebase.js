@@ -51,7 +51,9 @@ export const requestNotificationToken = async () => {
       return null
     }
 
-    const tokenFCM = await getToken(supportMessaging, { vapidKey })
+    const swRegistration = await navigator.serviceWorker.register('/support-sw.js', { scope: '/support-sw-scope' })
+
+    const tokenFCM = await getToken(supportMessaging, { vapidKey, serviceWorkerRegistration: swRegistration })
     if (tokenFCM && supportDb) {
       setDoc(doc(supportDb, 'fcm_tokens', tokenFCM), {
         token: tokenFCM,
