@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import ChatWindow from './ChatWindow'
 import { suporteConfigurado, requestNotificationToken } from '@/lib/support/firebase'
 import { useSupportChat } from '@/hooks/useSupportChat'
+import NotificationBlockerModal from '../NotificationBlockerModal'
 
 const poppins = Poppins({ subsets: ['latin'], weight: ['400', '500', '600', '700'] })
 
@@ -18,6 +19,7 @@ const IconeHeadset = () => (
 const SupportWidget = () => {
   const [aberto, setAberto] = useState(false)
   const [visivel, setVisivel] = useState(false)
+  const [showBlocker, setShowBlocker] = useState(false)
   const pathname = usePathname()
   const chat = useSupportChat({ isChatOpen: aberto })
   const { naoLidasUsuario, inicializarBackground } = chat
@@ -41,10 +43,23 @@ const SupportWidget = () => {
   if (pathname?.startsWith('/admin') || pathname === '/certificado' || pathname === '/certificado-medalha') return null
   if (!suporteConfigurado) return null
 
+  const checkNotification = () => {
+    if (typeof window === 'undefined') return true
+    if (window.Notification && window.Notification.permission === 'granted') return true
+    if (window.OneSignal && window.OneSignal.Notifications && window.OneSignal.Notifications.permission) return true
+    return false
+  }
+
   return (
     <>
       <button
-        onClick={() => setAberto((v) => !v)}
+        onClick={() => {
+          if (!aberto && !checkNotification()) {
+            setShowBlocker(true)
+            return
+          }
+          setAberto((v) => !v)
+        }}
         aria-label={aberto ? 'Fechar suporte' : 'Fale com o suporte'}
         className={`${poppins.className} fixed bottom-5 right-4 sm:bottom-6 sm:right-6 z-50 flex items-center gap-2.5 bg-[#82181A] text-white pl-3 pr-5 py-2.5 rounded-full shadow-lg shadow-[#000]/30 hover:bg-[#631214] hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer ${visivel ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
           }`}
@@ -62,6 +77,7 @@ const SupportWidget = () => {
         </span>
       </button>
       {aberto && <ChatWindow chat={chat} onFechar={() => setAberto(false)} />}
+      <NotificationBlockerModal isOpen={showBlocker} onClose={() => setShowBlocker(false)} />
     </>
   )
 }

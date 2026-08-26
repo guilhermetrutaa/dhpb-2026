@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import ModalQuestionarioIndividual from '@/components/ModalQuestionarioIndividual'
+import NotificationBlockerModal from '@/components/NotificationBlockerModal'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -19,6 +20,7 @@ const Page = () => {
   const router = useRouter()
   const [equipes, setEquipes] = useState({})
   const [showAvatares, setShowAvatares] = useState(false)
+  const [showBlocker, setShowBlocker] = useState(false)
   const [edicaoQuestionarioPendente, setEdicaoQuestionarioPendente] = useState(null)
   const [abaAvatar, setAbaAvatar] = useState('avatares')
   const avatares = ['/avatar.svg', '/avatar2.svg', '/avatar3.svg', '/avatar4.svg', '/avatar5.svg']
@@ -60,12 +62,24 @@ const Page = () => {
     })()
   }, [authUser])
 
+  const checkNotificationPermission = () => {
+    if (typeof window === 'undefined') return true
+    if (window.Notification && window.Notification.permission === 'granted') return true
+    if (window.OneSignal && window.OneSignal.Notifications && window.OneSignal.Notifications.permission) return true
+    return false
+  }
+
   const handleEdicaoClick = async (edicaoId) => {
     if (userData?.documentoStatus === 'pendente') {
       return
     }
     if (userData?.documentoStatus !== 'aprovado') {
       router.push('/enviar-documento')
+      return
+    }
+
+    if (!checkNotificationPermission()) {
+      setShowBlocker(true)
       return
     }
 
@@ -140,6 +154,7 @@ const Page = () => {
           onClose={() => setEdicaoQuestionarioPendente(null)}
         />
       )}
+      <NotificationBlockerModal isOpen={showBlocker} onClose={() => setShowBlocker(false)} />
       <div className='w-full min-h-screen bg-[#fff] text-[#000]'>
         
         <header className='flex flex-col lg:flex-row justify-around items-center pt-5 gap-6 px-4'>
