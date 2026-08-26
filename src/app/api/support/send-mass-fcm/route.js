@@ -14,7 +14,7 @@ export async function POST(req) {
     const apiKey = process.env.ONESIGNAL_REST_API_KEY
 
     if (!appId || !apiKey) {
-      return NextResponse.json({ ok: false, erro: 'Chaves do OneSignal não configuradas' }, { status: 500 })
+      return NextResponse.json({ ok: false, erro: 'Chaves do OneSignal não configuradas. Verifique NEXT_PUBLIC_ONESIGNAL_APP_ID e ONESIGNAL_REST_API_KEY no .env.local' }, { status: 500 })
     }
 
     const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/$/, '')
@@ -38,13 +38,19 @@ export async function POST(req) {
     const data = await response.json()
 
     if (!response.ok || data.errors) {
-      console.error('[send-mass-onesignal] Erro da API:', data)
-      return NextResponse.json({ ok: false, erro: 'Falha ao enviar via OneSignal', details: data }, { status: 500 })
+      console.error('[send-mass-onesignal] Erro da API OneSignal:', JSON.stringify(data, null, 2))
+
+      const errorMsg = data.errors?.join(', ') || data.error || data.error_description || 'Erro desconhecido do OneSignal'
+      return NextResponse.json({ ok: false, erro: `OneSignal: ${errorMsg}`, details: data }, { status: 500 })
     }
 
-    return NextResponse.json({ ok: true, enviados: data.recipients, falhas: 0, msg: 'Enviado via OneSignal' })
+    if (data.recipients === 0) {
+      return NextResponse.json({ ok: true, enviados: 0, falhas: 0, msg: 'Nenhum destinatário. Nenhum usuário ativou notificações ainda ou nenhum usuário está na segment "Subscribed Users".' })
+    }
+
+    return NextResponse.json({ ok: true, enviados: data.recipients, falhas: data.errors?.length || 0, msg: `Enviado para ${data.recipients} destinatário(s)` })
   } catch (err) {
-    console.error('[send-mass-onesignal] Erro:', err)
-    return NextResponse.json({ ok: false, erro: 'Falha interna ao enviar notificação em massa' }, { status: 500 })
+    console.error('[send-mass-onesignal] Erro interno:', err)
+    return NextResponse.json({ ok: false, erro: `Falha interna: ${err.message}` }, { status: 500 })
   }
 }
