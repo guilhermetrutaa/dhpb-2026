@@ -2,6 +2,18 @@ import { NextResponse } from 'next/server'
 
 export const runtime = 'nodejs'
 
+const semDestinatariosElegiveis = (data) => {
+  const erros = [
+    ...(Array.isArray(data?.errors) ? data.errors : []),
+    data?.error,
+    data?.error_description,
+  ].filter(Boolean).join(' ').toLowerCase()
+
+  return erros.includes('not subscribed') ||
+    erros.includes('no valid subscriptions') ||
+    erros.includes('no eligible subscriptions')
+}
+
 export async function POST(req) {
   try {
     const { titulo, corpo, link } = await req.json()
@@ -20,22 +32,35 @@ export async function POST(req) {
     const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/$/, '')
     const targetUrl = link ? (link.startsWith('http') ? link : siteUrl + (link.startsWith('/') ? link : `/${link}`)) : siteUrl
 
-    const response = await fetch('https://onesignal.com/api/v1/notifications', {
+    const response = await fetch('https://api.onesignal.com/notifications?c=push', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Basic ${apiKey}`
+        'Authorization': `Key ${apiKey}`
       },
       body: JSON.stringify({
         app_id: appId,
-        included_segments: ['Subscribed Users'],
+        target_channel: 'push',
+        included_segments: ['All Subscribers'],
         headings: { en: titulo, pt: titulo },
         contents: { en: corpo, pt: corpo },
         url: targetUrl
       })
     })
 
-    const data = await response.json()
+    const data = await response.json().catch(() => ({}))
+
+    // A API não cria uma mensagem quando não existe nenhuma inscrição push
+    // ativa. Isso é esperado e não deve virar erro 500 para o administrador.
+    if (semDestinatariosElegiveis(data) || data.recipients === 0 || (!data.id && response.ok)) {
+      return NextResponse.json({
+        ok: true,
+        enviados: 0,
+        falhas: 0,
+        semDestinatarios: true,
+        msg: 'Nenhum usuário possui notificações push ativas no momento.'
+      })
+    }
 
     if (!response.ok || data.errors) {
       console.error('[send-mass-onesignal] Erro da API OneSignal:', JSON.stringify(data, null, 2))

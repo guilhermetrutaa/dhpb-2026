@@ -35,7 +35,10 @@ const Page = () => {
       const data = await res.json()
 
       if (data.ok) {
-        setResultado({ type: 'success', msg: `Sucesso! Enviado para ${data.enviados} pessoas.` })
+        setResultado({
+          type: data.semDestinatarios ? 'info' : 'success',
+          msg: data.semDestinatarios ? data.msg : `Sucesso! Enviado para ${data.enviados} pessoas.`
+        })
         setTitulo('')
         setCorpo('')
         setLink('')
@@ -111,7 +114,7 @@ const Page = () => {
               </div>
 
               {resultado && (
-                <div className={`p-4 rounded-xl text-sm font-medium ${resultado.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                <div className={`p-4 rounded-xl text-sm font-medium ${resultado.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : resultado.type === 'info' ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
                   {resultado.msg}
                 </div>
               )}
