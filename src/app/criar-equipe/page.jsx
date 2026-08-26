@@ -422,7 +422,6 @@ function CriarEquipeForm() {
                     className="block w-full rounded-2xl border border-neutral-300 p-4 pl-6 text-sm outline-none focus:border-[#82181A] focus:ring-1 focus:ring-[#82181A]"
                   >
                     <option value="" disabled>Selecione uma opção</option>
-                    <option value="publica">Pública</option>
                     <option value="particular">Particular</option>
                     <option value="federal">Federal</option>
                     <option value="estadual">Estadual</option>
