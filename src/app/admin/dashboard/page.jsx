@@ -36,6 +36,7 @@ function TabEquipes() {
   const [totalEstadual, setTotalEstadual] = useState(null)
   const [totalFederal, setTotalFederal] = useState(null)
   const [totalPublicaGenerica, setTotalPublicaGenerica] = useState(null)
+  const [totalCompletas, setTotalCompletas] = useState(null)
   const [carregando, setCarregando] = useState(true)
   const [expanded, setExpanded] = useState(null)
   const [mostrarFerramentas, setMostrarFerramentas] = useState(false)
@@ -45,7 +46,7 @@ function TabEquipes() {
 
   useEffect(() => {
     const carregar = async () => {
-      const [edSnap, countSnap, particularSnap, municipalSnap, estadualSnap, federalSnap, publicaSnap] = await Promise.all([
+      const [edSnap, countSnap, particularSnap, municipalSnap, estadualSnap, federalSnap, publicaSnap, completasSnap] = await Promise.all([
         getDocsFromServer(collection(db, 'edicoes')),
         getCountFromServer(collection(db, 'equipes')),
         getCountFromServer(query(collection(db, 'equipes'), where('tipoEscola', '==', 'particular'))),
@@ -53,6 +54,7 @@ function TabEquipes() {
         getCountFromServer(query(collection(db, 'equipes'), where('tipoEscola', '==', 'estadual'))),
         getCountFromServer(query(collection(db, 'equipes'), where('tipoEscola', '==', 'federal'))),
         getCountFromServer(query(collection(db, 'equipes'), where('tipoEscola', '==', 'publica'))),
+        getCountFromServer(query(collection(db, 'equipes'), where('isCompleta', '==', true))),
       ])
       const edMap = {}
       edSnap.docs.forEach((d) => { edMap[d.id] = d.data().nome || '—' })
@@ -63,6 +65,7 @@ function TabEquipes() {
       setTotalEstadual(estadualSnap.data().count)
       setTotalFederal(federalSnap.data().count)
       setTotalPublicaGenerica(publicaSnap.data().count)
+      setTotalCompletas(completasSnap.data().count)
 
       const q = query(collection(db, 'equipes'), orderBy(documentId()), limit(50))
       const eSnap = await getDocsFromServer(q)
@@ -218,6 +221,43 @@ function TabEquipes() {
 
   const [mostraBotaoReal, setMostraBotaoReal] = useState(false)
 
+  const handleRecalcularCompletas = async () => {
+    if (!window.confirm('Custo de ~650 leituras e gravações. O sistema fará a contagem exata e atualizará todas as equipes com a tag de completa. Tem certeza?')) return
+    setCarregando(true)
+    try {
+      const snap = await getDocsFromServer(collection(db, 'equipes'))
+      const paraAtualizar = []
+
+      for (const d of snap.docs) {
+        const data = d.data()
+        const membrosAtivos = (data.membros || []).filter(m => m.status === 'ativo')
+        const profs = membrosAtivos.filter(m => m.papel === 'professor_orientador').length
+        const resps = membrosAtivos.filter(m => m.papel === 'responsavel').length
+        const alunos = membrosAtivos.filter(m => m.papel === 'aluno').length
+
+        const isCompleta = (profs === 1 && resps === 1 && alunos === 2)
+
+        if (data.isCompleta !== isCompleta) {
+          paraAtualizar.push({ id: d.id, isCompleta })
+        }
+      }
+
+      const LOTE = 450
+      for (let i = 0; i < paraAtualizar.length; i += LOTE) {
+        const batch = writeBatch(db)
+        paraAtualizar.slice(i, i + LOTE).forEach((item) => {
+          batch.update(doc(db, 'equipes', item.id), { isCompleta: item.isCompleta })
+        })
+        await batch.commit()
+      }
+      alert(`Feito! ${paraAtualizar.length} equipes precisaram de atualização de status.`)
+      window.location.reload()
+    } catch (err) {
+      alert('Erro: ' + err.message)
+      setCarregando(false)
+    }
+  }
+
   const handleShareGlayds = () => {
     if (totalServidor === null) return
     const pub = totalServidor - (totalParticular || 0)
@@ -276,14 +316,16 @@ function TabEquipes() {
           <p className='text-xs text-neutral-500 flex justify-center items-center gap-2'>
             {equipes.length} exibida(s) · {totalServidor} no servidor
             {totalParticular !== null && (
-              <span className='ml-2'>
-                · <span className='text-blue-600 font-medium'>{totalServidor - totalParticular} públicas</span>
+              <span className='ml-1'>
+                <span className='text-blue-600 font-medium'>{totalServidor - totalParticular} públicas</span>
                 {' ('}
                 <span className='text-neutral-500 font-medium' title='Pública geral, Municipal, Estadual, Federal'>
-                  {totalPublicaGenerica}G · {totalMunicipal}M · {totalEstadual}E · {totalFederal}F
+                  {totalMunicipal}M · {totalEstadual}E · {totalFederal}F
                 </span>
                 {') · '}
                 <span className='text-purple-600 font-medium'>{totalParticular} privadas</span>
+                {' · '}
+                <span className='text-emerald-600 font-medium'>{totalCompletas} completas</span>
               </span>
             )}
 
@@ -334,6 +376,9 @@ function TabEquipes() {
                   CONFIRMAR MIGRAÇÃO REAL
                 </button>
               )}
+              <button onClick={handleRecalcularCompletas} className='bg-emerald-100 text-emerald-700 px-3 py-1 rounded-md hover:bg-emerald-200 transition-colors cursor-pointer font-bold'>
+                Recalcular Equipes Completas
+              </button>
               <button onClick={handleCorrigirDuplicadas} className='bg-red-100 text-red-700 px-3 py-1 rounded-md hover:bg-red-200 transition-colors cursor-pointer font-bold'>
                 Corrigir Equipes Duplicadas
               </button>

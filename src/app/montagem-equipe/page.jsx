@@ -13,6 +13,21 @@ const poppins = Poppins({
   weight: ['400', '500', '600', '700'],
 })
 
+const calcularIsCompleta = (membrosAtuais, novoMembro, op) => {
+  let lista = membrosAtuais.filter(m => m.status === 'ativo')
+  if (op === 'add') {
+    lista.push(novoMembro)
+  } else if (op === 'remove') {
+    lista = lista.filter(m => m.uid !== novoMembro.uid)
+  }
+  
+  const profs = lista.filter(m => m.papel === 'professor_orientador').length
+  const resps = lista.filter(m => m.papel === 'responsavel').length
+  const alunos = lista.filter(m => m.papel === 'aluno').length
+  
+  return profs === 1 && resps === 1 && alunos === 2
+}
+
 function SingleTeamView({ equipeId, authUser, userData }) {
   const router = useRouter()
   const [equipe, setEquipe] = useState(null)
@@ -104,8 +119,10 @@ function SingleTeamView({ equipeId, authUser, userData }) {
       }
 
       const nome = `${userDoc.data().nome || ''} ${userDoc.data().sobrenome || ''}`.trim()
+      const novoMembroObj = { uid: userDoc.id, nome, email: data.email.trim(), papel, status: 'ativo' };
       const updates = {
-        membros: arrayUnion({ uid: userDoc.id, nome, email: data.email.trim(), papel, status: 'ativo' }),
+        membros: arrayUnion(novoMembroObj),
+        isCompleta: calcularIsCompleta(membrosAtivos, novoMembroObj, 'add'),
       }
       if (papel === 'professor_orientador') {
         updates.orientadorUids = arrayUnion(userDoc.id)
@@ -630,8 +647,8 @@ function MultiTeamView({ authUser, userData, edicoes }) {
       }
 
       await Promise.all([
-        updateDoc(doc(db, 'equipes', sourceTeamId), updateSource),
-        updateDoc(doc(db, 'equipes', targetTeamId), updateTarget),
+        updateDoc(doc(db, 'equipes', sourceTeamId), { ...updateSource, isCompleta: calcularIsCompleta(sourceTeam.membros || [], sourceMembro, 'remove') }),
+        updateDoc(doc(db, 'equipes', targetTeamId), { ...updateTarget, isCompleta: calcularIsCompleta(targetTeam.membros || [], targetMembro, 'remove') }),
       ])
 
       await Promise.all([
@@ -753,7 +770,7 @@ function MultiTeamView({ authUser, userData, edicoes }) {
 
                     const nome = `${userDoc.data().nome || ''} ${userDoc.data().sobrenome || ''}`.trim()
                     const novoMembro = { uid: userDoc.id, nome, email: data.email.trim(), papel, status: 'ativo' }
-                    const updates = { membros: arrayUnion(novoMembro) }
+                    const updates = { membros: arrayUnion(novoMembro), isCompleta: calcularIsCompleta(membrosAtivos, novoMembro, 'add') }
                     if (papel === 'professor_orientador') {
                       updates.orientadorUids = arrayUnion(userDoc.id)
                     }
