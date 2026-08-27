@@ -314,6 +314,58 @@ export const useSupportChat = ({ isChatOpen = false } = {}) => {
     }
   }, [chamadoId])
 
+  const [posicaoFila, setPosicaoFila] = useState(1)
+
+  useEffect(() => {
+    if (!chamadoId || chamado?.status !== STATUS_CHAMADO.AGUARDANDO_ATENDENTE || chamado?.modo !== 'humano') {
+      return
+    }
+    try {
+      const qFila = query(
+        collection(supportDb, 'chamados'),
+        where('status', '==', STATUS_CHAMADO.AGUARDANDO_ATENDENTE)
+      )
+      const unsubFila = onSnapshot(
+        qFila,
+        (snap) => {
+          const docsOrdenados = snap.docs.map((d) => ({
+            id: d.id,
+            transferidoEm: d.data().transferidoEm?.toMillis?.() || d.data().criadoEm?.toMillis?.() || 0,
+          }))
+          docsOrdenados.sort((a, b) => a.transferidoEm - b.transferidoEm)
+          const idx = docsOrdenados.findIndex((d) => d.id === chamadoId)
+          setPosicaoFila(idx >= 0 ? idx + 1 : 1)
+        },
+        () => {}
+      )
+      return () => unsubFila()
+    } catch {}
+  }, [chamadoId, chamado?.status, chamado?.modo])
+
+  const enviarAvaliacao = async (nota, justificativa = '') => {
+    if (!chamadoId || !supportDb) return
+    try {
+      await updateDoc(doc(supportDb, 'chamados', chamadoId), {
+        avaliacao: nota,
+        justificativa: justificativa.trim() || null,
+        avaliadoEm: serverTimestamp(),
+      })
+      await addDoc(collection(supportDb, 'avaliacoes_suporte'), {
+        chamadoId,
+        atendenteNome: chamado?.atendenteNome || 'Equipe DHPB',
+        atendenteTelegramId: chamado?.atendenteTelegramId || null,
+        usuarioNome: chamado?.nome || 'Usuário',
+        usuarioEmail: chamado?.email || '',
+        nota,
+        justificativa: justificativa.trim() || null,
+        criadoEm: serverTimestamp(),
+      }).catch(() => {})
+      setChamado((prev) => (prev ? { ...prev, avaliacao: nota, justificativa: justificativa.trim() || null } : prev))
+    } catch (e) {
+      console.error('[useSupportChat] erro ao enviar avaliacao:', e)
+    }
+  }
+
   useEffect(() => {
     if (!chamadoId || !mensagens.length || !isChatOpen) return
     const temNaoLida = mensagens.some((m) => m.autorTipo !== AUTORES.USUARIO && !m.lida)
@@ -523,7 +575,25 @@ export const useSupportChat = ({ isChatOpen = false } = {}) => {
     }
   }
 
-  return { sessao, chamado, mensagens, carregando, digitando, erro, sugestoes, coleta, encerrado, inicializar, inicializarBackground, iniciarNovoAtendimento, enviarMensagem, encerrarSessao, naoLidasUsuario: chamado?.naoLidasUsuario || 0 }
+  return {
+    sessao,
+    chamado,
+    mensagens,
+    carregando,
+    digitando,
+    erro,
+    sugestoes,
+    coleta,
+    encerrado,
+    posicaoFila,
+    enviarAvaliacao,
+    inicializar,
+    inicializarBackground,
+    iniciarNovoAtendimento,
+    enviarMensagem,
+    encerrarSessao,
+    naoLidasUsuario: chamado?.naoLidasUsuario || 0,
+  }
 }
 
 export const getSupportSession = async () => {

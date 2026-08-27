@@ -92,6 +92,15 @@ const Page = () => {
   const atualizarStatus = useCallback(async (status, extra = {}) => {
     if (!chamadoId) return
     await updateDoc(doc(supportDb, 'chamados', chamadoId), { status, atualizadoEm: serverTimestamp(), ...extra }).catch(() => {})
+    
+    // Se foi resolvido ou arquivado, dispara limpeza de mensagens privadas no Telegram
+    if ([STATUS_CHAMADO.RESOLVIDO, STATUS_CHAMADO.ARQUIVADO].includes(status)) {
+      fetch('/api/support/cleanup-telegram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chamadoId }),
+      }).catch((e) => console.error('Erro ao limpar Telegram:', e))
+    }
   }, [chamadoId])
 
   const assumirAtendimento = async () => {
@@ -124,9 +133,17 @@ const Page = () => {
       })
       setTexto('')
       
+      // Dispara a notificação Push (FCM) em background
+      fetch('/api/support/send-fcm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chamadoId, texto: conteudo }),
+      }).catch((e) => console.error('Erro ao enviar FCM', e))
+
     } catch {}
     setEnviando(false)
   }
+
 
   const copiarLink = () => {
     const url = `${window.location.origin}/admin/suporte/chamados/${chamadoId}`
@@ -315,6 +332,29 @@ const Page = () => {
                     {tempoAtendimento && <p><span className='font-semibold text-neutral-800'>Tempo de atendimento:</span> <span className='text-green-700 font-medium'>⏱ {tempoAtendimento}</span></p>}
                   </div>
                 </div>
+
+                {chamado.avaliacao !== undefined && (
+                  <div className='bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 space-y-2'>
+                    <h3 className='font-bold text-sm text-[#82181A] border-b border-neutral-100 pb-2 flex items-center justify-between'>
+                      <span>Avaliação do Usuário</span>
+                      <span className='text-amber-500 font-bold text-sm'>★ {chamado.avaliacao}/5</span>
+                    </h3>
+                    <p className='text-xs text-neutral-700'>
+                      <span className='font-semibold'>Nota:</span> {chamado.avaliacao} de 5
+                    </p>
+                    {chamado.justificativa && (
+                      <div className='p-3 bg-neutral-50 rounded-xl border border-neutral-200 text-xs text-neutral-700'>
+                        <p className='font-semibold text-neutral-900 mb-1'>Justificativa:</p>
+                        <p className='italic text-neutral-600 leading-relaxed'>"{chamado.justificativa}"</p>
+                      </div>
+                    )}
+                    {chamado.avaliadoEm && (
+                      <p className='text-[10px] text-neutral-400'>
+                        Avaliado em {formatarDataHora(chamado.avaliadoEm)}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 <div className='bg-white rounded-2xl shadow-sm border border-neutral-200 p-5 space-y-3'>
                   <h3 className='font-bold text-sm text-[#82181A] border-b border-neutral-100 pb-2'>Resumo (gerado pela IA)</h3>

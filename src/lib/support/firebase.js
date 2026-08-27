@@ -1,6 +1,15 @@
 import { initializeApp, getApps } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
-import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore'
+import {
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  doc,
+  setDoc,
+  serverTimestamp,
+} from 'firebase/firestore'
+import { getMessaging, getToken } from 'firebase/messaging'
 
 const supportConfig = {
   apiKey: process.env.NEXT_PUBLIC_SUPPORT_FIREBASE_API_KEY,
@@ -15,6 +24,7 @@ const suporteConfigurado = Boolean(supportConfig.apiKey && supportConfig.project
 
 let supportAuth = null
 let supportDb = null
+let supportMessaging = null
 
 if (typeof window !== 'undefined' && suporteConfigurado) {
   const app = getApps().find((a) => a.name === 'support') || initializeApp(supportConfig, 'support')
@@ -26,6 +36,50 @@ if (typeof window !== 'undefined' && suporteConfigurado) {
   } catch {
     supportDb = getFirestore(app)
   }
+
+  if ('Notification' in window && 'serviceWorker' in navigator) {
+    try {
+      supportMessaging = getMessaging(app)
+    } catch (e) {
+      console.error('Falha ao inicializar FCM do suporte:', e)
+    }
+  }
 }
 
-export { supportAuth, supportDb, suporteConfigurado }
+export const requestNotificationToken = async () => {
+  if (typeof window === 'undefined' || !('Notification' in window)) return null
+  try {
+    const permission = await Notification.requestPermission()
+    if (permission !== 'granted') return null
+
+    const vapidKey = process.env.NEXT_PUBLIC_SUPPORT_FIREBASE_VAPID_KEY
+    if (!vapidKey) {
+      console.warn('VAPID Key não configurada para o FCM do Suporte.')
+      return null
+    }
+
+    if (!supportMessaging) {
+      const app = getApps().find((a) => a.name === 'support') || initializeApp(supportConfig, 'support')
+      supportMessaging = getMessaging(app)
+    }
+
+    const tokenFCM = await getToken(supportMessaging, { vapidKey })
+    if (tokenFCM && supportDb) {
+      setDoc(
+        doc(supportDb, 'fcm_tokens', tokenFCM),
+        {
+          token: tokenFCM,
+          ativo: true,
+          atualizadoEm: serverTimestamp(),
+        },
+        { merge: true }
+      ).catch((e) => console.error('Erro ao salvar token global:', e))
+    }
+    return tokenFCM
+  } catch (e) {
+    console.error('Erro ao pedir token FCM:', e)
+    return null
+  }
+}
+
+export { supportAuth, supportDb, supportMessaging, suporteConfigurado }

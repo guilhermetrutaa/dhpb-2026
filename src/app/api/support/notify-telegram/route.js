@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { getProjectId, getToken, fsGet, fsUpdate } from '@/lib/support/server/firestore-rest'
 
 const CATEGORIA_LABELS = {
   inscricao: 'Inscrição',
@@ -47,10 +48,6 @@ export async function POST(req) {
       if (!telegramId) return NextResponse.json({ erro: 'telegramId ausente para mensagem privada' }, { status: 400 })
       chatToSend = telegramId
       texto = `👤 <b>Nova mensagem de ${escaparHtml(nome || 'Usuário')}</b>\n\n${escaparHtml(mensagem)}\n\n<i>(Responda a esta mensagem para falar com o usuário. ID: ${chamadoId})</i>`
-      // Se tiver o ID da mensagem de "assumido", responde diretamente a ela
-      if (atendenteMsgId) {
-        replyMarkup = undefined
-      }
     } else {
       const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || req.nextUrl.origin || '').replace(/\/$/, '')
       const link = `${siteUrl}/admin/suporte/chamados/${encodeURIComponent(chamadoId)}`
@@ -95,9 +92,29 @@ export async function POST(req) {
       return NextResponse.json({ erro: `Telegram retornou ${res.status}` }, { status: 502 })
     }
 
+    const resData = await res.json().catch(() => ({}))
+    const sentMsgId = resData?.result?.message_id
+
+    // Se foi mensagem privada para atendente, rastreia o ID para limpeza posterior
+    if (tipo === 'nova_mensagem_usuario' && sentMsgId && telegramId) {
+      try {
+        const fsToken = await getToken()
+        const projectId = getProjectId()
+        const snap = await fsGet(projectId, `chamados/${chamadoId}`, fsToken)
+        if (snap.exists) {
+          const listaAtual = Array.isArray(snap.data.telegramPrivadoMsgIds) ? snap.data.telegramPrivadoMsgIds : []
+          listaAtual.push({ messageId: sentMsgId, chatId: String(telegramId) })
+          await fsUpdate(projectId, `chamados/${chamadoId}`, { telegramPrivadoMsgIds: listaAtual }, fsToken)
+        }
+      } catch (e) {
+        console.error('[notify-telegram] erro ao salvar msg privada para limpeza:', e)
+      }
+    }
+
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error('[support/notify-telegram]', err)
     return NextResponse.json({ erro: 'Falha ao enviar notificação.' }, { status: 500 })
   }
 }
+

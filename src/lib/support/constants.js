@@ -71,6 +71,38 @@ export const SUGESTOES_INICIAIS = [
   'Minha conta do ano passado não entra',
 ]
 
+export const HORARIO_ATENDIMENTO = {
+  inicio: 9,
+  fim: 18,
+}
+
+export const estaNoHorarioAtendimento = (data = new Date()) => {
+  try {
+    // Horário de Brasília (America/Sao_Paulo)
+    const formatter = new Intl.DateTimeFormat('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: false,
+    })
+    const partes = formatter.formatToParts(data)
+    const hora = parseInt(partes.find((p) => p.type === 'hour')?.value || '0', 10)
+    return hora >= HORARIO_ATENDIMENTO.inicio && hora < HORARIO_ATENDIMENTO.fim
+  } catch {
+    const hora = data.getHours()
+    return hora >= HORARIO_ATENDIMENTO.inicio && hora < HORARIO_ATENDIMENTO.fim
+  }
+}
+
+export const AVALIACOES_CSAT = [
+  { nota: 0, label: 'Muito ruim', emoji: '😡', precisaJustificativa: true },
+  { nota: 1, label: 'Ruim', emoji: '🙁', precisaJustificativa: true },
+  { nota: 2, label: 'Poderia ser melhor', emoji: '😐', precisaJustificativa: true },
+  { nota: 3, label: 'Bom', emoji: '🙂', precisaJustificativa: false },
+  { nota: 4, label: 'Muito bom', emoji: '😊', precisaJustificativa: false },
+  { nota: 5, label: 'Excelente', emoji: '🤩', precisaJustificativa: false },
+]
+
 export const formatarDataHora = (ts) => {
   if (!ts) return '—'
   const d = ts.toDate ? ts.toDate() : new Date(ts)
@@ -88,3 +120,4 @@ export const formatarTempo = (ms) => {
   const d = Math.floor(h / 24)
   return `${d}d ${h % 24}h`
 }
+

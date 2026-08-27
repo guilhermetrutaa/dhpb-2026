@@ -29,7 +29,7 @@ function TabChamados() {
   const [chamados, setChamados] = useState([])
   const [carregando, setCarregando] = useState(true)
   const [busca, setBusca] = useState('')
-  const [filtroStatus, setFiltroStatus] = useState('')
+  const [abaFiltro, setAbaFiltro] = useState('fila') // 'fila', 'andamento', 'resolvidos', 'todos'
   const [filtroCategoria, setFiltroCategoria] = useState('')
   const [ordenacao, setOrdenacao] = useState('recentes')
   const [agora, setAgora] = useState(() => Date.now())
@@ -42,7 +42,7 @@ function TabChamados() {
   useEffect(() => {
     let unsub = () => {}
     unsub = onSnapshot(
-      query(collection(supportDb, 'chamados'), orderBy('atualizadoEm', 'desc'), limit(100)),
+      query(collection(supportDb, 'chamados'), orderBy('atualizadoEm', 'desc'), limit(150)),
       (snap) => {
         setChamados(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
         setCarregando(false)
@@ -51,10 +51,47 @@ function TabChamados() {
     return () => unsub()
   }, [])
 
+  // Estatísticas e contadores
+  const contadores = useMemo(() => {
+    const aguardando = chamados.filter((c) => c.status === STATUS_CHAMADO.AGUARDANDO_ATENDENTE).length
+    const emAtendimento = chamados.filter((c) => c.status === STATUS_CHAMADO.EM_ATENDIMENTO).length
+    const aguardandoUsuario = chamados.filter((c) => c.status === STATUS_CHAMADO.AGUARDANDO_USUARIO).length
+    const resolvidos = chamados.filter((c) => [STATUS_CHAMADO.RESOLVIDO, STATUS_CHAMADO.ARQUIVADO].includes(c.status)).length
+    const avaliados = chamados.filter((c) => c.avaliacao !== undefined)
+    const mediaCsat = avaliados.length
+      ? (avaliados.reduce((acc, c) => acc + Number(c.avaliacao), 0) / avaliados.length).toFixed(1)
+      : null
+
+    return {
+      aguardando,
+      emAtendimento,
+      aguardandoUsuario,
+      andamento: emAtendimento + aguardandoUsuario,
+      resolvidos,
+      total: chamados.length,
+      avaliadosTotal: avaliados.length,
+      mediaCsat,
+    }
+  }, [chamados])
+
   const filtrarOrdenar = useMemo(() => {
     let lista = [...chamados]
-    if (filtroStatus) lista = lista.filter((c) => c.status === filtroStatus)
+
+    // Filtro por Aba Rápida
+    if (abaFiltro === 'fila') {
+      lista = lista.filter((c) => c.status === STATUS_CHAMADO.AGUARDANDO_ATENDENTE)
+    } else if (abaFiltro === 'andamento') {
+      lista = lista.filter((c) =>
+        [STATUS_CHAMADO.EM_ATENDIMENTO, STATUS_CHAMADO.AGUARDANDO_USUARIO, STATUS_CHAMADO.NOVO].includes(c.status)
+      )
+    } else if (abaFiltro === 'resolvidos') {
+      lista = lista.filter((c) => [STATUS_CHAMADO.RESOLVIDO, STATUS_CHAMADO.ARQUIVADO].includes(c.status))
+    }
+
+    // Filtro de Categoria
     if (filtroCategoria) lista = lista.filter((c) => c.categoria === filtroCategoria)
+
+    // Busca textual
     if (busca.trim()) {
       const t = busca.toLowerCase()
       lista = lista.filter(
@@ -62,21 +99,26 @@ function TabChamados() {
           c.nome?.toLowerCase().includes(t) ||
           c.email?.toLowerCase().includes(t) ||
           c.resumo?.toLowerCase().includes(t) ||
+          c.atendenteNome?.toLowerCase().includes(t) ||
           c.id.toLowerCase().includes(t)
       )
     }
+
+    // Ordenação
     if (ordenacao === 'antigos') {
       lista.sort((a, b) => (a.criadoEm?.toMillis?.() || 0) - (b.criadoEm?.toMillis?.() || 0))
     } else if (ordenacao === 'prioridade') {
       const ordem = { alta: 0, media: 1, baixa: 2 }
       lista.sort((a, b) => (ordem[a.prioridade] ?? 1) - (ordem[b.prioridade] ?? 1))
+    } else if (ordenacao === 'espera') {
+      lista.sort((a, b) => (a.transferidoEm?.toMillis?.() || 0) - (b.transferidoEm?.toMillis?.() || 0))
     }
     return lista
-  }, [chamados, busca, filtroStatus, filtroCategoria, ordenacao])
+  }, [chamados, abaFiltro, busca, filtroCategoria, ordenacao])
 
   const tempoEspera = (c) => {
     if (c.status !== STATUS_CHAMADO.AGUARDANDO_ATENDENTE) return null
-    const criado = c.criadoEm?.toDate?.() || c.transferidoEm?.toDate?.()
+    const criado = c.transferidoEm?.toDate?.() || c.criadoEm?.toDate?.()
     if (!criado) return null
     return formatarTempo(agora - criado.getTime())
   }
@@ -91,29 +133,171 @@ function TabChamados() {
   if (carregando) return <p className='text-neutral-400 text-sm text-center py-10'>Carregando chamados...</p>
 
   return (
-    <div className='space-y-4 text-[#000]'>
+    <div className='space-y-5 text-[#000]'>
+      {/* Cards de Resumo / Estatísticas Rápidas */}
+      <div className='grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3'>
+        <button
+          onClick={() => setAbaFiltro('fila')}
+          className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+            abaFiltro === 'fila'
+              ? 'bg-amber-500 text-white border-amber-600 shadow-md shadow-amber-500/20'
+              : 'bg-white hover:bg-amber-50/50 border-neutral-200 text-neutral-800'
+          }`}
+        >
+          <div className='flex items-center justify-between'>
+            <span className='text-xs font-semibold uppercase tracking-wider opacity-80'>Fila de Espera</span>
+            <span className='text-base'>⏳</span>
+          </div>
+          <p className='text-2xl font-bold mt-1'>{contadores.aguardando}</p>
+          <p className='text-[10px] opacity-70 mt-0.5'>Aguardando atendente</p>
+        </button>
+
+        <button
+          onClick={() => setAbaFiltro('andamento')}
+          className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+            abaFiltro === 'andamento'
+              ? 'bg-green-600 text-white border-green-700 shadow-md shadow-green-600/20'
+              : 'bg-white hover:bg-green-50/50 border-neutral-200 text-neutral-800'
+          }`}
+        >
+          <div className='flex items-center justify-between'>
+            <span className='text-xs font-semibold uppercase tracking-wider opacity-80'>Em Andamento</span>
+            <span className='text-base'>💬</span>
+          </div>
+          <p className='text-2xl font-bold mt-1'>{contadores.andamento}</p>
+          <p className='text-[10px] opacity-70 mt-0.5'>
+            {contadores.emAtendimento} ativos · {contadores.aguardandoUsuario} p/ usuário
+          </p>
+        </button>
+
+        <button
+          onClick={() => setAbaFiltro('resolvidos')}
+          className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+            abaFiltro === 'resolvidos'
+              ? 'bg-neutral-800 text-white border-neutral-900 shadow-md shadow-neutral-800/20'
+              : 'bg-white hover:bg-neutral-50 border-neutral-200 text-neutral-800'
+          }`}
+        >
+          <div className='flex items-center justify-between'>
+            <span className='text-xs font-semibold uppercase tracking-wider opacity-80'>Resolvidos</span>
+            <span className='text-base'>✅</span>
+          </div>
+          <p className='text-2xl font-bold mt-1'>{contadores.resolvidos}</p>
+          <p className='text-[10px] opacity-70 mt-0.5'>Atendimentos finalizados</p>
+        </button>
+
+        <button
+          onClick={() => setAbaFiltro('todos')}
+          className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+            abaFiltro === 'todos'
+              ? 'bg-[#82181A] text-white border-[#631214] shadow-md shadow-[#82181A]/20'
+              : 'bg-white hover:bg-[#82181A]/5 border-neutral-200 text-neutral-800'
+          }`}
+        >
+          <div className='flex items-center justify-between'>
+            <span className='text-xs font-semibold uppercase tracking-wider opacity-80'>Total Geral</span>
+            <span className='text-base'>📋</span>
+          </div>
+          <p className='text-2xl font-bold mt-1'>{contadores.total}</p>
+          <p className='text-[10px] opacity-70 mt-0.5'>Todos os registros</p>
+        </button>
+
+        <div className='p-3.5 rounded-2xl border bg-white border-neutral-200 text-neutral-800 col-span-2 sm:col-span-4 lg:col-span-1 flex flex-col justify-between'>
+          <div className='flex items-center justify-between'>
+            <span className='text-xs font-semibold text-neutral-500 uppercase tracking-wider'>Média CSAT</span>
+            <span className='text-base'>⭐</span>
+          </div>
+          <div className='mt-1'>
+            <p className='text-2xl font-bold text-amber-600'>
+              {contadores.mediaCsat ? `${contadores.mediaCsat} / 5.0` : '—'}
+            </p>
+            <p className='text-[10px] text-neutral-400 mt-0.5'>
+              {contadores.avaliadosTotal} avaliações recebidas
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Abas de Navegação Rápida */}
+      <div className='flex items-center gap-2 border-b border-neutral-200 pb-2 overflow-x-auto'>
+        <button
+          onClick={() => setAbaFiltro('fila')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+            abaFiltro === 'fila'
+              ? 'bg-amber-500 text-white shadow-sm'
+              : 'text-neutral-600 hover:bg-neutral-100'
+          }`}
+        >
+          <span>⏳ Fila de Espera</span>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+            abaFiltro === 'fila' ? 'bg-white text-amber-600' : 'bg-neutral-200 text-neutral-700'
+          }`}>
+            {contadores.aguardando}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setAbaFiltro('andamento')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+            abaFiltro === 'andamento'
+              ? 'bg-green-600 text-white shadow-sm'
+              : 'text-neutral-600 hover:bg-neutral-100'
+          }`}
+        >
+          <span>💬 Em Andamento</span>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+            abaFiltro === 'andamento' ? 'bg-white text-green-700' : 'bg-neutral-200 text-neutral-700'
+          }`}>
+            {contadores.andamento}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setAbaFiltro('resolvidos')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+            abaFiltro === 'resolvidos'
+              ? 'bg-neutral-800 text-white shadow-sm'
+              : 'text-neutral-600 hover:bg-neutral-100'
+          }`}
+        >
+          <span>✅ Resolvidos / Histórico</span>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+            abaFiltro === 'resolvidos' ? 'bg-white text-neutral-900' : 'bg-neutral-200 text-neutral-700'
+          }`}>
+            {contadores.resolvidos}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setAbaFiltro('todos')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+            abaFiltro === 'todos'
+              ? 'bg-[#82181A] text-white shadow-sm'
+              : 'text-neutral-600 hover:bg-neutral-100'
+          }`}
+        >
+          <span>📋 Todos os Chamados</span>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+            abaFiltro === 'todos' ? 'bg-white text-[#82181A]' : 'bg-neutral-200 text-neutral-700'
+          }`}>
+            {contadores.total}
+          </span>
+        </button>
+      </div>
+
+      {/* Barra de Filtros e Busca */}
       <div className='flex flex-col md:flex-row gap-3'>
         <input
           type="text"
-          placeholder="Buscar por nome, e-mail, resumo ou ID..."
+          placeholder="Buscar por nome, e-mail, resumo, atendente ou ID..."
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
-          className='flex-1 rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-[#82181A]'
+          className='flex-1 rounded-xl border border-neutral-300 px-4 py-2.5 text-sm outline-none focus:border-[#82181A] bg-white'
         />
-        <select
-          value={filtroStatus}
-          onChange={(e) => setFiltroStatus(e.target.value)}
-          className='rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-[#82181A] bg-white'
-        >
-          <option value="">Todos os status</option>
-          {Object.entries(STATUS_LABELS).map(([id, label]) => (
-            <option key={id} value={id}>{label}</option>
-          ))}
-        </select>
         <select
           value={filtroCategoria}
           onChange={(e) => setFiltroCategoria(e.target.value)}
-          className='rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-[#82181A] bg-white'
+          className='rounded-xl border border-neutral-300 px-4 py-2.5 text-sm outline-none focus:border-[#82181A] bg-white'
         >
           <option value="">Todas as categorias</option>
           {CATEGORIAS.map((c) => (
@@ -123,18 +307,22 @@ function TabChamados() {
         <select
           value={ordenacao}
           onChange={(e) => setOrdenacao(e.target.value)}
-          className='rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-[#82181A] bg-white'
+          className='rounded-xl border border-neutral-300 px-4 py-2.5 text-sm outline-none focus:border-[#82181A] bg-white'
         >
           <option value="recentes">Mais recentes</option>
           <option value="antigos">Mais antigos</option>
-          <option value="prioridade">Prioridade</option>
+          <option value="prioridade">Maior prioridade</option>
+          {abaFiltro === 'fila' && <option value="espera">Maior tempo de espera</option>}
         </select>
       </div>
 
+      {/* Lista de Chamados */}
       {filtrarOrdenar.length === 0 ? (
-        <p className='text-neutral-400 text-sm text-center py-10'>Nenhum chamado encontrado.</p>
+        <div className='bg-white rounded-2xl border border-neutral-200 p-12 text-center'>
+          <p className='text-neutral-400 text-sm font-medium'>Nenhum chamado encontrado nesta visualização.</p>
+        </div>
       ) : (
-        <div className='space-y-2'>
+        <div className='space-y-2.5'>
           {filtrarOrdenar.map((c) => {
             const espera = tempoEspera(c)
             const atendimento = tempoAtendimento(c)
@@ -144,12 +332,12 @@ function TabChamados() {
               <button
                 key={c.id}
                 onClick={() => router.push(`/admin/suporte/chamados/${c.id}`)}
-                className='w-full text-left bg-white rounded-xl border border-neutral-200 p-4 hover:border-[#82181A]/40 hover:shadow-sm transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center gap-3'
+                className='w-full text-left bg-white rounded-2xl border border-neutral-200 p-4 hover:border-[#82181A]/40 hover:shadow-md transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center gap-3.5'
               >
                 <div className='flex-1 min-w-0'>
                   <div className='flex items-center gap-2 flex-wrap'>
-                    <p className='font-semibold text-sm'>{c.nome || 'Usuário'}</p>
-                    <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full ${STATUS_COLORS[c.status] || 'bg-neutral-100 text-neutral-500'}`}>
+                    <p className='font-bold text-sm text-neutral-900'>{c.nome || 'Usuário sem nome'}</p>
+                    <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${STATUS_COLORS[c.status] || 'bg-neutral-100 text-neutral-500'}`}>
                       {STATUS_LABELS[c.status] || c.status}
                     </span>
                     <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full ${PRIORIDADE_COLORS[c.prioridade] || ''}`}>
@@ -158,26 +346,40 @@ function TabChamados() {
                     {c.modo === 'ia' && (
                       <span className='text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-700'>IA</span>
                     )}
+                    {c.atendenteNome && (
+                      <span className='text-[10px] font-medium px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-700 border border-neutral-200'>
+                        👤 {c.atendenteNome}
+                      </span>
+                    )}
+                    {c.avaliacao !== undefined && (
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        Number(c.avaliacao) >= 3 ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-700'
+                      }`}>
+                        ★ {c.avaliacao}/5
+                      </span>
+                    )}
                     {naoLidas > 0 && c.modo === 'humano' && (
-                      <span className='text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#82181A] text-white'>{naoLidas} nova(s)</span>
+                      <span className='text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#82181A] text-white animate-pulse'>
+                        {naoLidas} nova(s)
+                      </span>
                     )}
                   </div>
-                  <p className='text-xs text-neutral-500 mt-1 truncate'>
+                  <p className='text-xs text-neutral-600 mt-1 truncate'>
                     {c.resumo || c.ultimaMensagem || 'Sem resumo'}
                   </p>
-                  <p className='text-[10px] text-neutral-400 mt-0.5'>
-                    {CATEGORIA_LABELS[c.categoria] || c.categoria || '—'} · {autor}: {formatarDataHora(c.ultimaMensagemEm)} · ID: {c.id.slice(0, 8)}
+                  <p className='text-[10px] text-neutral-400 mt-1'>
+                    {CATEGORIA_LABELS[c.categoria] || c.categoria || '—'} · {autor}: {formatarDataHora(c.ultimaMensagemEm || c.atualizadoEm)} · ID: {c.id.slice(0, 8)}
                   </p>
                 </div>
-                <div className='flex gap-3 shrink-0 text-xs'>
+                <div className='flex gap-2 shrink-0 text-xs flex-wrap sm:flex-nowrap'>
                   {espera && (
-                    <span className='px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 font-medium border border-amber-100'>
-                      ⏳ {espera}
+                    <span className='px-3 py-1.5 rounded-xl bg-amber-50 text-amber-700 font-semibold border border-amber-200 flex items-center gap-1'>
+                      ⏳ Fila: {espera}
                     </span>
                   )}
                   {atendimento && (
-                    <span className='px-3 py-1.5 rounded-lg bg-green-50 text-green-700 font-medium border border-green-100'>
-                      ⏱ {atendimento}
+                    <span className='px-3 py-1.5 rounded-xl bg-green-50 text-green-700 font-semibold border border-green-200 flex items-center gap-1'>
+                      ⏱ Atendendo: {atendimento}
                     </span>
                   )}
                 </div>
@@ -189,6 +391,7 @@ function TabChamados() {
     </div>
   )
 }
+
 
 function TabRespostasRapidas() {
   const [respostas, setRespostas] = useState([])
