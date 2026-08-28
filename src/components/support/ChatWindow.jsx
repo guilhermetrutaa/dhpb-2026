@@ -123,11 +123,9 @@ const ChatWindow = ({ chat, onFechar }) => {
   }
 
   const tratarKeyDown = (e) => {
-    // No desktop: Enter sem Shift envia. Com Shift ou no mobile, apenas pula linha.
-    if (e.key === 'Enter' && !e.shiftKey && !isMobile) {
-      e.preventDefault()
-      enviar()
-    }
+    // Enter sempre pula linha. Shift+Enter também pula linha.
+    // Envio SOMENTE pelo botão vermelho.
+    // Nenhuma ação especial necessária — o textarea já trata Enter como quebra de linha.
   }
 
   const tratarAnexoImagem = async (e) => {
@@ -425,9 +423,8 @@ const ChatWindow = ({ chat, onFechar }) => {
               <textarea
                 value={texto}
                 onChange={(e) => setTexto(e.target.value)}
-                onKeyDown={tratarKeyDown}
                 rows={1}
-                placeholder={isMobile ? 'Digite e toque em enviar...' : 'Digite sua mensagem...'}
+                placeholder="Digite sua mensagem..."
                 aria-label="Mensagem"
                 className="flex-1 resize-none text-[#000] rounded-2xl border border-neutral-300 px-4 py-2.5 text-sm outline-none focus:border-[#82181A] focus:ring-1 focus:ring-[#82181A] max-h-28"
               />

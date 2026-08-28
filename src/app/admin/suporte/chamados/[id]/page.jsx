@@ -382,9 +382,8 @@ const Page = () => {
                       <textarea
                         value={texto}
                         onChange={(e) => setTexto(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar() } }}
                         rows={1}
-                        placeholder="Responder ao usuário... (Shift+Enter para nova linha)"
+                        placeholder="Responder ao usuário..."
                         className="flex-1 resize-none rounded-xl border border-neutral-300 px-4 py-2.5 text-sm outline-none focus:border-[#82181A] focus:ring-1 focus:ring-[#82181A] max-h-28"
                       />
                       <button
