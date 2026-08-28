@@ -99,6 +99,8 @@ const toFs = (v) => {
   if (typeof v === 'boolean') return { booleanValue: v }
   if (typeof v === 'number') return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v }
   if (typeof v === 'string') return { stringValue: v }
+  if (Array.isArray(v)) return { arrayValue: { values: v.map(toFs) } }
+  if (typeof v === 'object') return { mapValue: { fields: Object.fromEntries(Object.entries(v).map(([k, val]) => [k, toFs(val)])) } }
   return { stringValue: String(v) }
 }
 
@@ -209,6 +211,7 @@ export const fsUpdateComTimestamp = async (projectId, docPath, fields, camposTim
     token
   )
 }
+
 /**
  * Update com increment + server timestamp.
  * incrementos: [['nomeCampo', quantidade], ...]
@@ -275,4 +278,3 @@ export const fsAddComTimestamp = async (
     token
   )
 }
-
