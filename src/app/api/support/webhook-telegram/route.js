@@ -379,10 +379,15 @@ const executarTransferencia = async (cb) => {
   }
 }
 
-// ─── Responder Relatório CSAT (/nota e /notas) ────────────────────────────────
+// ─── Responder Relatório CSAT (/nota, /notas e /minhasnotas) ─────────────────
 const responderComandoNota = async (msg) => {
   const chatId = msg.chat?.id
+  const fromId = String(msg.from?.id || '')
+  const fromNome = msg.from?.first_name || msg.from?.username || 'Atendente'
   if (!chatId) return NextResponse.json({ ok: true })
+
+  const textoCmd = (msg.text || '').trim().split(/\s|@/)[0].toLowerCase()
+  const isIndividual = textoCmd === '/minhasnotas'
 
   try {
     const token = await getToken()
@@ -394,21 +399,80 @@ const responderComandoNota = async (msg) => {
     if (!avaliacoes.length) {
       await callTelegram('sendMessage', {
         chat_id: chatId,
-        text: '📊 <b>Relatório de Avaliações de Suporte (CSAT)</b>\n\nAinda não há avaliações registradas.',
+        text: '📊 <b>Avaliações de Satisfação do Atendimento</b>\n\nAinda não há avaliações registradas.',
         parse_mode: 'HTML',
       })
       return NextResponse.json({ ok: true })
     }
 
+    if (isIndividual) {
+      // Relatório individual — filtra pelas avaliações deste atendente
+      const minhas = avaliacoes.filter((a) => String(a.atendenteTelegramId) === fromId)
+      if (!minhas.length) {
+        await callTelegram('sendMessage', {
+          chat_id: chatId,
+          text: `📊 <b>Suas Avaliações</b>\n\n${escaparHtml(fromNome)}, você ainda não possui avaliações registradas.`,
+          parse_mode: 'HTML',
+        })
+        return NextResponse.json({ ok: true })
+      }
+
+      const total = minhas.length
+      const soma = minhas.reduce((acc, a) => acc + (Number(a.nota) || 0), 0)
+      const media = (soma / total).toFixed(1)
+      const contagem = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0, 0: 0 }
+      minhas.forEach((a) => { const n = Number(a.nota); if (contagem[n] !== undefined) contagem[n]++ })
+      const criticas = minhas.filter((a) => Number(a.nota) <= 2 && a.justificativa).slice(-3).reverse()
+
+      const texto = [
+        `⭐ <b>SUAS AVALIAÇÕES — ${escaparHtml(fromNome)}</b>`,
+        '',
+        `📈 <b>Sua Média:</b> <code>${media} / 5.0</code>`,
+        `👥 <b>Atendimentos Avaliados:</b> <code>${total}</code>`,
+        '',
+        '<b>Distribuição de Notas:</b>',
+        `🤩 5 estrelas: ${contagem[5]} (${Math.round((contagem[5] / total) * 100)}%)`,
+        `😊 4 estrelas: ${contagem[4]} (${Math.round((contagem[4] / total) * 100)}%)`,
+        `🙂 3 estrelas: ${contagem[3]} (${Math.round((contagem[3] / total) * 100)}%)`,
+        `😐 2 estrelas: ${contagem[2]} (${Math.round((contagem[2] / total) * 100)}%)`,
+        `🙁 1 estrela:  ${contagem[1]} (${Math.round((contagem[1] / total) * 100)}%)`,
+        `😡 0 estrelas: ${contagem[0]} (${Math.round((contagem[0] / total) * 100)}%)`,
+        '',
+        ...(criticas.length > 0
+          ? [
+              '⚠️ <b>Últimos Feedbacks Críticos (Notas 0-2):</b>',
+              ...criticas.map(
+                (c, i) =>
+                  `<b>${i + 1}. [Nota ${c.nota}]</b> <i>"${escaparHtml(c.justificativa)}"</i>\n   👤 ${escaparHtml(c.usuarioNome || 'Anônimo')}`
+              ),
+            ]
+          : []),
+      ].join('\n')
+
+      await callTelegram('sendMessage', { chat_id: chatId, text: texto, parse_mode: 'HTML' })
+      return NextResponse.json({ ok: true })
+    }
+
+    // Relatório geral (grupo)
     const total = avaliacoes.length
     const soma = avaliacoes.reduce((acc, a) => acc + (Number(a.nota) || 0), 0)
     const media = (soma / total).toFixed(1)
 
     const contagem = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0, 0: 0 }
+    avaliacoes.forEach((a) => { const n = Number(a.nota); if (contagem[n] !== undefined) contagem[n]++ })
+
+    // Ranking por atendente
+    const porAtendente = {}
     avaliacoes.forEach((a) => {
-      const n = Number(a.nota)
-      if (contagem[n] !== undefined) contagem[n]++
+      const id = a.atendenteTelegramId || 'desconhecido'
+      const nome = a.atendenteNome || 'Equipe'
+      if (!porAtendente[id]) porAtendente[id] = { nome, soma: 0, total: 0 }
+      porAtendente[id].soma += Number(a.nota) || 0
+      porAtendente[id].total++
     })
+    const ranking = Object.values(porAtendente)
+      .map((x) => ({ nome: x.nome, media: (x.soma / x.total).toFixed(1), total: x.total }))
+      .sort((a, b) => b.media - a.media)
 
     const criticas = avaliacoes
       .filter((a) => Number(a.nota) <= 2 && a.justificativa)
@@ -416,7 +480,7 @@ const responderComandoNota = async (msg) => {
       .reverse()
 
     const texto = [
-      '⭐ <b>RELATÓRIO DE AVALIAÇÃO DE SUPORTE (CSAT)</b>',
+      '⭐ <b>SATISFAÇÃO DO ATENDIMENTO — RELATÓRIO GERAL</b>',
       '',
       `📈 <b>Média Geral:</b> <code>${media} / 5.0</code>`,
       `👥 <b>Total de Atendimentos Avaliados:</b> <code>${total}</code>`,
@@ -429,6 +493,9 @@ const responderComandoNota = async (msg) => {
       `🙁 1 estrela:  ${contagem[1]} (${Math.round((contagem[1] / total) * 100)}%)`,
       `😡 0 estrelas: ${contagem[0]} (${Math.round((contagem[0] / total) * 100)}%)`,
       '',
+      '<b>🏆 Ranking por Atendente:</b>',
+      ...ranking.map((r, i) => `${i + 1}. ${escaparHtml(r.nome)} — ⭐ ${r.media}/5.0 (${r.total} avaliações)`),
+      '',
       ...(criticas.length > 0
         ? [
             '⚠️ <b>Últimos Feedbacks Críticos (Notas 0-2):</b>',
@@ -438,6 +505,8 @@ const responderComandoNota = async (msg) => {
             ),
           ]
         : []),
+      '',
+      '<i>💡 Use /minhasnotas no meu privado para ver apenas suas avaliações.</i>',
     ].join('\n')
 
     await callTelegram('sendMessage', {
@@ -450,6 +519,7 @@ const responderComandoNota = async (msg) => {
   }
   return NextResponse.json({ ok: true })
 }
+
 
 // ─── Responder usuário pelo Reply no Telegram ─────────────────────────────────
 const responderUsuarioPeloReply = async (msg) => {
@@ -547,9 +617,12 @@ export async function POST(req) {
       const msg = body.message
       const texto = (msg.text || '').trim()
 
-      if (texto === '/nota' || texto === '/notas' || texto.startsWith('/nota@') || texto.startsWith('/notas@')) {
+      const textoNorm = texto.split(/\s|@/)[0].toLowerCase()
+
+      if (['/nota', '/notas', '/minhasnotas'].includes(textoNorm)) {
         return responderComandoNota(msg)
       }
+
 
       if (texto === '/start') {
         const token = await getToken().catch(() => null)

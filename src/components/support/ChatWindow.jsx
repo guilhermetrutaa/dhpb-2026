@@ -16,6 +16,25 @@ import { requestNotificationToken } from '@/lib/support/firebase'
 import MessageBubble from './MessageBubble'
 import ModalTutorialIos from './ModalTutorialIos'
 
+const SUPPORT_CLOUD_NAME = process.env.NEXT_PUBLIC_SUPPORT_CLOUDINARY_CLOUD_NAME
+const SUPPORT_UPLOAD_PRESET = process.env.NEXT_PUBLIC_SUPPORT_CLOUDINARY_UPLOAD_PRESET
+
+const uploadImagem = async (file) => {
+  if (!SUPPORT_CLOUD_NAME || !SUPPORT_UPLOAD_PRESET) {
+    throw new Error('Cloudinary do suporte não configurado.')
+  }
+  const form = new FormData()
+  form.append('file', file)
+  form.append('upload_preset', SUPPORT_UPLOAD_PRESET)
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${SUPPORT_CLOUD_NAME}/image/upload`, {
+    method: 'POST',
+    body: form,
+  })
+  const data = await res.json()
+  if (!data.secure_url) throw new Error('Falha no upload da imagem.')
+  return data.secure_url
+}
+
 const poppins = Poppins({ subsets: ['latin'], weight: ['400', '500', '600', '700'] })
 
 const IconeEnviar = () => (
@@ -59,6 +78,8 @@ const ChatWindow = ({ chat, onFechar }) => {
 
   const [texto, setTexto] = useState('')
   const [tempoFila, setTempoFila] = useState(0)
+  const [uploadandoImagem, setUploadandoImagem] = useState(false)
+  const fileInputRef = useRef(null)
   const [permissao, setPermissao] = useState(() =>
     typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'default'
   )
@@ -92,11 +113,36 @@ const ChatWindow = ({ chat, onFechar }) => {
     fimRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [mensagens.length, digitando, carregando, encerrado, chamado?.status])
 
+  const isMobile = typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)
+
   const enviar = async () => {
     const t = texto.trim()
     if (!t) return
     setTexto('')
     await enviarMensagem(t)
+  }
+
+  const tratarKeyDown = (e) => {
+    // No desktop: Enter sem Shift envia. Com Shift ou no mobile, apenas pula linha.
+    if (e.key === 'Enter' && !e.shiftKey && !isMobile) {
+      e.preventDefault()
+      enviar()
+    }
+  }
+
+  const tratarAnexoImagem = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    setUploadandoImagem(true)
+    try {
+      const url = await uploadImagem(file)
+      await enviarMensagem(`[imagem]${url}`)
+    } catch (err) {
+      console.error('[ChatWindow] erro ao fazer upload de imagem:', err)
+    } finally {
+      setUploadandoImagem(false)
+    }
   }
 
   const tratarCliqueNotificacao = async () => {
@@ -350,17 +396,38 @@ const ChatWindow = ({ chat, onFechar }) => {
         {!carregando && !encerrado && (
           <footer className="border-t border-neutral-200 p-3 bg-white shrink-0">
             <div className="flex items-end gap-2">
+              {/* Input de imagem oculto */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={tratarAnexoImagem}
+              />
+              {/* Botão de foto */}
+              {SUPPORT_CLOUD_NAME && SUPPORT_UPLOAD_PRESET && (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadandoImagem}
+                  aria-label="Anexar imagem"
+                  title="Enviar imagem"
+                  className="w-10 h-10 shrink-0 rounded-xl border border-neutral-300 bg-white text-neutral-500 flex items-center justify-center hover:bg-neutral-100 transition-colors disabled:opacity-40 cursor-pointer"
+                >
+                  {uploadandoImagem ? (
+                    <div className="w-4 h-4 border-2 border-neutral-400 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  )}
+                </button>
+              )}
               <textarea
                 value={texto}
                 onChange={(e) => setTexto(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    enviar()
-                  }
-                }}
+                onKeyDown={tratarKeyDown}
                 rows={1}
-                placeholder="Digite sua mensagem..."
+                placeholder={isMobile ? 'Digite e toque em enviar...' : 'Digite sua mensagem...'}
                 aria-label="Mensagem"
                 className="flex-1 resize-none text-[#000] rounded-2xl border border-neutral-300 px-4 py-2.5 text-sm outline-none focus:border-[#82181A] focus:ring-1 focus:ring-[#82181A] max-h-28"
               />
@@ -373,6 +440,7 @@ const ChatWindow = ({ chat, onFechar }) => {
                 <IconeEnviar />
               </button>
             </div>
+            {isMobile && <p className="text-[10px] text-neutral-400 mt-1 text-center">Toque no botão vermelho para enviar</p>}
           </footer>
         )}
       </div>

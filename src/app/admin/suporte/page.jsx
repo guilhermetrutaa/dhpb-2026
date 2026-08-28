@@ -204,7 +204,8 @@ function TabChamados() {
 
         <div className='p-3.5 rounded-2xl border bg-white border-neutral-200 text-neutral-800 col-span-2 sm:col-span-4 lg:col-span-1 flex flex-col justify-between'>
           <div className='flex items-center justify-between'>
-            <span className='text-xs font-semibold text-neutral-500 uppercase tracking-wider'>Média CSAT</span>
+            <span className='text-xs font-semibold text-neutral-500 uppercase tracking-wider'>Satisfação</span>
+
             <span className='text-base'>⭐</span>
           </div>
           <div className='mt-1'>

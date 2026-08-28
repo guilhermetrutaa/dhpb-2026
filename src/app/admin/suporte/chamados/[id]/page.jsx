@@ -44,6 +44,8 @@ const Page = () => {
   const [mensagens, setMensagens] = useState([])
   const [texto, setTexto] = useState('')
   const [enviando, setEnviando] = useState(false)
+  const [uploadandoImagem, setUploadandoImagem] = useState(false)
+  const fileInputRef = useRef(null)
   const [copiado, setCopiado] = useState(false)
   const [agora, setAgora] = useState(() => Date.now())
   const fimRef = useRef(null)
@@ -142,6 +144,47 @@ const Page = () => {
 
     } catch {}
     setEnviando(false)
+  }
+
+  const enviarImagem = async (file) => {
+    const cloudName = process.env.NEXT_PUBLIC_SUPPORT_CLOUDINARY_CLOUD_NAME
+    const preset = process.env.NEXT_PUBLIC_SUPPORT_CLOUDINARY_UPLOAD_PRESET
+    if (!cloudName || !preset) {
+      window.alert('Cloudinary do suporte não configurado (.env.local).')
+      return
+    }
+    setUploadandoImagem(true)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      form.append('upload_preset', preset)
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+        method: 'POST',
+        body: form,
+      })
+      const data = await res.json()
+      if (!data.secure_url) throw new Error('Upload falhou')
+      const urlImagem = data.secure_url
+      await addDoc(collection(supportDb, 'chamados', chamadoId, 'mensagens'), {
+        autorTipo: AUTORES.ADMIN,
+        autorNome: nomeAtendente || 'Equipe DHPB',
+        conteudo: `[imagem]${urlImagem}`,
+        enviadoEm: serverTimestamp(),
+        lida: false,
+      })
+      await updateDoc(doc(supportDb, 'chamados', chamadoId), {
+        status: STATUS_CHAMADO.AGUARDANDO_USUARIO,
+        ultimaMensagem: '📷 Imagem',
+        ultimaMensagemAutor: AUTORES.ADMIN,
+        ultimaMensagemEm: serverTimestamp(),
+        atualizadoEm: serverTimestamp(),
+      })
+    } catch (e) {
+      console.error('Erro ao enviar imagem:', e)
+      window.alert('Erro ao enviar a imagem.')
+    } finally {
+      setUploadandoImagem(false)
+    }
   }
 
 
@@ -270,22 +313,32 @@ const Page = () => {
                   <div className='flex-1 overflow-y-auto px-4 py-4 space-y-3'>
                     {mensagens.length === 0 ? (
                       <p className='text-neutral-400 text-sm text-center py-10'>Nenhuma mensagem neste chamado.</p>
-                    ) : (
-                      mensagens.map((m) => {
+                    ) : mensagens.map((m) => {
                         const doUsuario = m.autorTipo === AUTORES.USUARIO
                         const isIa = m.autorTipo === AUTORES.IA
+                        const isImagem = (m.conteudo || '').startsWith('[imagem]')
+                        const urlImagem = isImagem ? m.conteudo.replace('[imagem]', '') : null
                         return (
                           <div key={m.id} className={`flex flex-col ${doUsuario ? 'items-end' : 'items-start'}`}>
                             <div
-                              className={`max-w-[85%] px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words rounded-2xl ${
+                              className={`max-w-[85%] text-sm leading-relaxed break-words rounded-2xl ${
                                 doUsuario
                                   ? 'bg-[#82181A] text-white rounded-br-md'
                                   : isIa
                                   ? 'bg-neutral-100 text-neutral-900 rounded-bl-md border border-neutral-200/60'
                                   : 'bg-[#f3ede8] text-neutral-900 rounded-bl-md border border-[#82181A]/20'
-                              }`}
+                              } ${isImagem ? 'p-1.5' : 'px-4 py-2.5 whitespace-pre-wrap'}`}
                             >
-                              {m.conteudo}
+                              {isImagem ? (
+                                <img
+                                  src={urlImagem}
+                                  alt="Imagem enviada"
+                                  onClick={() => window.open(urlImagem, '_blank')}
+                                  className="max-w-[220px] max-h-48 rounded-xl object-cover cursor-zoom-in border border-neutral-200/60"
+                                />
+                              ) : (
+                                m.conteudo
+                              )}
                             </div>
                             <span className='text-[10px] text-neutral-400 mt-1 px-1'>
                               {doUsuario ? chamado.nome || 'Usuário' : isIa ? 'Atendimento DHPB' : m.autorNome || 'Equipe DHPB'} · {formatarDataHora(m.enviadoEm)}
@@ -293,17 +346,45 @@ const Page = () => {
                           </div>
                         )
                       })
-                    )}
+                    }
+
                     <div ref={fimRef} />
                   </div>
                   <div className='border-t border-neutral-200 p-3 bg-white rounded-b-2xl'>
                     <div className='flex items-end gap-2'>
+                      {/* Input de imagem oculto */}
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0]
+                          if (file) { e.target.value = ''; enviarImagem(file) }
+                        }}
+                      />
+                      {process.env.NEXT_PUBLIC_SUPPORT_CLOUDINARY_CLOUD_NAME && (
+                        <button
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={uploadandoImagem || enviando}
+                          title="Enviar imagem"
+                          className='w-10 h-10 shrink-0 rounded-xl border border-neutral-300 bg-white text-neutral-500 flex items-center justify-center hover:bg-neutral-100 transition-colors disabled:opacity-40 cursor-pointer'
+                        >
+                          {uploadandoImagem ? (
+                            <div className="w-4 h-4 border-2 border-neutral-400 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          )}
+                        </button>
+                      )}
                       <textarea
                         value={texto}
                         onChange={(e) => setTexto(e.target.value)}
                         onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar() } }}
                         rows={1}
-                        placeholder="Responder ao usuário..."
+                        placeholder="Responder ao usuário... (Shift+Enter para nova linha)"
                         className="flex-1 resize-none rounded-xl border border-neutral-300 px-4 py-2.5 text-sm outline-none focus:border-[#82181A] focus:ring-1 focus:ring-[#82181A] max-h-28"
                       />
                       <button
