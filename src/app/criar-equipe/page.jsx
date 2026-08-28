@@ -90,9 +90,23 @@ function CriarEquipeForm() {
       const nome = decodeURIComponent(escolaNome)
       setEscolaSelecionada({ id: escolaId, nome })
       setBuscaEscola(nome)
-      // Fetch full escola doc
+      // Fetch full escola doc (local JSON first)
       ;(async () => {
         try {
+          let escolaData = null
+          try {
+            const res = await fetch('/escolas-pb.json')
+            if (res.ok) {
+              const lista = await res.json()
+              escolaData = lista.find(e => e.id === escolaId)
+            }
+          } catch {}
+
+          if (escolaData) {
+            setEscolaSelecionada({ id: escolaId, nome, ...escolaData })
+            return
+          }
+
           const snap = await getDoc(doc(db, 'escolas', escolaId))
           if (snap.exists()) {
             const data = snap.data()
@@ -118,14 +132,19 @@ function CriarEquipeForm() {
       const termoBusca = normalizarNomeBusca(termo)
       if (!termoBusca) { setSugestoes([]); setShowSugestoes(false); setBuscando(false); return }
 
-      // Fetch all registered schools once and cache in ref
+      // Carrega escolas do arquivo estático (0 leituras no Firestore)
       if (escolasCacheRef.current.length === 0) {
-        const q = query(
-          collection(db, 'escolas'),
-          where('cadastrada', '==', true)
-        )
-        const snap = await getDocs(q)
-        escolasCacheRef.current = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+        try {
+          const res = await fetch('/escolas-pb.json')
+          if (res.ok) {
+            escolasCacheRef.current = await res.json()
+          }
+        } catch {
+          // Fallback caso ocorra falha de rede no static asset
+          const q = query(collection(db, 'escolas'), where('cadastrada', '==', true))
+          const snap = await getDocs(q)
+          escolasCacheRef.current = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+        }
       }
 
       // Client-side search: includes match on nomeBusca or nomeLower

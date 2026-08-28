@@ -36,13 +36,31 @@ function DocumentoContent() {
     if (!authUser || !questaoId) return
     const carregar = async () => {
       try {
+        // 1. Tenta carregar da subcoleção de questões
         const qSnap = await getDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes', questaoId))
-        if (!qSnap.exists()) { setErro('Questão não encontrada.'); return }
-        const qData = qSnap.data()
-        setQuestaoNum(qData.numero || '')
-        const docs = qData.documentos || []
-        if (!docs[docIndex]) { setErro('Documento não encontrado.'); return }
-        setDocData(docs[docIndex])
+        if (qSnap.exists()) {
+          const qData = qSnap.data()
+          setQuestaoNum(qData.numero || '')
+          const docs = qData.documentos || []
+          if (!docs[docIndex]) { setErro('Documento não encontrado.'); return }
+          setDocData(docs[docIndex])
+          return
+        }
+
+        // 2. Fallback para documento legado da fase
+        const fSnap = await getDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId))
+        if (fSnap.exists()) {
+          const qs = fSnap.data()?.questoes || []
+          const found = qs.find(q => q.id === questaoId)
+          if (found) {
+            setQuestaoNum(found.numero || '')
+            const docs = found.documentos || []
+            if (!docs[docIndex]) { setErro('Documento não encontrado.'); return }
+            setDocData(docs[docIndex])
+            return
+          }
+        }
+        setErro('Questão não encontrada.')
       } catch (e) { setErro('Erro: ' + (e.code || e.message)) }
       finally { setCarregando(false) }
     }
@@ -90,7 +108,7 @@ function DocumentoContent() {
                 )}
                 {bloco.tipo === 'imagem' && bloco.conteudo && (
                   <div className='flex justify-center'>
-                    <img src={bloco.conteudo} alt={docData.titulo} className='max-w-full rounded-lg shadow-lg' />
+                    <img src={optimizeCloudinaryUrl(bloco.conteudo, { width: 1200 })} alt={docData.titulo} className='max-w-full rounded-lg shadow-lg' />
                   </div>
                 )}
                 {bloco.tipo === 'video' && bloco.conteudo && (

@@ -46,28 +46,48 @@ function ResumoFaseContent() {
           return
         }
 
-        const q = data.questoes || []
-        q.sort((a, b) => a.numero - b.numero)
-        setQuestoes(q)
+        // Usa questoesIndex leve da fase com fallback para lista legada
+        const qList = data.questoesIndex || data.questoes || []
+        const sorted = [...qList].sort((a, b) => a.numero - b.numero)
+        setQuestoes(sorted)
       }
       setCarregando(false)
     })
     return () => unsub()
   }, [authUser, faseId, edicaoId, router, userData])
 
-  // Monitor membership, name, and responses in real-time
+  // Monitora respostas da equipe e validação de membro
   useEffect(() => {
     if (!authUser || !equipeId) return
-    const unsub = onSnapshot(doc(db, 'equipes', equipeId), (snap) => {
+
+    // 1. Escuta subcoleção de respostas
+    const unsubRespostas = onSnapshot(collection(db, 'equipes', equipeId, 'respostas'), (snap) => {
+      const mapa = {}
+      snap.docs.forEach((d) => {
+        mapa[d.id] = d.data()
+      })
+      if (Object.keys(mapa).length > 0) {
+        setRespostas((prev) => ({ ...prev, ...mapa }))
+      }
+    })
+
+    // 2. Escuta nome e validação de membro
+    const unsubEquipe = onSnapshot(doc(db, 'equipes', equipeId), (snap) => {
       if (!snap.exists()) { router.push('/home'); return }
       const data = snap.data()
-      const aindaMembro = (data.membros || []).some(m => m.uid === authUser.uid && m.status === 'ativo')
+      const aindaMembro = (data.membros || []).some((m) => m.uid === authUser.uid && m.status === 'ativo')
       if (!aindaMembro) { router.push('/home'); return }
       
       setEquipeNome(data.nome || '')
-      setRespostas(data.respostas || {})
+      if (data.respostas) {
+        setRespostas((prev) => ({ ...data.respostas, ...prev }))
+      }
     })
-    return () => unsub()
+
+    return () => {
+      unsubRespostas()
+      unsubEquipe()
+    }
   }, [authUser, equipeId, router])
 
   const getStatus = (key) => {

@@ -1,9 +1,9 @@
 'use client'
 
-import React, { useState, useEffect, useRef, Suspense } from 'react'
+import React, { useState, useEffect, useRef, Suspense, useCallback } from 'react'
 import { Poppins } from 'next/font/google'
 import { useRouter } from 'next/navigation'
-import { collection, query, getDocs, doc, updateDoc } from 'firebase/firestore'
+import { collection, query, getDocs, doc, updateDoc, where, limit } from 'firebase/firestore'
 import { onAuthStateChanged } from 'firebase/auth'
 import { db, auth } from '@/lib/firebase'
 import Image from 'next/image'
@@ -94,23 +94,38 @@ function DocumentosContent() {
     return () => unsub()
   }, [autenticado, router])
 
-  useEffect(() => {
+  const carregar = useCallback(async () => {
     if (!firebaseAutenticado) return
-    const carregar = async () => {
+    setCarregando(true)
+    try {
+      let q
+      if (filtro === 'todos') {
+        q = query(collection(db, 'users'), where('tipo', '==', 'professor'), limit(50))
+      } else {
+        q = query(collection(db, 'users'), where('documentoStatus', '==', filtro), limit(50))
+      }
+      const snap = await getDocs(q)
+      const lista = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((u) => u.documentoURL)
+      setUsuarios(lista)
+    } catch {
+      // Fallback
       try {
-        const snap = await getDocs(collection(db, 'users'))
+        const snap = await getDocs(query(collection(db, 'users'), limit(50)))
         const lista = snap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
           .filter((u) => u.documentoURL)
-          .sort((a, b) => {
-            const ordem = { pendente: 0, aprovado: 1, recusado: 2 }
-            return (ordem[a.documentoStatus] || 0) - (ordem[b.documentoStatus] || 0)
-          })
         setUsuarios(lista)
-      } catch {} finally { setCarregando(false) }
+      } catch {}
+    } finally {
+      setCarregando(false)
     }
+  }, [firebaseAutenticado, filtro])
+
+  useEffect(() => {
     carregar()
-  }, [firebaseAutenticado])
+  }, [carregar])
 
   const handleAprovar = async (uid) => {
     setErro('')
@@ -173,9 +188,10 @@ function DocumentosContent() {
           <div className='bg-white rounded-2xl shadow-sm border border-neutral-200 p-6'>
             <div className='flex items-center gap-4'>
               <select value={filtro} onChange={(e) => setFiltro(e.target.value)} className='rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-[#82181A]'>
-                <option value="pendente">Pendentes ({usuarios.filter((u) => u.documentoStatus === 'pendente').length})</option>
-                <option value="aprovado">Aprovados ({usuarios.filter((u) => u.documentoStatus === 'aprovado').length})</option>
-                <option value="todos">Todos ({usuarios.length})</option>
+                <option value="pendente">Pendentes</option>
+                <option value="aprovado">Aprovados</option>
+                <option value="recusado">Recusados</option>
+                <option value="todos">Todos (com documento)</option>
               </select>
               <p className='text-sm text-neutral-400'>{filtrados.length} professor(es)</p>
             </div>

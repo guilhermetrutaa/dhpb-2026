@@ -3,7 +3,8 @@
 import React, { useState, useEffect, Suspense, useRef, useCallback } from 'react'
 import { Poppins } from 'next/font/google'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { collection, addDoc, deleteDoc, doc, updateDoc, getDoc, getDocs, query, orderBy } from 'firebase/firestore'
+import { collection, addDoc, deleteDoc, doc, updateDoc, getDoc, getDocs, query, orderBy, setDoc } from 'firebase/firestore'
+import { optimizeCloudinaryUrl } from '@/lib/cloudinary'
 import { db } from '@/lib/firebase'
 import Image from 'next/image'
 import { useEditor, EditorContent } from '@tiptap/react'
@@ -424,6 +425,20 @@ function BlocoEditor({ blocos, setBlocos }) {
     const file = e.target.files?.[0]
     if (!file) return
 
+    const MAX_SIZE = 2 * 1024 * 1024 // 2MB
+    if (file.size > MAX_SIZE) {
+      alert('A imagem deve ter no máximo 2 MB.')
+      e.target.value = ''
+      return
+    }
+
+    const permitidos = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+    if (!permitidos.includes(file.type)) {
+      alert('Formato não permitido. Envie JPG, PNG, WEBP ou GIF.')
+      e.target.value = ''
+      return
+    }
+
     updBlocoInterno(i, j, "Fazendo upload...")
 
     const formData = new FormData()
@@ -665,6 +680,20 @@ function QuestoesForm() {
 
   const carregarQuestoes = useCallback(async () => {
     if (!faseId || !edicaoId) return
+    try {
+      // 1. Tenta carregar da subcoleção de questões
+      const qSnap = await getDocs(query(
+        collection(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes'),
+        orderBy('numero', 'asc')
+      ))
+      if (!qSnap.empty) {
+        const q = qSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+        setQuestoes(q)
+        return
+      }
+    } catch {}
+
+    // 2. Fallback para documento legado da fase
     const fSnap = await getDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId))
     if (fSnap.exists()) {
       const q = fSnap.data().questoes || []
@@ -701,20 +730,34 @@ function QuestoesForm() {
       documentos,
       updatedAt: new Date().toISOString(),
     }
+    const qId = editandoId || crypto.randomUUID()
+    const questaoDocData = {
+      id: qId,
+      ...dados,
+      createdAt: editandoId ? (questoes.find(q => q.id === editandoId)?.createdAt || new Date().toISOString()) : new Date().toISOString()
+    }
+
     try {
+      // 1. Salva na subcoleção edicoes/{edicaoId}/fases/{faseId}/questoes/{qId}
+      await setDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes', qId), questaoDocData, { merge: true })
+
+      // 2. Atualiza lista local
       const novaLista = [...questoes]
-      if (editandoId) {
-        const idx = novaLista.findIndex((q) => q.id === editandoId)
-        if (idx >= 0) novaLista[idx] = { ...novaLista[idx], ...dados }
-      } else {
-        novaLista.push({ id: crypto.randomUUID(), ...dados, createdAt: new Date().toISOString() })
-      }
+      const idx = novaLista.findIndex((q) => q.id === qId)
+      if (idx >= 0) novaLista[idx] = questaoDocData
+      else novaLista.push(questaoDocData)
       novaLista.sort((a, b) => a.numero - b.numero)
 
-      await updateDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId), { questoes: novaLista })
+      // 3. Atualiza questoesIndex na fase (e espelha questoes para retrocompatibilidade)
+      const questoesIndex = novaLista.map(q => ({ id: q.id, numero: q.numero }))
+      await updateDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId), {
+        questoesIndex,
+        questoes: novaLista
+      })
+
       setQuestoes(novaLista)
       limparForm()
-    } catch { setErro('Erro ao salvar questão.') }
+    } catch (err) { setErro('Erro ao salvar questão: ' + (err?.message || '')) }
     finally { setSalvando(false) }
   }
 
@@ -732,8 +775,13 @@ function QuestoesForm() {
   const handleDeletarQuestao = async (qId) => {
     if (editandoId === qId) limparForm()
     try {
+      await deleteDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes', qId))
       const novaLista = questoes.filter((q) => q.id !== qId)
-      await updateDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId), { questoes: novaLista })
+      const questoesIndex = novaLista.map(q => ({ id: q.id, numero: q.numero }))
+      await updateDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId), {
+        questoesIndex,
+        questoes: novaLista
+      })
       setQuestoes(novaLista)
     } catch {}
   }

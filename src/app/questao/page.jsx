@@ -4,7 +4,8 @@ import React, { Suspense, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Poppins } from 'next/font/google'
-import { doc as firestoreDoc, getDoc, getDocs, onSnapshot, collection, query, orderBy, updateDoc, increment, writeBatch, getDocsFromCache, getDocsFromServer } from 'firebase/firestore'
+import { doc as firestoreDoc, getDoc, getDocs, onSnapshot, collection, query, orderBy, updateDoc, increment, writeBatch, getDocsFromCache, getDocsFromServer, runTransaction, setDoc } from 'firebase/firestore'
+import { optimizeCloudinaryUrl } from '@/lib/cloudinary'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { db } from '@/lib/firebase'
@@ -162,9 +163,10 @@ function DocumentBlock({ bloco, title, preview = false }) {
   }
 
   if (bloco.tipo === 'imagem') {
+    const optimizedSrc = optimizeCloudinaryUrl(bloco.conteudo, { width: preview ? 640 : 820 })
     return (
       <img
-        src={bloco.conteudo}
+        src={optimizedSrc}
         alt={title || 'Documento'}
         className={`mx-auto w-full object-contain ${preview ? 'max-h-[320px] max-w-[640px]' : 'max-h-[720px] max-w-[820px]'}`}
       />
@@ -372,6 +374,7 @@ function QuestaoContent() {
     if (!loading && !authUser) router.push('/login')
   }, [loading, authUser, router])
 
+  // 1. Monitora status da fase e carrega lista de IDs para paginação
   useEffect(() => {
     if (!authUser || !faseId || !edicaoId) return
     const unsub = onSnapshot(firestoreDoc(db, 'edicoes', edicaoId, 'fases', faseId), (snap) => {
@@ -385,45 +388,90 @@ function QuestaoContent() {
         return
       }
 
-      const qs = data.questoes || []
-      qs.sort((a, b) => a.numero - b.numero)
-      setAllQuestaoIds(qs.map(q => q.id))
-      
-      if (questaoId) {
-        const qDoc = qs.find(q => q.id === questaoId)
-        if (qDoc) {
-          setQuestao(qDoc)
-          setErro('')
-        } else {
-          setErro('Questão não encontrada.')
-        }
-      }
-      setCarregando(false)
+      // Usa questoesIndex se existir, com fallback para array legado questoes
+      const qIndex = data.questoesIndex || (data.questoes || []).map((q) => ({ id: q.id, numero: q.numero }))
+      qIndex.sort((a, b) => a.numero - b.numero)
+      setAllQuestaoIds(qIndex.map((q) => q.id))
     })
     return () => unsub()
-  }, [authUser, faseId, edicaoId, questaoId, router, userData])
+  }, [authUser, faseId, edicaoId, router, userData])
 
+  // 2. Carrega a questão atual de forma estática (getDoc)
   useEffect(() => {
-    if (!authUser || !equipeId) return
-    const unsub = onSnapshot(firestoreDoc(db, 'equipes', equipeId), (snap) => {
-      if (!snap.exists()) { router.push('/home'); return }
-      const data = snap.data()
-      const aindaMembro = (data.membros || []).some(m => m.uid === authUser.uid && m.status === 'ativo')
-      if (!aindaMembro) { router.push('/home'); return }
-      
-      if (questaoId) {
-        const res = data.respostas?.[questaoId]
-        if (res) {
-          setSelectedAlt(res.alternativa)
-          setRespostaStatus(res.status || 'pendente')
-          if (res.status === 'entregue') setRespostaPesoAnterior(res.peso || 0)
-        } else {
-          setSelectedAlt(null)
-          setRespostaStatus('pendente')
-          setRespostaPesoAnterior(0)
+    if (!authUser || !faseId || !edicaoId || !questaoId) return
+    let active = true
+
+    const carregarQuestao = async () => {
+      setCarregando(true)
+      try {
+        // 1. Tenta carregar da subcoleção edicoes/{edicaoId}/fases/{faseId}/questoes/{questaoId}
+        const qSnap = await getDoc(firestoreDoc(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes', questaoId))
+        if (qSnap.exists()) {
+          if (active) {
+            setQuestao({ id: qSnap.id, ...qSnap.data() })
+            setErro('')
+          }
+          return
         }
+
+        // 2. Fallback para lista legada da fase
+        const fSnap = await getDoc(firestoreDoc(db, 'edicoes', edicaoId, 'fases', faseId))
+        if (fSnap.exists()) {
+          const qs = fSnap.data()?.questoes || []
+          const qDoc = qs.find((q) => q.id === questaoId)
+          if (qDoc && active) {
+            setQuestao(qDoc)
+            setErro('')
+            return
+          }
+        }
+        if (active) setErro('Questão não encontrada.')
+      } catch {
+        if (active) setErro('Erro ao carregar questão.')
+      } finally {
+        if (active) setCarregando(false)
+      }
+    }
+
+    carregarQuestao()
+    return () => { active = false }
+  }, [authUser, faseId, edicaoId, questaoId])
+
+  // 3. Monitora status da resposta da questão atual (subcoleção) e valida membro
+  useEffect(() => {
+    if (!authUser || !equipeId || !questaoId) return
+
+    // Escuta a subcoleção de respostas da questão atual
+    const unsub = onSnapshot(firestoreDoc(db, 'equipes', equipeId, 'respostas', questaoId), async (snap) => {
+      if (snap.exists()) {
+        const res = snap.data()
+        setSelectedAlt(res.alternativa || null)
+        setRespostaStatus(res.status || 'pendente')
+        setRespostaPesoAnterior(res.status === 'entregue' ? res.peso || 0 : 0)
+      } else {
+        // Fallback: se ainda não estiver na subcoleção, checa no documento legado da equipe
+        try {
+          const eqSnap = await getDoc(firestoreDoc(db, 'equipes', equipeId))
+          if (eqSnap.exists()) {
+            const data = eqSnap.data()
+            const aindaMembro = (data.membros || []).some((m) => m.uid === authUser.uid && m.status === 'ativo')
+            if (!aindaMembro) { router.push('/home'); return }
+
+            const res = data.respostas?.[questaoId]
+            if (res) {
+              setSelectedAlt(res.alternativa)
+              setRespostaStatus(res.status || 'pendente')
+              setRespostaPesoAnterior(res.status === 'entregue' ? res.peso || 0 : 0)
+              return
+            }
+          }
+        } catch {}
+        setSelectedAlt(null)
+        setRespostaStatus('pendente')
+        setRespostaPesoAnterior(0)
       }
     })
+
     return () => unsub()
   }, [authUser, equipeId, questaoId, router])
 
@@ -489,7 +537,7 @@ function QuestaoContent() {
     }
 
     try {
-      const peso = questao.alternativas?.find((a) => a.letra === selectedAlt)?.peso || 0
+      const peso = questao?.alternativas?.find((a) => a.letra === selectedAlt)?.peso || 0
       const novoPeso = novoStatus === 'entregue' ? peso : 0
       const delta = novoPeso - respostaPesoAnterior
 
@@ -503,21 +551,43 @@ function QuestaoContent() {
         atualizadoPor: userData?.nome || authUser.email,
       }
 
-      const updateData = {
-        [`respostas.${questaoId}`]: respostaObj
-      }
+      const respostaRef = firestoreDoc(db, 'equipes', equipeId, 'respostas', questaoId)
+      const equipeRef = firestoreDoc(db, 'equipes', equipeId)
+      const pontuacaoRef = firestoreDoc(db, 'equipes', equipeId, 'pontuacoes', faseId)
 
-      if (delta !== 0) {
-        const notaMaxima = fase?.notaMaxima > 0 ? fase?.notaMaxima : 1
-        const fator = (fase?.peso || 0) / notaMaxima
-        const deltaDi = delta * fator
-        
-        updateData[`pontuacoes.${faseId}.ni`] = increment(delta)
-        updateData[`pontuacoes.${faseId}.di`] = increment(deltaDi)
-        updateData.df = increment(deltaDi)
-      }
-      
-      await updateDoc(firestoreDoc(db, 'equipes', equipeId), updateData)
+      await runTransaction(db, async (transaction) => {
+        const rSnap = await transaction.get(respostaRef)
+        if (rSnap.exists() && rSnap.data().status === 'entregue') {
+          throw new Error('Questão já entregue por outro membro.')
+        }
+
+        // Salva resposta na subcoleção
+        transaction.set(respostaRef, respostaObj, { merge: true })
+
+        // Atualiza pontuação e equipe se houve entrega/mudança
+        if (delta !== 0) {
+          const notaMaxima = fase?.notaMaxima > 0 ? fase?.notaMaxima : 1
+          const fator = (fase?.peso || 0) / notaMaxima
+          const deltaDi = delta * fator
+
+          transaction.set(pontuacaoRef, {
+            ni: increment(delta),
+            di: increment(deltaDi)
+          }, { merge: true })
+
+          transaction.update(equipeRef, {
+            df: increment(deltaDi),
+            [`respostas.${questaoId}`]: respostaObj,
+            [`pontuacoes.${faseId}.ni`]: increment(delta),
+            [`pontuacoes.${faseId}.di`]: increment(deltaDi),
+          })
+        } else {
+          // Espelha no doc da equipe para retrocompatibilidade
+          transaction.update(equipeRef, {
+            [`respostas.${questaoId}`]: respostaObj
+          })
+        }
+      })
 
       setRespostaPesoAnterior(novoPeso)
       setRespostaStatus(novoStatus)
@@ -526,8 +596,8 @@ function QuestaoContent() {
         setRascunhoBloqueado(60)
       }
       setMensagem(novoStatus === 'entregue' ? 'Questão entregue!' : 'Rascunho salvo!')
-    } catch {
-      setMensagem('Não foi possível salvar agora.')
+    } catch (err) {
+      setMensagem(err?.message || 'Não foi possível salvar agora.')
     }
   }
 

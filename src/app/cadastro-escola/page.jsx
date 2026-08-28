@@ -56,8 +56,24 @@ function CadastroEscolaForm() {
 
     setBuscando(true)
     try {
+      // 1. Tenta buscar no arquivo estático local (0 leituras)
+      let escolaEncontrada = null
+      try {
+        const res = await fetch('/escolas-pb.json')
+        if (res.ok) {
+          const lista = await res.json()
+          escolaEncontrada = lista.find(e => e.id === inepLimpo)
+        }
+      } catch {}
+
+      if (escolaEncontrada) {
+        setEscola(escolaEncontrada)
+        return
+      }
+
+      // 2. Fallback caso não esteja no JSON estático
       const snap = await getDoc(doc(db, 'escolas', inepLimpo))
-      if (!snap.exists()) { setErro('Escola não encontrada. O administrador já importou os dados das escolas?'); return }
+      if (!snap.exists()) { setErro('Escola não encontrada. Verifique o código INEP.'); return }
       setEscola({ id: snap.id, ...snap.data() })
     } catch {
       setErro('Erro ao buscar escola. Tente novamente.')

@@ -156,9 +156,10 @@ function DocumentBlock({ bloco, title, preview = false }) {
   }
 
   if (bloco.tipo === 'imagem') {
+    const optimizedSrc = optimizeCloudinaryUrl(bloco.conteudo, { width: preview ? 640 : 820 })
     return (
       <img
-        src={bloco.conteudo}
+        src={optimizedSrc}
         alt={title || 'Documento'}
         className={`mx-auto w-full object-contain ${preview ? 'max-h-[320px] max-w-[640px]' : 'max-h-[720px] max-w-[820px]'}`}
       />
@@ -370,10 +371,22 @@ function VisualizarContent() {
         const fSnap = await getDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId))
         if (!fSnap.exists()) {
           setErro('Fase não encontrada.')
+          setCarregando(false)
+          return
+        }
+
+        const fData = fSnap.data()
+        const indexList = fData.questoesIndex || (fData.questoes || []).map(q => ({ id: q.id, numero: q.numero }))
+        indexList.sort((a, b) => a.numero - b.numero)
+        setAllQuestaoIds(indexList.map(q => q.id))
+
+        // 1. Tenta buscar direto na subcoleção
+        const qSnap = await getDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes', questaoId))
+        if (qSnap.exists()) {
+          setQuestao({ id: qSnap.id, ...qSnap.data() })
         } else {
-          const qs = fSnap.data().questoes || []
-          qs.sort((a, b) => a.numero - b.numero)
-          setAllQuestaoIds(qs.map((q) => q.id))
+          // 2. Fallback para lista legada embutida na fase
+          const qs = fData.questoes || []
           const qDoc = qs.find((q) => q.id === questaoId)
           if (qDoc) setQuestao(qDoc)
           else setErro('Questão não encontrada.')
