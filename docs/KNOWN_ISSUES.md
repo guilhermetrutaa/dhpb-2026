@@ -29,3 +29,8 @@ Este documento registra problemas conhecidos, limitações técnicas e pontos de
 * **Localização:** `src/components/OneSignal.jsx`.
 * **Descrição:** O OneSignal SDK falha por design quando executado em `localhost` ou `http://` sem SSL.
 * **Solução em Código:** O código contém um bypass explícito para ignorar a inicialização do OneSignal e os modais bloqueadores quando `window.location.hostname === 'localhost'`, garantindo que o desenvolvimento local não seja interrompido.
+
+### 1.6. Busca admin de pessoa por nome (igualdade exata)
+* **Localização:** `src/app/admin/firestore/page.jsx`.
+* **Descrição:** A busca por nome completo usa `where('nome','==')` + `where('sobrenome','==')` com `limit(15)`. Não há campo `nomeLower` em `users`; a igualdade é sensível a maiúsculas e acentos, como gravado no cadastro. Busca “contém” exigiria varredura da coleção e não é usada (Spark).
+* **Índice:** query composta exige índice `users`: `nome` ASC + `sobrenome` ASC no Console do Firestore.

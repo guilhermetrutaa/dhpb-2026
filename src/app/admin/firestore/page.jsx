@@ -3,13 +3,40 @@
 import React, { useState, useEffect } from 'react'
 import { Poppins } from 'next/font/google'
 import { useRouter } from 'next/navigation'
-import { collection, doc, getDoc, getDocs, query, where, deleteDoc } from 'firebase/firestore'
+import { collection, doc, getDoc, getDocs, query, where, deleteDoc, limit } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 
 const poppins = Poppins({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
 })
+
+function extrairEquipeId(raw) {
+  const t = String(raw || '').trim()
+  if (!t) return { id: '', extraidoDeUrl: false }
+
+  const qsMatch = t.match(/[?&]equipeId=([^&#]+)/i)
+  if (qsMatch) {
+    try {
+      return { id: decodeURIComponent(qsMatch[1]).trim(), extraidoDeUrl: true }
+    } catch {
+      return { id: qsMatch[1].trim(), extraidoDeUrl: true }
+    }
+  }
+
+  return { id: t, extraidoDeUrl: false }
+}
+
+function idFirestoreValido(id) {
+  if (!id || id.includes('/') || id.includes('..')) return false
+  return true
+}
+
+function parseNomeCompleto(raw) {
+  const partes = String(raw || '').trim().split(/\s+/).filter(Boolean)
+  if (partes.length < 2) return null
+  return { nome: partes[0], sobrenome: partes.slice(1).join(' ') }
+}
 
 export default function FirestoreAdminPage() {
   const [autenticado, setAutenticado] = useState(false)
@@ -22,13 +49,16 @@ export default function FirestoreAdminPage() {
   const [equipeQuery, setEquipeQuery] = useState('')
   const [equipeResultados, setEquipeResultados] = useState([])
   const [buscandoEquipes, setBuscandoEquipes] = useState(false)
+  const [equipeMensagem, setEquipeMensagem] = useState('')
 
   // Busca Usuários
-  const [usuarioEmail, setUsuarioEmail] = useState('')
+  const [usuarioQuery, setUsuarioQuery] = useState('')
   const [usuarioResultado, setUsuarioResultado] = useState(null)
+  const [usuarioCandidatos, setUsuarioCandidatos] = useState([])
   const [membroIndexResultados, setMembroIndexResultados] = useState([])
   const [participacoesResultados, setParticipacoesResultados] = useState([])
   const [buscandoUsuario, setBuscandoUsuario] = useState(false)
+  const [usuarioMensagem, setUsuarioMensagem] = useState('')
 
   useEffect(() => {
     const admin = localStorage.getItem('admin-authenticated')
@@ -38,36 +68,47 @@ export default function FirestoreAdminPage() {
 
   const buscarEquipes = async (e) => {
     e.preventDefault()
-    if (!equipeQuery.trim()) return
+    const termo = equipeQuery.trim()
+    if (!termo) return
     setBuscandoEquipes(true)
     setEquipeResultados([])
-    
+    setEquipeMensagem('')
+
     try {
       const resultados = []
-      
-      // Tenta buscar por ID exato primeiro
-      try {
-        const docRef = doc(db, 'equipes', equipeQuery.trim())
-        const docSnap = await getDoc(docRef)
-        if (docSnap.exists()) {
-          resultados.push({ id: docSnap.id, ...docSnap.data() })
+      const { id, extraidoDeUrl } = extrairEquipeId(termo)
+      let mensagem = ''
+
+      if (idFirestoreValido(id)) {
+        try {
+          const docSnap = await getDoc(doc(db, 'equipes', id))
+          if (docSnap.exists()) {
+            resultados.push({ id: docSnap.id, ...docSnap.data() })
+          }
+        } catch (err) {
+          console.error('Falha no getDoc da equipe:', err)
         }
-      } catch (err) {
-        console.error("Não é um ID válido, tentando por nome...", err)
+      } else if (extraidoDeUrl) {
+        mensagem = 'ID inválido na URL (equipeId ausente ou contém caracteres não permitidos).'
       }
 
-      // Se não achou por ID, tenta por nome exato (usando nomeLower)
-      if (resultados.length === 0) {
-        const q = query(collection(db, 'equipes'), where('nomeLower', '==', equipeQuery.trim().toLowerCase()))
+      if (resultados.length === 0 && !extraidoDeUrl) {
+        const q = query(collection(db, 'equipes'), where('nomeLower', '==', termo.toLowerCase()))
         const querySnapshot = await getDocs(q)
-        querySnapshot.forEach((doc) => {
-          resultados.push({ id: doc.id, ...doc.data() })
+        querySnapshot.forEach((d) => {
+          resultados.push({ id: d.id, ...d.data() })
         })
       }
 
       setEquipeResultados(resultados)
+      if (resultados.length === 0 && !mensagem) {
+        mensagem = extraidoDeUrl
+          ? `Nenhuma equipe encontrada para o ID extraído (${id}).`
+          : 'Nenhuma equipe encontrada para esta busca.'
+      }
+      setEquipeMensagem(mensagem)
     } catch (err) {
-      alert("Erro ao buscar equipes: " + err.message)
+      alert('Erro ao buscar equipes: ' + err.message)
     }
     setBuscandoEquipes(false)
   }
@@ -111,58 +152,117 @@ export default function FirestoreAdminPage() {
     }
   }
 
+  const carregarDetalhesUsuario = async (user) => {
+    setUsuarioResultado(user)
+    setParticipacoesResultados([])
+    setMembroIndexResultados([])
+
+    const partSnap = await getDocs(collection(db, 'users', user.id, 'participacoes'))
+    const partArr = []
+    partSnap.forEach(d => partArr.push({ id: d.id, ...d.data() }))
+    setParticipacoesResultados(partArr)
+
+    const emailQuery = (user.email || '').trim().toLowerCase()
+    if (!emailQuery) return
+
+    const edicoesSnap = await getDocs(collection(db, 'edicoes'))
+    const miEncontrados = []
+    const emailBase = btoa(emailQuery).replace(/=+$/, '')
+
+    for (const edDoc of edicoesSnap.docs) {
+      const miKey = `${emailBase}_${edDoc.id}`
+      const miSnap = await getDoc(doc(db, 'membro-index', miKey))
+      if (miSnap.exists()) {
+        miEncontrados.push({ id: miSnap.id, edicaoId: edDoc.id, ...miSnap.data() })
+      }
+    }
+    setMembroIndexResultados(miEncontrados)
+  }
+
   const buscarUsuario = async (e) => {
     e.preventDefault()
-    if (!usuarioEmail.trim()) return
-    setBuscandoUsuario(true)
+    const termo = usuarioQuery.trim()
+    if (!termo) return
+
+    setUsuarioMensagem('')
     setUsuarioResultado(null)
+    setUsuarioCandidatos([])
     setMembroIndexResultados([])
     setParticipacoesResultados([])
 
-    try {
-      const emailQuery = usuarioEmail.trim().toLowerCase()
-      
-      // 1. Buscar usuário
-      const qUser = query(collection(db, 'users'), where('email', '==', emailQuery))
-      const userSnap = await getDocs(qUser)
-      
-      let uidEncontrado = null
-      if (!userSnap.empty) {
-        const userDoc = userSnap.docs[0]
-        uidEncontrado = userDoc.id
-        setUsuarioResultado({ id: uidEncontrado, ...userDoc.data() })
-        
-        // Buscar participacoes
-        const partSnap = await getDocs(collection(db, 'users', uidEncontrado, 'participacoes'))
-        const partArr = []
-        partSnap.forEach(d => partArr.push({ id: d.id, ...d.data() }))
-        setParticipacoesResultados(partArr)
-      } else {
-        alert("Usuário não encontrado na coleção 'users'. Procurando apenas no membro-index...")
+    if (!termo.includes('@')) {
+      const parsed = parseNomeCompleto(termo)
+      if (!parsed) {
+        setUsuarioMensagem('Digite o nome completo (nome e sobrenome, como no cadastro) ou um e-mail.')
+        return
       }
+    }
 
-      // 2. Buscar membro-index associado a esse email
-      // Precisamos buscar nas edições possíveis. Como não sabemos a edição,
-      // e membro-index tem ID fixo {btoa(email)}_{edicaoId}, teremos que usar uma query se possível,
-      // ou se não houver um campo fácil de query, podemos apenas mostrar as participações.
-      // Ops, membro-index não tem um campo fixo para query a menos que a gente busque diretamente.
-      // Vamos assumir que a equipeId está lá para buscar. Como a busca é por e-mail, e membro-index ID = btoa(email)_edicao.
-      // O melhor é buscar todas as edições e tentar dar getDoc.
-      const edicoesSnap = await getDocs(collection(db, 'edicoes'))
-      const miEncontrados = []
-      const emailBase = btoa(emailQuery).replace(/=+$/, '')
-      
-      for (const edDoc of edicoesSnap.docs) {
-        const miKey = `${emailBase}_${edDoc.id}`
-        const miSnap = await getDoc(doc(db, 'membro-index', miKey))
-        if (miSnap.exists()) {
-          miEncontrados.push({ id: miSnap.id, edicaoId: edDoc.id, ...miSnap.data() })
+    setBuscandoUsuario(true)
+
+    try {
+      if (termo.includes('@')) {
+        const emailQuery = termo.toLowerCase()
+        const qUser = query(collection(db, 'users'), where('email', '==', emailQuery))
+        const userSnap = await getDocs(qUser)
+
+        if (!userSnap.empty) {
+          const userDoc = userSnap.docs[0]
+          await carregarDetalhesUsuario({ id: userDoc.id, ...userDoc.data() })
+        } else {
+          setUsuarioMensagem("Usuário não encontrado na coleção 'users'. Procurando apenas no membro-index...")
+          const edicoesSnap = await getDocs(collection(db, 'edicoes'))
+          const miEncontrados = []
+          const emailBase = btoa(emailQuery).replace(/=+$/, '')
+          for (const edDoc of edicoesSnap.docs) {
+            const miKey = `${emailBase}_${edDoc.id}`
+            const miSnap = await getDoc(doc(db, 'membro-index', miKey))
+            if (miSnap.exists()) {
+              miEncontrados.push({ id: miSnap.id, edicaoId: edDoc.id, ...miSnap.data() })
+            }
+          }
+          setMembroIndexResultados(miEncontrados)
+        }
+      } else {
+        const { nome, sobrenome } = parseNomeCompleto(termo)
+        const qUser = query(
+          collection(db, 'users'),
+          where('nome', '==', nome),
+          where('sobrenome', '==', sobrenome),
+          limit(15)
+        )
+        const userSnap = await getDocs(qUser)
+        const candidatos = userSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+        setUsuarioCandidatos(candidatos)
+
+        if (candidatos.length === 0) {
+          setUsuarioMensagem('Nenhuma pessoa encontrada com esse nome e sobrenome (igualdade exata, como no cadastro).')
+        } else if (candidatos.length === 1) {
+          await carregarDetalhesUsuario(candidatos[0])
+        } else {
+          setUsuarioMensagem(`${candidatos.length} pessoas com o mesmo nome. Selecione uma para ver os detalhes.`)
         }
       }
-      setMembroIndexResultados(miEncontrados)
-
     } catch (err) {
-      alert("Erro ao buscar usuário: " + err.message)
+      if (err.code === 'failed-precondition') {
+        const link = (err.message && err.message.match(/https:\/\/\S+/)) ? err.message.match(/https:\/\/\S+/)[0] : null
+        setUsuarioMensagem(link
+          ? `Índice composto necessário no Firestore (users: nome + sobrenome). Abra o link do Firebase para criar: ${link}`
+          : 'Índice composto necessário no Firestore (coleção users, campos nome ASC e sobrenome ASC). Crie no Console e tente de novo.')
+      } else {
+        alert('Erro ao buscar usuário: ' + err.message)
+      }
+    }
+    setBuscandoUsuario(false)
+  }
+
+  const selecionarCandidato = async (user) => {
+    setBuscandoUsuario(true)
+    setUsuarioMensagem('')
+    try {
+      await carregarDetalhesUsuario(user)
+    } catch (err) {
+      alert('Erro ao carregar detalhes: ' + err.message)
     }
     setBuscandoUsuario(false)
   }
@@ -212,14 +312,14 @@ export default function FirestoreAdminPage() {
         {/* Toggle Abas */}
         <div className='flex gap-2 mb-8 bg-white p-1 rounded-xl shadow-sm border border-neutral-200 inline-flex'>
           <button onClick={() => setAba('equipes')} className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${aba === 'equipes' ? 'bg-[#82181A] text-white shadow-sm' : 'text-neutral-500 hover:bg-neutral-100'}`}>Buscar Equipes</button>
-          <button onClick={() => setAba('usuarios')} className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${aba === 'usuarios' ? 'bg-[#82181A] text-white shadow-sm' : 'text-neutral-500 hover:bg-neutral-100'}`}>Buscar Usuário (Email)</button>
+          <button onClick={() => setAba('usuarios')} className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${aba === 'usuarios' ? 'bg-[#82181A] text-white shadow-sm' : 'text-neutral-500 hover:bg-neutral-100'}`}>Buscar Usuário</button>
         </div>
 
         {/* ABA: EQUIPES */}
         {aba === 'equipes' && (
           <div className='bg-white rounded-2xl shadow-sm border border-neutral-200 p-6 space-y-6'>
             <form onSubmit={buscarEquipes} className='flex flex-col sm:flex-row gap-3'>
-              <input type="text" placeholder="Cole o ID da Equipe ou o Nome exato..." value={equipeQuery} onChange={(e) => setEquipeQuery(e.target.value)}
+              <input type="text" placeholder="ID da equipe, URL de montagem-equipe ou nome exato..." value={equipeQuery} onChange={(e) => setEquipeQuery(e.target.value)}
                 className="flex-1 rounded-xl border border-neutral-300 px-5 py-3.5 text-sm outline-none focus:border-[#82181A] transition-all" />
               <button type="submit" disabled={buscandoEquipes} className='bg-[#82181A] text-white font-semibold px-8 py-3.5 rounded-xl hover:bg-[#631214] transition-all disabled:opacity-50 cursor-pointer whitespace-nowrap'>
                 {buscandoEquipes ? 'Buscando...' : 'Buscar Equipe'}
@@ -227,8 +327,8 @@ export default function FirestoreAdminPage() {
             </form>
 
             <div className='space-y-4'>
-              {equipeResultados.length === 0 && !buscandoEquipes && equipeQuery && (
-                <p className='text-neutral-500 text-sm'>Nenhuma equipe encontrada para esta busca.</p>
+              {equipeResultados.length === 0 && !buscandoEquipes && equipeMensagem && (
+                <p className='text-neutral-500 text-sm'>{equipeMensagem}</p>
               )}
               {equipeResultados.map(eq => (
                 <div key={eq.id} className='border border-neutral-200 rounded-xl p-5 space-y-4 bg-neutral-50'>
@@ -237,6 +337,14 @@ export default function FirestoreAdminPage() {
                       <h3 className='font-bold text-lg text-neutral-800'>{eq.nome} <span className='text-xs font-normal text-neutral-500 bg-neutral-200 px-2 py-1 rounded-md ml-2'>{eq.id}</span></h3>
                       <p className='text-sm text-neutral-600 mt-1'>{eq.escola} — {eq.modalidade}</p>
                       <p className='text-xs text-neutral-500 mt-1'>Criada por: {eq.criadorNome} ({eq.criadorUid})</p>
+                      <a
+                        href={`/montagem-equipe?equipeId=${eq.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className='inline-block mt-2 text-sm font-semibold text-[#82181A] hover:underline'
+                      >
+                        Abrir montagem
+                      </a>
                     </div>
                     <button onClick={() => excluirEquipeProfundamente(eq)} className='bg-red-100 text-red-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-200 transition-colors cursor-pointer border border-red-200'>
                       Excluir Equipe Profundamente
@@ -273,12 +381,32 @@ export default function FirestoreAdminPage() {
         {aba === 'usuarios' && (
           <div className='bg-white rounded-2xl shadow-sm border border-neutral-200 p-6 space-y-6'>
             <form onSubmit={buscarUsuario} className='flex flex-col sm:flex-row gap-3'>
-              <input type="email" placeholder="Email exato do usuário..." value={usuarioEmail} onChange={(e) => setUsuarioEmail(e.target.value)}
+              <input type="text" placeholder="E-mail exato ou nome completo (como no cadastro)..." value={usuarioQuery} onChange={(e) => setUsuarioQuery(e.target.value)}
                 className="flex-1 rounded-xl border border-neutral-300 px-5 py-3.5 text-sm outline-none focus:border-[#82181A] transition-all" />
               <button type="submit" disabled={buscandoUsuario} className='bg-[#82181A] text-white font-semibold px-8 py-3.5 rounded-xl hover:bg-[#631214] transition-all disabled:opacity-50 cursor-pointer whitespace-nowrap'>
-                {buscandoUsuario ? 'Buscando...' : 'Buscar E-mail'}
+                {buscandoUsuario ? 'Buscando...' : 'Buscar'}
               </button>
             </form>
+            {usuarioMensagem && (
+              <p className='text-sm text-neutral-600'>{usuarioMensagem}</p>
+            )}
+
+            {usuarioCandidatos.length > 1 && (
+              <div className='space-y-2'>
+                <p className='text-sm font-semibold text-neutral-700'>Resultados</p>
+                {usuarioCandidatos.map(u => (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onClick={() => selecionarCandidato(u)}
+                    className={`w-full text-left bg-white border rounded-lg p-3 text-sm hover:border-[#82181A] transition-colors cursor-pointer ${usuarioResultado?.id === u.id ? 'border-[#82181A]' : 'border-neutral-200'}`}
+                  >
+                    <p className='font-semibold'>{u.nome} {u.sobrenome}</p>
+                    <p className='text-neutral-500 text-xs'>{u.email} · {u.tipo}</p>
+                  </button>
+                ))}
+              </div>
+            )}
 
             <div className='grid gap-6 grid-cols-1 md:grid-cols-2'>
               {/* Painel do Usuario */}
@@ -295,7 +423,7 @@ export default function FirestoreAdminPage() {
                     <p><strong>Escola:</strong> {usuarioResultado.escola || 'N/A'}</p>
                   </div>
                 ) : (
-                  <p className='text-sm text-neutral-400'>Nenhum perfil encontrado para este email.</p>
+                  <p className='text-sm text-neutral-400'>Nenhum perfil selecionado.</p>
                 )}
               </div>
 
@@ -312,6 +440,11 @@ export default function FirestoreAdminPage() {
                           <p><strong>Edição:</strong> {p.id}</p>
                           <p><strong>Equipe ID:</strong> {p.equipeId}</p>
                           <p><strong>Papel:</strong> {p.papel}</p>
+                          {p.equipeId && (
+                            <a href={`/montagem-equipe?equipeId=${p.equipeId}`} target="_blank" rel="noopener noreferrer" className='text-[#82181A] font-semibold hover:underline'>
+                              Abrir montagem
+                            </a>
+                          )}
                         </div>
                         <button onClick={() => excluirParticipacao(p.id)} className='text-red-600 hover:bg-red-50 p-2 rounded-md font-semibold cursor-pointer'>
                           Excluir
