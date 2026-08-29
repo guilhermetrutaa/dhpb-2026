@@ -7,7 +7,7 @@ import { auth, db } from '@/lib/firebase'
 import { useRouter } from 'next/navigation'
 
 const AuthContext = createContext({})
-const TTL_CACHE = 60000
+const TTL_CACHE = 5 * 60 * 1000
 
 const lerCache = (key) => {
   try {

@@ -62,7 +62,7 @@ graph TB
 
 ### 2.1. Frontend (Next.js 16 App Router)
 * **Padrão de Renderização:** Quase 100% dos componentes e páginas utilizam `'use client'`, funcionando como uma SPA de alto desempenho.
-* **Gerenciamento de Sessão:** `AuthContext.jsx` monitora o `onAuthStateChanged`, busca os dados do usuário em `users/{uid}` e salva em cache local no `localStorage` por 60 segundos (`TTL_CACHE = 60000`) para minimizar leituras desnecessárias de perfil.
+* **Gerenciamento de Sessão:** `AuthContext.jsx` monitora o `onAuthStateChanged`, busca os dados do usuário em `users/{uid}` e salva em cache local no `localStorage` por 5 minutos (`TTL_CACHE = 5 * 60 * 1000`) para minimizar leituras desnecessárias de perfil. F5 após aprovação de professor/edição nova pode levar até esse prazo para refletir; logout zera o cache.
 * **Suporte Flutuante:** `SupportWidget.jsx` é injetado no `src/app/layout.jsx` e fica disponível em todas as páginas, exceto nas rotas `/admin/*`.
 * **Editor Rich Text:** O admin de questões utiliza `@tiptap/react` com extensões completas para formatação acadêmica (tabelas, cores, links, listas de tarefas, fórmulas e documentos).
 
