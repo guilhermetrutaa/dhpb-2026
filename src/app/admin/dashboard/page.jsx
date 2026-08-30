@@ -276,6 +276,64 @@ function TabEquipes() {
     window.open(url, '_blank')
   }
 
+  const abrirWhatsAppGlayds = async (msg, resumoSeLongo) => {
+    const encoded = encodeURIComponent(msg)
+    const base = 'https://wa.me/558399600143?text='
+    if (encoded.length > 1800) {
+      try {
+        await navigator.clipboard.writeText(msg)
+      } catch { /* clipboard pode falhar sem HTTPS/permissão */ }
+      window.open(base + encodeURIComponent(resumoSeLongo), '_blank')
+      return
+    }
+    window.open(base + encoded, '_blank')
+  }
+
+  const handleShareCidades = async () => {
+    try {
+      setCarregando(true)
+      const [snap, escolasRes] = await Promise.all([
+        getDocsFromServer(collection(db, 'equipes')),
+        fetch('/escolas-pb.json'),
+      ])
+      if (!escolasRes.ok) throw new Error('Não foi possível carregar escolas-pb.json')
+      const escolas = await escolasRes.json()
+      const idToMunicipio = {}
+      for (const e of escolas) {
+        if (e.id && e.municipio) idToMunicipio[String(e.id)] = String(e.municipio).trim()
+      }
+
+      const cidadesCount = {}
+      let semMunicipio = 0
+      snap.docs.forEach((d) => {
+        const escolaId = d.data().escolaId
+        const municipio = escolaId ? idToMunicipio[String(escolaId)] : null
+        if (municipio) cidadesCount[municipio] = (cidadesCount[municipio] || 0) + 1
+        else semMunicipio++
+      })
+
+      const lista = Object.entries(cidadesCount).sort((a, b) => {
+        if (b[1] !== a[1]) return b[1] - a[1]
+        return a[0].localeCompare(b[0], 'pt-BR')
+      })
+      const linhas = lista.map(([cidade, count]) => `${cidade} - ${count} equipes`)
+      if (semMunicipio > 0) linhas.push(`Sem município - ${semMunicipio} equipes`)
+
+      const msg = `*Relação de Cidades Cadastradas - DHPB*\n\n` +
+        `Total: ${lista.length} municípios\n\n` +
+        linhas.join('\n')
+      const resumo = `*Relação de Cidades Cadastradas - DHPB*\n\n` +
+        `Total de cidades: ${lista.length}\n` +
+        `Total de equipes: ${snap.docs.length}\n\n` +
+        `Lista completa colada na área de transferência.`
+      await abrirWhatsAppGlayds(msg, resumo)
+    } catch (err) {
+      alert('Erro ao buscar cidades: ' + err.message)
+    } finally {
+      setCarregando(false)
+    }
+  }
+
   const handleShareEscolasList = async (tipo) => {
     try {
       setCarregando(true)
@@ -348,6 +406,13 @@ function TabEquipes() {
               title='Enviar lista de escolas federais no WhatsApp'
             >
               Lista de Federais
+            </button>
+            <button
+              onClick={handleShareCidades}
+              className='flex items-center gap-1 text-xs bg-[#25D366] text-white px-3 py-1.5 rounded-md hover:bg-[#128C7E] transition-colors cursor-pointer font-bold shadow-sm'
+              title='Enviar lista de cidades (municípios) no WhatsApp'
+            >
+              Lista de Cidades
             </button>
             <button
               onClick={handleShareGlayds}
