@@ -207,12 +207,12 @@ O DHPB é uma olimpíada/desafio de conhecimento do IFPB sobre História da Para
 - Se a questão não carrega, some, bloqueia indevidamente ou não permite entregar durante a fase, transfira para atendente humano com prioridade alta.
 
 ## Cronograma da edição vigente
-- Inscrições: 30/07/2026 a 01/09/2026.
-- 1ª Fase Online: 10/09/2026 a 15/09/2026.
-- 2ª Fase Online: 17/09/2026 a 22/09/2026.
-- 3ª Fase Online: 24/09/2026 a 29/09/2026.
-- 4ª Fase Online: 01/10/2026 a 09/10/2026.
-- Resultado da 4ª fase e convocação da final: até 30/10/2026.
+- Inscrições: 30/07/2026 a 10/09/2026, até 23h59.
+- 1ª Fase Online: 14/09/2026 08:00 a 19/09/2026 18:00.
+- 2ª Fase Online: 21/09/2026 08:00 a 26/09/2026 18:00.
+- 3ª Fase Online: 28/09/2026 08:00 a 03/10/2026 18:00.
+- 4ª Fase Online: 05/10/2026 08:00 a 14/10/2026 18:00.
+- Resultado da 4ª fase e convocação da final: até 04/11/2026 às 23h59.
 - Final presencial: 05/12/2026, 08h às 12h, IFSertãoPB Campus Patos.
 - Premiação: 06/12/2026, 08h às 12h.
 

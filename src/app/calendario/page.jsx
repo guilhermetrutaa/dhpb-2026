@@ -85,15 +85,15 @@ export default function Page() {
 
             <div className='relative border-l-2 border-[#fff] ml-4 pl-8 mt-10 space-y-10'>
               {[
-                { label: 'Período de Inscrição — Individual e de equipes', date: 'De 30/07/2026 a 01/09/2026, até às 23h59' },
-                { label: '1ª Fase Online', date: 'Das 08:00 do dia 10/09/2026 até às 23h59 do dia 15/09/2026' },
-                { label: 'Divulgação do gabarito da 1ª Fase', date: 'Dia 16/09/2026 às 08:00' },
-                { label: '2ª Fase Online', date: 'Das 08:00 do dia 17/09/2026 até às 23h59 do dia 22/09/2026' },
-                { label: 'Divulgação do gabarito da 2ª Fase', date: 'Dia 23/09/2026 às 08:00' },
-                { label: '3ª Fase Online', date: 'Das 08:00 do dia 24/09/2026 até às 23h59 do dia 29/09/2026' },
-                { label: 'Divulgação do gabarito da 3ª Fase', date: 'Dia 30/09/2026 às 08:00' },
-                { label: '4ª Fase Online', date: 'Das 08:00 do dia 01/10/2026 até às 23h59 do dia 09/10/2026' },
-                { label: 'Resultado final da 4ª Fase online e convocação para a final', date: 'Até o dia 30/10/2026 às 23h59' },
+                { label: 'Período de Inscrição — Individual e de equipes', date: 'De 30/07/2026 a 10/09/2026, até às 23h59' },
+                { label: '1ª Fase Online', date: 'Das 08:00 do dia 14/09/2026 até às 18:00 do dia 19/09/2026' },
+                { label: 'Divulgação do gabarito da 1ª Fase', date: 'Dia 20/09/2026 às 08:00' },
+                { label: '2ª Fase Online', date: 'Das 08:00 do dia 21/09/2026 até às 18:00 do dia 26/09/2026' },
+                { label: 'Divulgação do gabarito da 2ª Fase', date: 'Dia 27/09/2026 às 08:00' },
+                { label: '3ª Fase Online', date: 'Das 08:00 do dia 28/09/2026 até às 18:00 do dia 03/10/2026' },
+                { label: 'Divulgação do gabarito da 3ª Fase', date: 'Dia 04/10/2026 às 08:00' },
+                { label: '4ª Fase Online', date: 'Das 08:00 do dia 05/10/2026 até às 18:00 do dia 14/10/2026' },
+                { label: 'Resultado final da 4ª Fase online e convocação para a final', date: 'Até o dia 04/11/2026 às 23h59' },
                 { label: 'Fase final presencial', date: 'Dia 05/12/2026, das 08:00 às 12:00' },
                 { label: 'Cerimônia de Premiação', date: 'Dia 06/12/2026, das 08:00 às 12:00' },
               ].map((item, i) => (

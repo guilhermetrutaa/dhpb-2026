@@ -201,10 +201,10 @@ export default function Page() {
               <p>6.2) Além do previsto no item 6.1 deste edital, serão emitidos certificados de premiação e medalhas para os(as) membros(as) das 50 (cinquenta equipes) equipes finalistas com melhor desempenho nesta edição do 4º DHPB conforme classificação final divulgada em data e horários informados no cronograma apresentado neste Edital, através dos meios de comunicação oficiais do IFPB, da Pró-Reitoria de Pesquisa, Inovação e Pós-graduação, de Ensino e de Extensão e Cultura do IFPB e do 4º DHPB. Para as demais equipes finalistas, será fornecido certificado de menção honrosa.</p>
               <p>6.3) As medalhas e certificados serão distribuídos levando em consideração o somatório da pontuação obtida nas 5 (cinco) fases, de acordo com a classificação a seguir:
                 <ul className='list-disc list-inside ml-6 mt-1 text-white/70'>
-                  <p>1ª a 10ª Medalha de Ouro.</p>
-                  <p>11ª a 25ª Medalha de Prata.</p>
+                  <p>1ª a 10ª - Medalha de Ouro.</p>
+                  <p>11ª a 25ª - Medalha de Prata.</p>
                   <p>26ª a 50ª - Medalha de Bronze.</p>
-                  <p>51ª a 120ª Medalha de Cristal (Menção Honrosa).</p>
+                  <p>51ª a 120ª - Medalha de Cristal (Menção Honrosa).</p>
                 </ul>
               </p>
               <p>6.4) Em caso de equipes empatadas em pontuação nas Fases 4 e 5, fica estabelecido a seguinte sequência de critérios de desempate:
@@ -231,7 +231,7 @@ export default function Page() {
                     <p>7.3.2) montagem da equipe com os três alunos e o professor orientador no sistema https://dhpb.ifpb.edu.br/</p>
                 </ul>
               </p>
-              <p>7.4) O estudante da equipe deve possuir CPF e endereço de e-mail próprio, pois para cada CPF será criada uma senha de acesso ao site https://dhpb.ifpb.edu.br/conforme estabelecido no Regulamento Oficial do 4°DHPB.</p>
+              <p>7.4) O estudante da equipe deve possuir CPF e endereço de e-mail próprio, pois para cada CPF será criada uma senha de acesso ao site https://dhpb.ifpb.edu.br/ conforme estabelecido no Regulamento Oficial do 4°DHPB.</p>
               <p>7.5) O login de acesso à Plataforma do 4º DHPB será realizado por meio do e-mail informado no cadastro e senha no ato de acesso ao sistema https://dhpb.ifpb.edu.br/</p>
               <p>7.6) Os/as membros/as das equipes deverão escolher um nome para sua equipe, respeitando as condições previstas no Regulamento Oficial do 4º DHPB.</p>
               <p>7.6.1) Você deve criar um nome para sua equipe. Esse "nome da equipe" a acompanhará em todo o 4º DHPB e será utilizado em todas as etapas da competição, do início até a premiação, e por isso deve ser escolhido com critério.</p>
@@ -241,7 +241,7 @@ export default function Page() {
               <p>7.9) Cada discente somente poderá participar de uma equipe.</p>
               <p>7.10) Cada equipe será composta por: três estudantes que formam o trio de discentes que compõem a equipe e um professor orientador.</p>
               <p>7.11) As equipes, em cada escola, poderão ser formadas por discentes apenas do Ensino Fundamental, apenas do Ensino Médio.</p>
-              <p>7.12) Obedecendo ao Decreto No. 8.727, de 28 de abril de 2016, é garantida a possibilidade de utilização de nome social ao longo de toda a participação no 4º DHPB, sendo permitido a qualquer participante registrar no cadastro a opção por nome social. Em obediência ao Artigo 40. do referido Decreto, é opcional constar o nome social no(s) certificado(s) obtido(s), se requerido expressamente pelo(a) interessado (a), obrigatoriamente acompanhado do nome civil.</p>
+              <p>7.12) Obedecendo ao Decreto No. 8.727, de 28 de abril de 2016, é garantida a possibilidade de utilização de nome social ao longo de toda a participação no 4º DHPB, sendo permitido a qualquer participante registrar no cadastro a opção por nome social. Em obediência ao Artigo 4o. do referido Decreto, é opcional constar o nome social no(s) certificado(s) obtido(s), se requerido expressamente pelo(a) interessado (a), obrigatoriamente acompanhado do nome civil.</p>
               <p>7.13) Quanto ao/à professor/a orientador/a:
                 <ul className='list-disc list-inside ml-6 mt-1 text-white/70'>
                   <p>7.13.1) O(a) professor(a) orientador(a) deve ter vínculo empregatício ou contrato estágio/trabalho com a escola, professore(a)s temporário(a)s/ não concursado(a)s/substituto(a)s também podem participar como orientadores. É permitida a participação de professore(a)s que estejam exercendo outras funções (coordenação, direção, supervisão pedagógica) ou ministrando outras disciplinas na escola no momento da inscrição e/ou da realização da prova, observado o fato de que tenham formação em História. Há casos em que a formação original do(a) professor(a) se deu em outras áreas, como Ciências Sociais, por exemplo. Desde que este(a) professor(a) seja o(a) professor(a) de História da escola, ele(a) poderá orientar equipes no Desafio. É permitida, ainda, a participação de estagiário(a)s e plantonistas como orientador(a)s de equipes desde que estejam regularmente matriculados em curso de graduação em História e tenham vínculo empregatício ou contrato estágio/trabalho com as instituições de ensino da(s) equipe(s);</p>
@@ -255,8 +255,8 @@ export default function Page() {
               <p>7.16) Para participantes portadores de deficiência (pessoas com deficiência - PCD), com demandas específicas de saúde ou dificuldade temporária de locomoção, é possível a solicitação de atendimento especial para a fase final presencial e para a cerimônia de premiação do 4º DHPB, desde que comunique suas necessidades específicas à comissão organizadora do 4º DHPB, através do correio eletrônico dhpb@ifpb.edu.br, exclusivamente durante o período de Inscrições indicado no item 8 deste Edital e mediante ratificação desta solicitação no período de confirmação de presença na fase final presencial do 4º DHPB, indicado no item 8 deste Edital.</p>
               <p>7.17) A comunicação a que se refere o item 7.16 deverá ser realizada exclusivamente por meio do correio eletrônico indicado, devendo ser preenchido ipsi literis no campo Assunto SOLICITAÇÃO DE ATENDIMENTO ESPECIAL - DHPB, e obedecendo aos prazos estabelecidos.</p>
               <p>7.18) A Comissão Organizadora do 4º DHPB e o IFPB reservam-se ao direito de não atender a qualquer tipo de solicitação de atendimento especial por participante com deficiência PCD que não estejam presentes ou sejam oferecidas nas estruturas físicas de suas sedes, bem como as que demandarem recursos extras e não previstos no orçamento reservado para este desafio.</p>
-              <p>7.19) A Comissão Organizadora do 4º DHPB e o IFPB não se responsabilizarão, em nenhuma hipótese, com o atendimento de qualquer tipo solicitação especial por participante com deficiência (PCD) para a inscrição e as Fases Online (Fases 1, 2, 3 e 4) do desafio, cabendo exclusivamente ao(â) participante a responsabilidade com o acesso ao sistema onde a prova está alocada.</p>
-              <p>7.20) Restrições religiosas: Para a Fase Final presencial, o(a) s participantes que, por restrições religiosas, não puderem realizar a prova final no sábado dia 05 de dezembro de 2026 das 9h às 12h, ficarão juntamente com toda sua equipe  menos o(a) professor(a)] em uma sala isolada no prédio onde ocorrem as provas. Deverão aguardar neste local a realização da prova Final da DHPB que se iniciará após o horário oficial do pôr-do-sol e serão acompanhados o tempo todo por Monitores(as) do Desafio. Apenas as equipes finalistas que necessitarem dessa programação especial deverão entrar em contato com a Comissão Organizadora conforme orientações e nas datas a serem divulgadas no Manual que ficará disponível nas salas das equipes finalistas durante a Convocação. No caso de uma equipe possuir restrição religiosa e não comunicar o fato à Organização, não será possível reservar para ela local e horário em separado. Nesse caso, se a equipe declarar possuir um ou mais membros como restrição religiosa apenas no momento da aplicação da prova, caberá a ela decidir se realiza a prova em mesmo local e horário que todos os demais (sábado dia 05 de dezembro de 2026) ou se abandona a competição.</p>
+              <p>7.19) A Comissão Organizadora do 4º DHPB e o IFPB não se responsabilizarão, em nenhuma hipótese, com o atendimento de qualquer tipo solicitação especial por participante com deficiência (PCD) para a inscrição e as Fases Online (Fases 1, 2, 3 e 4) do desafio, cabendo exclusivamente ao(à) participante a responsabilidade com o acesso ao sistema onde a prova está alocada.</p>
+              <p>7.20) Restrições religiosas: Para a Fase Final presencial, o(a) s participantes que, por restrições religiosas, não puderem realizar a prova final no sábado dia 05 de dezembro de 2026 das 9h às 12h, ficarão juntamente com toda sua equipe [menos o(a) professor(a)] em uma sala isolada no prédio onde ocorrem as provas. Deverão aguardar neste local a realização da prova Final da DHPB que se iniciará após o horário oficial do pôr-do-sol e serão acompanhados o tempo todo por Monitores(as) do Desafio. Apenas as equipes finalistas que necessitarem dessa programação especial deverão entrar em contato com a Comissão Organizadora conforme orientações e nas datas a serem divulgadas no Manual que ficará disponível nas salas das equipes finalistas durante a Convocação. No caso de uma equipe possuir restrição religiosa e não comunicar o fato à Organização, não será possível reservar para ela local e horário em separado. Nesse caso, se a equipe declarar possuir um ou mais membros como restrição religiosa apenas no momento da aplicação da prova, caberá a ela decidir se realiza a prova em mesmo local e horário que todos os demais (sábado dia 05 de dezembro de 2026) ou se abandona a competição.</p>
               <p>7.21) Poderão ocorrer até duas substituições na equipe durante a realização da 4º DHPB. São critérios de substituição de membros de uma equipe:
                 <ul className='list-disc list-inside ml-6 mt-1 text-white/70'>
                   <p>7.21.1) Licença médica por período igual ou superior ao tempo restante para a conclusão de todas as fases do 4º DHPB;</p>
@@ -291,16 +291,16 @@ export default function Page() {
               <p><strong>9.1.1) Publicação do Edital e Regulamento:</strong> 30/07/2026.</p>
               <p><strong>9.1.2) Período de Impugnação das regras do Edital e Regulamento:</strong> 31/07/2026, das 8 às 17 horas.</p>
               <p><strong>9.1.3) Resultado de eventuais pedidos de impugnação das regras do Edital e Regulamento:</strong> 01/08/2026.</p>
-              <p><strong>9.1.4) Período de Inscrição - individual e de equipes:</strong> 30/07/2026 a 01/09/2026, até às 23h59.</p>
-              <p><strong>9.1.5) Deferimento e impugnação de inscrições:</strong> 04/09/2026.</p>
-              <p><strong>9.1.6) 1ª Fase Online:</strong> das 08:00 do dia 10 de setembro até às 23h59 do dia 15 de setembro.</p>
-              <p><strong>9.1.6.1) Divulgação do gabarito da Fase 1:</strong> dia 16 de setembro as 08:00</p>
-              <p><strong>9.1.7) 2ª Fase Online:</strong> das 08:00 do dia 17 de setembro até às 23h59 do dia 22 de setembro.</p>
-              <p><strong>9.1.7.1) Divulgação do gabarito da Fase 2:</strong> dia 23 de setembro as 08:00</p>
-              <p><strong>9.1.8) 3ª Fase Online:</strong> das 08:00 do dia 24 de setembro até às 23h59 do dia 29 de setembro.</p>
-              <p><strong>9.1.8.1) Divulgação do gabarito da Fase 3:</strong> dia 30 de setembro as 08:00</p>
-              <p><strong>9.1.9) 4ª Fase Online:</strong> das 08:00 do dia 01 de outubro até às 23h59 do dia 09 de outubro.</p>
-              <p><strong>9.1.10) Resultado final da 4ª Fase online e convocação das equipes para a final presencial:</strong> ocorrerá até o dia 30 de outubro às 23h59.</p>
+              <p><strong>9.1.4) Período de Inscrição - individual e de equipes:</strong> 30/07/2026 a 10/09/2026, até às 23h59.</p>
+              <p><strong>9.1.5) Deferimento e impugnação de inscrições:</strong> 12/09/2026.</p>
+              <p><strong>9.1.6) 1ª Fase Online:</strong> das 08:00 do dia 14 de setembro até às 18:00 do dia 19 de setembro.</p>
+              <p><strong>9.1.6.1) Divulgação do gabarito da Fase 1:</strong> dia 20 de setembro as 08:00</p>
+              <p><strong>9.1.7) 2ª Fase Online:</strong> das 08:00 do dia 21 de setembro até às 18:00 do dia 26 de setembro.</p>
+              <p><strong>9.1.7.1) Divulgação do gabarito da Fase 2:</strong> dia 27 de setembro as 08:00</p>
+              <p><strong>9.1.8) 3ª Fase Online:</strong> das 08:00 do dia 28 de setembro até às 18:00 do dia 03 de outubro.</p>
+              <p><strong>9.1.8.1) Divulgação do gabarito da Fase 3:</strong> dia 04 de outubro as 08:00</p>
+              <p><strong>9.1.9) 4ª Fase Online:</strong> das 08:00 do dia 05 de outubro até às 18:00 do dia 14 de outubro.</p>
+              <p><strong>9.1.10) Resultado final da 4ª Fase online e convocação das equipes para a final presencial:</strong> ocorrerá até o dia 04 de novembro às 23h59.</p>
               <p><strong>9.1.11) Fase final presencial:</strong> no dia 05 de dezembro das 08:00 às 12:00.</p>
               <p><strong>9.1.12) Cerimônia de premiação:</strong> no dia 06 de dezembro das 08:00 às 12:00.</p>
             </ul>
