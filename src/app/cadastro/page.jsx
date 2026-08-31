@@ -9,6 +9,7 @@ import { auth, db } from '@/lib/firebase'
 import { useRouter } from 'next/navigation'
 
 const timeout = (ms) => new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), ms))
+const normalizarEspacos = (valor) => String(valor || '').trim().replace(/\s+/g, ' ')
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -29,6 +30,13 @@ const Page = () => {
   const handleCadastro = async (e) => {
     e.preventDefault()
     setErro('')
+    const nomeNormalizado = normalizarEspacos(nome)
+    const sobrenomeNormalizado = normalizarEspacos(sobrenome)
+
+    if (!nomeNormalizado || !sobrenomeNormalizado) {
+      setErro('Nome e sobrenome devem conter caracteres válidos.')
+      return
+    }
 
     if (senha !== confirmarSenha) {
       setErro('As senhas não coincidem.')
@@ -53,8 +61,8 @@ const Page = () => {
       try {
         // Salva localmente (cache persistente responde na hora)
         await setDoc(doc(db, 'users', credencial.user.uid), {
-          nome,
-          sobrenome,
+          nome: nomeNormalizado,
+          sobrenome: sobrenomeNormalizado,
           email,
           tipo,
           createdAt: new Date().toISOString(),

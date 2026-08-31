@@ -32,8 +32,12 @@ function idFirestoreValido(id) {
   return true
 }
 
+function normalizarEspacos(raw) {
+  return String(raw || '').trim().replace(/\s+/g, ' ')
+}
+
 function parseNomeCompleto(raw) {
-  const partes = String(raw || '').trim().split(/\s+/).filter(Boolean)
+  const partes = normalizarEspacos(raw).split(/\s+/).filter(Boolean)
   if (partes.length < 2) return null
   return { nome: partes[0], sobrenome: partes.slice(1).join(' ') }
 }
@@ -181,7 +185,7 @@ export default function FirestoreAdminPage() {
 
   const buscarUsuario = async (e) => {
     e.preventDefault()
-    const termo = usuarioQuery.trim()
+    const termo = normalizarEspacos(usuarioQuery)
     if (!termo) return
 
     setUsuarioMensagem('')
