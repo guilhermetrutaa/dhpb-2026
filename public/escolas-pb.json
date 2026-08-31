@@ -45210,6 +45210,17 @@
         "cadastrada": true
     },
     {
+        "id": "25121499",
+        "nome": "ESCOLA INICIO DA VIDA",
+        "nomeBusca": "escola inicio da vida joao pessoa",
+        "municipio": "João Pessoa",
+        "uf": "PB",
+        "endereco": "RUA COMERCIANTE ARISTIDES COSTA",
+        "dependenciaAdm": "Privada",
+        "tipo": "particular",
+        "cadastrada": true
+    },
+    {
         "id": "25121529",
         "nome": "CRECHE MUNICIPAL SINHA NUNES",
         "nomeBusca": "creche municipal sinha nunes coremas",

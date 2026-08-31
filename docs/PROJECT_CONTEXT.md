@@ -24,7 +24,7 @@ O **DHPB (Desafio em História da Paraíba)** é uma plataforma web para uma oli
 | **Banco de Suporte** | Firebase Instance Separada | Firestore isolado apenas para o chat (`chamados`, `mensagens`). NUNCA misturar com o banco principal. |
 | **Backend Helpers** | `firestore-rest.js` + `jose` | Comunicação server-side sem SDK pesado para evitar conflitos ESM no Turbopack. |
 | **Mídia** | Cloudinary | Renderização **sempre** via helper `@/lib/cloudinary` (`optimizeCloudinaryUrl`). |
-| **Dados Estáticos** | `public/escolas-pb.json` | 5.239 escolas da PB cacheadas localmente (**0 leituras no Firestore** no cadastro/busca). |
+| **Dados Estáticos** | `public/escolas-pb.json` | 5.240 escolas da PB cacheadas localmente (**0 leituras no Firestore** no cadastro/busca). |
 
 ---
 
