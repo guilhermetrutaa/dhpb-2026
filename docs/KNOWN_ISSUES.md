@@ -34,3 +34,7 @@ Este documento registra problemas conhecidos, limitações técnicas e pontos de
 * **Localização:** `src/app/admin/firestore/page.jsx`.
 * **Descrição:** A busca por nome completo usa `where('nome','==')` + `where('sobrenome','==')` com `limit(15)`. Não há campo `nomeLower` em `users`; a igualdade é sensível a maiúsculas e acentos, como gravado no cadastro. Busca “contém” exigiria varredura da coleção e não é usada (Spark).
 * **Índice:** query composta exige índice `users`: `nome` ASC + `sobrenome` ASC no Console do Firestore.
+
+### 1.7. Busca admin de equipe por prefixo (`nomeNormalized`)
+* **Localização:** `src/app/admin/firestore/page.jsx`.
+* **Descrição:** A busca por nome usa prefixo em `nomeNormalized` (`limit(15)`). Equipes antigas sem esse campo só são encontradas pelo fallback de igualdade em `nomeLower` (nome inteiro, minúsculas). “Contém no meio” não é usada (Spark).

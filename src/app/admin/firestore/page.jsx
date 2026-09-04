@@ -42,6 +42,19 @@ function parseNomeCompleto(raw) {
   return { nome: partes[0], sobrenome: partes.slice(1).join(' ') }
 }
 
+function normalizarNome(nome) {
+  const mapa = { '4':'a','3':'e','1':'i','0':'o','5':'s','8':'b','7':'t','2':'z','6':'g','9':'q' }
+  const acentos = { 'á':'a','à':'a','â':'a','ã':'a','ä':'a','é':'e','è':'e','ê':'e','ë':'e','í':'i','ì':'i','î':'i','ï':'i','ó':'o','ò':'o','ô':'o','õ':'o','ö':'o','ú':'u','ù':'u','û':'u','ü':'u','ç':'c','ñ':'n' }
+  let s = String(nome || '').toLowerCase().trim()
+  let r = ''
+  for (const ch of s) {
+    if (acentos[ch]) { r += acentos[ch]; continue }
+    if (ch >= 'a' && ch <= 'z') { r += ch; continue }
+    if (ch >= '0' && ch <= '9') { r += mapa[ch] || ''; continue }
+  }
+  return r
+}
+
 export default function FirestoreAdminPage() {
   const [autenticado, setAutenticado] = useState(false)
   const [verificando, setVerificando] = useState(true)
@@ -97,11 +110,27 @@ export default function FirestoreAdminPage() {
       }
 
       if (resultados.length === 0 && !extraidoDeUrl) {
-        const q = query(collection(db, 'equipes'), where('nomeLower', '==', termo.toLowerCase()))
-        const querySnapshot = await getDocs(q)
-        querySnapshot.forEach((d) => {
-          resultados.push({ id: d.id, ...d.data() })
-        })
+        const termoNorm = normalizarNome(termo)
+        if (termoNorm) {
+          const qNorm = query(
+            collection(db, 'equipes'),
+            where('nomeNormalized', '>=', termoNorm),
+            where('nomeNormalized', '<=', termoNorm + '\uf8ff'),
+            limit(15)
+          )
+          const snapNorm = await getDocs(qNorm)
+          snapNorm.forEach((d) => {
+            resultados.push({ id: d.id, ...d.data() })
+          })
+        }
+
+        if (resultados.length === 0) {
+          const q = query(collection(db, 'equipes'), where('nomeLower', '==', termo.toLowerCase()))
+          const querySnapshot = await getDocs(q)
+          querySnapshot.forEach((d) => {
+            resultados.push({ id: d.id, ...d.data() })
+          })
+        }
       }
 
       setEquipeResultados(resultados)
@@ -323,7 +352,7 @@ export default function FirestoreAdminPage() {
         {aba === 'equipes' && (
           <div className='bg-white rounded-2xl shadow-sm border border-neutral-200 p-6 space-y-6'>
             <form onSubmit={buscarEquipes} className='flex flex-col sm:flex-row gap-3'>
-              <input type="text" placeholder="ID da equipe, URL de montagem-equipe ou nome exato..." value={equipeQuery} onChange={(e) => setEquipeQuery(e.target.value)}
+              <input type="text" placeholder="ID, URL de montagem-equipe ou parte do nome (sem acento)..." value={equipeQuery} onChange={(e) => setEquipeQuery(e.target.value)}
                 className="flex-1 rounded-xl border border-neutral-300 px-5 py-3.5 text-sm outline-none focus:border-[#82181A] transition-all" />
               <button type="submit" disabled={buscandoEquipes} className='bg-[#82181A] text-white font-semibold px-8 py-3.5 rounded-xl hover:bg-[#631214] transition-all disabled:opacity-50 cursor-pointer whitespace-nowrap'>
                 {buscandoEquipes ? 'Buscando...' : 'Buscar Equipe'}

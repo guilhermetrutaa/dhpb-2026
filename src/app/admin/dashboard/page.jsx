@@ -334,6 +334,57 @@ function TabEquipes() {
     }
   }
 
+  const handleShareIncompletas = async () => {
+    try {
+      setCarregando(true)
+      const snap = await getDocsFromServer(collection(db, 'equipes'))
+      const incompletas = snap.docs.filter((d) => d.data().isCompleta !== true)
+
+      const secoes = [
+        { tipo: 'estadual', titulo: 'Estadual' },
+        { tipo: 'municipal', titulo: 'Municipal' },
+        { tipo: 'federal', titulo: 'Federal' },
+        { tipo: 'particular', titulo: 'Privadas' },
+        { tipo: 'publica', titulo: 'Pública (sem classificação)' },
+      ]
+
+      const porRede = {}
+      for (const { tipo } of secoes) porRede[tipo] = {}
+
+      for (const d of incompletas) {
+        const data = d.data()
+        const tipo = secoes.some((s) => s.tipo === data.tipoEscola) ? data.tipoEscola : 'publica'
+        const escola = String(data.escola || '').trim() || 'Sem escola'
+        porRede[tipo][escola] = (porRede[tipo][escola] || 0) + 1
+      }
+
+      const linhasSecao = (mapa) => {
+        const lista = Object.entries(mapa).sort((a, b) => {
+          if (b[1] !== a[1]) return b[1] - a[1]
+          return a[0].localeCompare(b[0], 'pt-BR')
+        })
+        if (lista.length === 0) return ['Nenhuma']
+        return lista.map(([escola, n]) => `${escola} - ${n} equipes incompletas`)
+      }
+
+      const blocos = secoes
+        .filter((s) => s.tipo !== 'publica' || Object.keys(porRede.publica).length > 0)
+        .map((s) => `*${s.titulo}:*\n${linhasSecao(porRede[s.tipo]).join('\n')}`)
+
+      const msg = `*Equipes incompletas - DHPB*\n\n` +
+        `Total de equipes incompletas: ${incompletas.length}\n\n` +
+        blocos.join('\n\n')
+      const resumo = `*Equipes incompletas - DHPB*\n\n` +
+        `Total de equipes incompletas: ${incompletas.length}\n\n` +
+        `Lista completa colada na área de transferência.`
+      await abrirWhatsAppGlayds(msg, resumo)
+    } catch (err) {
+      alert('Erro ao buscar equipes incompletas: ' + err.message)
+    } finally {
+      setCarregando(false)
+    }
+  }
+
   const handleShareEscolasList = async (tipo) => {
     try {
       setCarregando(true)
@@ -413,6 +464,13 @@ function TabEquipes() {
               title='Enviar lista de cidades (municípios) no WhatsApp'
             >
               Lista de Cidades
+            </button>
+            <button
+              onClick={handleShareIncompletas}
+              className='flex items-center gap-1 text-xs bg-[#25D366] text-white px-3 py-1.5 rounded-md hover:bg-[#128C7E] transition-colors cursor-pointer font-bold shadow-sm'
+              title='Enviar lista de equipes incompletas para Glayds no WhatsApp'
+            >
+              Equipes incompletas
             </button>
             <button
               onClick={handleShareGlayds}
