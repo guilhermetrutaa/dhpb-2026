@@ -278,3 +278,23 @@ export const fsAddComTimestamp = async (
     token
   )
 }
+
+/**
+ * Envia Web Push via FCM HTTP v1 (mesmo access token da Service Account).
+ * Assinatura usada por send-fcm, send-mass-fcm e webhook-telegram.
+ */
+export const fsSendFcm = async (projectId, fcmToken, token, titulo, corpo, link) => {
+  const message = {
+    token: fcmToken,
+    notification: { title: titulo, body: corpo },
+  }
+  if (link) {
+    message.webpush = { fcm_options: { link } }
+  }
+  const res = await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message }),
+  })
+  if (!res.ok) throw new Error(`fsSendFcm ${res.status}: ${await res.text()}`)
+}
