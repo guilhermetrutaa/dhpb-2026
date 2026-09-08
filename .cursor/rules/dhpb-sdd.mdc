@@ -1,0 +1,19 @@
+---
+description: Fluxo SDD do DHPB — spec, plan, tasks, implementação e validação
+alwaysApply: true
+---
+
+# SDD no DHPB 2026
+
+Antes de alterar `src/`, leia `docs/PROJECT_CONTEXT.md` e `docs/CONSTITUTION.md`. Use a matriz §3.2 — não explore `src/app` inteiro.
+
+Fluxo: **IDEIA → SPEC → PLAN → TASKS → IMPLEMENT → VALIDATION**. Features de prova, equipe, ranking, `membro-index`, `aprovadoAte` ou isolamento do chat exigem clarify + aprovação humana da spec.
+
+1. Nova mudança de comportamento: criar `specs/<nnn-slug>/` a partir de `specs/_templates/`.
+2. Spec/plan/tasks da feature ativa mandam sobre o chat. Liste 2–6 arquivos em Required reading.
+3. Código vence docs divergentes. Registre drift em `docs/KNOWN_ISSUES.md`; não “alinhe o código ao doc” sem spec.
+4. Não reespecifique as 35 rotas. Não instale dependências nem rode `specify init` sem pedido.
+5. Não toque módulos sensíveis (`questao`, `criar-equipe`, `montagem-equipe`, `admin/ranking`, `AuthContext`, `firebase.js`, `firestore-rest.js`, `escolas-pb.json`) sem spec completa.
+6. Validation: critérios da spec + checklist da constitution + `npm run build` (código 0). Gaps viram tasks, não ajuste silencioso.
+
+Detalhes: `docs/SDD_ADOPTION_PLAN.md`.

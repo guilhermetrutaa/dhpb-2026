@@ -1,0 +1,19 @@
+---
+description: Princípios inegociáveis DHPB — Spark, Firebase, Cloudinary, escopo
+alwaysApply: true
+---
+
+# Constitution (resumo)
+
+Fonte: `docs/CONSTITUTION.md`. Não copie schema aqui.
+
+- Spark: sem `getDocs(collection)` sem `where()`/`limit()` no path do participante. Escolas só em `public/escolas-pb.json`.
+- Scans admin em `equipes`/`edicoes` só se a spec justificar.
+- Duas instâncias: `@/lib/firebase` vs `@/lib/support/firebase`. Nunca misturar.
+- Pontuação (`ni`, `di`, `df`) e entrega: `runTransaction` ou `increment()`. Status `entregue` é imutável.
+- Dual-write legado em equipe (subcoleção + mapa embutido) permanece até haver spec de remoção.
+- Membros: unicidade via `membro-index` em batch/transação.
+- Cloudinary de produção: `optimizeCloudinaryUrl`. Segredos só em `src/app/api/*`.
+- `'use client'` em páginas interativas; `useSearchParams` exige `<Suspense>`.
+- Sem wrappers novos, sem refator cosmética, sem editar `escolas-pb.json` na mão.
+- Diff mínimo. Atualize `/docs` no mesmo PR se rota ou schema mudar.
