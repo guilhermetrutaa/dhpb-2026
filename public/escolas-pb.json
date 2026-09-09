@@ -57638,5 +57638,16 @@
         "dependenciaAdm": "Privada",
         "tipo": "particular",
         "cadastrada": true
+    },
+    {
+        "id": "1234567890",
+        "nome": "ESCOLA JOSÉ PEREIRA DO NASCIMENTO",
+        "nomeBusca": "jose pereira do nascimento",
+        "municipio": "Pocinhos",
+        "uf": "PB",
+        "endereco": "AVENIDA FRANCISCO MANUEL DOS SANTOS, 550",
+        "dependenciaAdm": "Municipal",
+        "tipo": "municipal",
+        "cadastrada": true
     }
 ]
