@@ -1,13 +1,12 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import Image from 'next/image'
 import { Poppins } from 'next/font/google';
 import { signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence } from 'firebase/auth'
 import { doc, getDoc } from 'firebase/firestore'
 import { auth, db } from '@/lib/firebase'
 import { useRouter } from 'next/navigation'
-import { lerInscricoesAbertas } from '@/lib/inscricoes'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -20,18 +19,7 @@ const Page = () => {
   const [lembrar, setLembrar] = useState(true)
   const [erro, setErro] = useState('')
   const [carregando, setCarregando] = useState(false)
-  const [inscricoesAbertas, setInscricoesAbertas] = useState(true)
   const router = useRouter()
-
-  useEffect(() => {
-    ;(async () => {
-      try {
-        setInscricoesAbertas(await lerInscricoesAbertas())
-      } catch {
-        setInscricoesAbertas(true)
-      }
-    })()
-  }, [])
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -141,7 +129,6 @@ const Page = () => {
                   </button>
                 </div>
 
-                {inscricoesAbertas && (
                 <div className="mt-8 text-center text-sm text-neutral-900">
                   <p>
                     Não tem uma conta?
@@ -150,7 +137,6 @@ const Page = () => {
                     </a>
                   </p>
                 </div>
-                )}
               </form>
             </div>
           </div>

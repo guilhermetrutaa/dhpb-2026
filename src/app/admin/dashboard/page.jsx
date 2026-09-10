@@ -3,11 +3,10 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Poppins } from 'next/font/google'
 import { useRouter } from 'next/navigation'
-import { collection, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, orderBy, query, where, getDocs, getDocsFromServer, getCountFromServer, getDoc, limit, startAfter, documentId, writeBatch, setDoc } from 'firebase/firestore'
+import { collection, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, orderBy, query, where, getDocs, getDocsFromServer, getCountFromServer, limit, startAfter, documentId, writeBatch, setDoc } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { db, auth } from '@/lib/firebase'
 import Image from 'next/image'
-import { inscricoesEstaoAbertas, refConfigPlataforma } from '@/lib/inscricoes'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -708,9 +707,6 @@ const Page = () => {
   const [edicaoAberta, setEdicaoAberta] = useState(null)
   const [fases, setFases] = useState({})
   const [faseForm, setFaseForm] = useState({ nome: '', dataInicio: '', dataFim: '', peso: '', notaMaxima: '' })
-  const [inscricoesAbertas, setInscricoesAbertas] = useState(true)
-  const [inscricoesCarregando, setInscricoesCarregando] = useState(true)
-  const [inscricoesSalvando, setInscricoesSalvando] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -727,40 +723,6 @@ const Page = () => {
   }, [autenticado])
 
   useEffect(() => { carregarEdicoes() }, [carregarEdicoes])
-
-  useEffect(() => {
-    if (!autenticado) return
-    ;(async () => {
-      try {
-        const snap = await getDoc(refConfigPlataforma())
-        setInscricoesAbertas(inscricoesEstaoAbertas(snap))
-      } catch {
-        setInscricoesAbertas(true)
-      } finally {
-        setInscricoesCarregando(false)
-      }
-    })()
-  }, [autenticado])
-
-  const alternarInscricoes = async () => {
-    const abrir = !inscricoesAbertas
-    const ok = window.confirm(abrir
-      ? 'Reabrir inscrições? Contas novas, equipes novas e inclusão de membros voltarão a ser permitidos.'
-      : 'Encerrar inscrições agora? Ninguém poderá criar conta, criar equipe nem incluir membros até você reabrir.')
-    if (!ok) return
-    setInscricoesSalvando(true)
-    try {
-      await setDoc(refConfigPlataforma(), {
-        inscricoesAbertas: abrir,
-        atualizadoEm: new Date().toISOString(),
-      }, { merge: true })
-      setInscricoesAbertas(abrir)
-    } catch (err) {
-      alert('Erro ao atualizar inscrições: ' + (err.message || 'Erro desconhecido'))
-    } finally {
-      setInscricoesSalvando(false)
-    }
-  }
 
   const carregarFases = async (edId) => {
     try {
@@ -877,37 +839,6 @@ const Page = () => {
                 {a.label}
               </button>
             ))}
-          </div>
-        </div>
-
-        <div className='max-w-6xl mx-auto px-6 pt-4'>
-          <div className='bg-white rounded-xl shadow-sm border border-neutral-200 px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
-            <div>
-              <p className='text-sm font-bold text-[#82181A]'>Inscrições</p>
-              <p className='text-xs text-neutral-500 mt-0.5'>
-                {inscricoesCarregando
-                  ? 'Carregando status...'
-                  : inscricoesAbertas
-                    ? 'Abertas — contas, equipes e inclusão de membros permitidos.'
-                    : 'Encerradas — contas novas, equipes novas e inclusão de membros bloqueados.'}
-              </p>
-            </div>
-            <button
-              type='button'
-              onClick={alternarInscricoes}
-              disabled={inscricoesCarregando || inscricoesSalvando}
-              className={`px-5 py-2.5 rounded-lg text-sm font-semibold transition-all cursor-pointer disabled:opacity-50 whitespace-nowrap ${
-                inscricoesAbertas
-                  ? 'bg-[#82181A] text-white hover:bg-[#631214]'
-                  : 'border border-[#82181A] text-[#82181A] hover:bg-[#82181A] hover:text-white'
-              }`}
-            >
-              {inscricoesSalvando
-                ? 'Salvando...'
-                : inscricoesAbertas
-                  ? 'Encerrar inscrições'
-                  : 'Reabrir inscrições'}
-            </button>
           </div>
         </div>
 

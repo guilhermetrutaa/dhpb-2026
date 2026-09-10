@@ -21,7 +21,6 @@ O DHPB é uma olimpíada/desafio de conhecimento do IFPB sobre História da Para
 
 ## Cadastro, login e senha
 - Para criar conta, a pessoa entra em "Crie agora" na tela de login ou acessa /cadastro.
-- Depois que as inscrições forem encerradas no painel admin (prazo oficial 10/09/2026, 23h59), o site bloqueia criar conta: o botão "Crie agora" some e /cadastro mostra que as inscrições encerraram. Login e "Esqueci minha senha" continuam funcionando.
 - A tela de cadastro pede: e-mail, nome, sobrenome, tipo de conta (Professor ou Estudante), senha e confirmação de senha.
 - A senha precisa ter pelo menos 6 caracteres.
 - Depois do cadastro, estudante vai para /home e professor vai para /home-professor.
@@ -54,7 +53,7 @@ O DHPB é uma olimpíada/desafio de conhecimento do IFPB sobre História da Para
 - Se o questionário individual ainda não foi respondido, abre o "Questionário de Inscrição".
 - Se o questionário individual já foi respondido, o site procura participação do usuário em equipe daquela edição.
 - Se o estudante já está em uma equipe ativa, o site manda para /montagem-equipe?equipeId=ID_DA_EQUIPE.
-- Se o estudante ainda não está em equipe naquela edição, o site manda para /criar-equipe?edicaoId=ID_DA_EDICAO, salvo se as inscrições já tiverem sido encerradas (aí mostra mensagem e não cria equipe).
+- Se o estudante ainda não está em equipe naquela edição, o site manda para /criar-equipe?edicaoId=ID_DA_EDICAO.
 - O estudante pode trocar avatar, escolhendo entre avatares padrão ou cidades premiadas.
 
 ## Home do professor
@@ -66,7 +65,7 @@ O DHPB é uma olimpíada/desafio de conhecimento do IFPB sobre História da Para
 - Se o documento foi recusado, a home mostra "Documento recusado", o motivo quando existir e o link "Enviar novo documento".
 - Se o documento foi aprovado, ao clicar em uma edição o professor passa pela mesma verificação de questionário individual.
 - Se o professor já participa de equipe na edição, o site manda para /montagem-equipe.
-- Se o professor não participa de equipe na edição, o site manda para /criar-equipe?edicaoId=ID_DA_EDICAO, salvo se as inscrições já tiverem sido encerradas.
+- Se o professor não participa de equipe na edição, o site manda para /criar-equipe?edicaoId=ID_DA_EDICAO.
 
 ## Questionário individual / Questionário de Inscrição
 - Na primeira vez que a pessoa clicar no botão da edição na home, o site pode abrir o questionário socioeconômico individual.
@@ -108,7 +107,6 @@ O DHPB é uma olimpíada/desafio de conhecimento do IFPB sobre História da Para
 
 ## Criar equipe
 - A tela de criação de equipe fica em /criar-equipe.
-- Depois do encerramento das inscrições, /criar-equipe e o cadastro de escola recusam novas equipes. Quem já está em equipe com os quatro integrantes (membros 0 a 3 preenchidos) continua acessando a Sala de Equipe. Inclusão ou troca de membros também fica bloqueada.
 - Se a edição já veio da home, a rota tem edicaoId na URL.
 - Se a edição não veio na URL, a tela primeiro pede para selecionar a edição.
 - Campos da criação de equipe: Nome da Equipe, Nome da Escola, tipo da escola e modalidade de participação.
@@ -209,7 +207,7 @@ O DHPB é uma olimpíada/desafio de conhecimento do IFPB sobre História da Para
 - Se a questão não carrega, some, bloqueia indevidamente ou não permite entregar durante a fase, transfira para atendente humano com prioridade alta.
 
 ## Cronograma da edição vigente
-- Inscrições: 30/07/2026 a 10/09/2026, até 23h59. Após esse prazo o admin pode encerrar no painel: conta nova, equipe nova e inclusão de membros param; login e provas das equipes com quatro integrantes seguem.
+- Inscrições: 30/07/2026 a 10/09/2026, até 23h59.
 - 1ª Fase Online: 14/09/2026 08:00 a 19/09/2026 18:00.
 - 2ª Fase Online: 21/09/2026 08:00 a 26/09/2026 18:00.
 - 3ª Fase Online: 28/09/2026 08:00 a 03/10/2026 18:00.

@@ -7,7 +7,6 @@ import { collection, query, where, orderBy, getDocs, getDoc, getDocsFromServer, 
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { lerInscricoesAbertas, MSG_INSCRICOES_ENCERRADAS } from '@/lib/inscricoes'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -65,8 +64,6 @@ function CriarEquipeForm() {
   const [modalidade, setModalidade] = useState('')
   const [erro, setErro] = useState('')
   const [carregando, setCarregando] = useState(false)
-  const [inscricoesAbertas, setInscricoesAbertas] = useState(true)
-  const [checandoInscricoes, setChecandoInscricoes] = useState(true)
   const [buscando, setBuscando] = useState(false)
   const searchRef = useRef(null)
   const debounceRef = useRef(null)
@@ -74,18 +71,6 @@ function CriarEquipeForm() {
   useEffect(() => {
     if (!loading && !authUser) router.push('/login')
   }, [loading, authUser, router])
-
-  useEffect(() => {
-    ;(async () => {
-      try {
-        setInscricoesAbertas(await lerInscricoesAbertas())
-      } catch {
-        setInscricoesAbertas(true)
-      } finally {
-        setChecandoInscricoes(false)
-      }
-    })()
-  }, [])
 
   useEffect(() => {
     if (!edicaoParam) {
@@ -206,13 +191,6 @@ function CriarEquipeForm() {
     e.preventDefault()
     setErro('')
 
-    const aindaAberto = await lerInscricoesAbertas({ fromServer: true })
-    if (!aindaAberto) {
-      setInscricoesAbertas(false)
-      setErro(MSG_INSCRICOES_ENCERRADAS)
-      return
-    }
-
     if (!edicaoId) {
       setErro('Edição não encontrada.')
       return
@@ -326,26 +304,10 @@ function CriarEquipeForm() {
     }
   }
 
-  if (loading || !authUser || checandoInscricoes) {
+  if (loading || !authUser) {
     return (
       <div className={`${poppins.className} w-full min-h-screen flex items-center justify-center`}>
         <p className="text-[#82181A] text-lg">Carregando...</p>
-      </div>
-    )
-  }
-
-  if (!inscricoesAbertas) {
-    return (
-      <div className={poppins.className}>
-        <div className='w-full min-h-screen bg-[#fff] text-[#000] flex items-center justify-center px-6'>
-          <div className='max-w-md text-center space-y-6'>
-            <h1 className='text-3xl text-[#82181A] font-medium'>Inscrições encerradas</h1>
-            <p className='text-[#2e2e2e]'>{MSG_INSCRICOES_ENCERRADAS}</p>
-            <a href={userData?.tipo === 'professor' ? '/home-professor' : '/home'} className='inline-block bg-[#82181A] text-white font-semibold px-8 py-3 rounded-xl hover:bg-[#631214]'>
-              Voltar à home
-            </a>
-          </div>
-        </div>
       </div>
     )
   }

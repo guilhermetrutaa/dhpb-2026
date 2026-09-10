@@ -13,7 +13,6 @@ Este documento consolida as regras de negócio identificadas no código-fonte, s
   * 2 Estudantes Ajudantes.
 * **Restrição de Instituição e Nível:** Os estudantes da equipe devem pertencer à mesma escola e à mesma modalidade/nível de ensino (`fundamental` ou `medio`).
 * **Unicidade de Estudantes:** Um estudante só pode participar de **uma única equipe** por edição. Essa regra é garantida no código pela coleção `membro-index` via chave `base64(email)_edicaoId`.
-* **Encerramento de inscrições:** O admin liga/desliga `config/plataforma.inscricoesAbertas`. Fechado: sem conta nova, sem equipe nova, sem incluir/trocar membro. Login permanece. Equipe segue à sala se `membros[0]`…`[3]` existem (não usar `isCompleta`). Documento ausente = aberto.
 * **Multi-Orientação de Professores:** Um professor pode orientar e criar **múltiplas equipes** na mesma edição.
 * **Alteração de Nome da Equipe:**
   * Permitida apenas para o Professor Orientador ou Estudante Responsável.

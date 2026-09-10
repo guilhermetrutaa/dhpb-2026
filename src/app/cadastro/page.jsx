@@ -1,13 +1,12 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import Image from 'next/image'
 import { Poppins } from 'next/font/google';
 import { createUserWithEmailAndPassword } from 'firebase/auth'
 import { doc, setDoc, getDocFromServer } from 'firebase/firestore'
 import { auth, db } from '@/lib/firebase'
 import { useRouter } from 'next/navigation'
-import { lerInscricoesAbertas, MSG_INSCRICOES_ENCERRADAS } from '@/lib/inscricoes'
 
 const timeout = (ms) => new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), ms))
 const normalizarEspacos = (valor) => String(valor || '').trim().replace(/\s+/g, ' ')
@@ -26,31 +25,11 @@ const Page = () => {
   const [confirmarSenha, setConfirmarSenha] = useState('')
   const [erro, setErro] = useState('')
   const [carregando, setCarregando] = useState(false)
-  const [inscricoesAbertas, setInscricoesAbertas] = useState(true)
-  const [checandoInscricoes, setChecandoInscricoes] = useState(true)
   const router = useRouter()
-
-  useEffect(() => {
-    ;(async () => {
-      try {
-        setInscricoesAbertas(await lerInscricoesAbertas())
-      } catch {
-        setInscricoesAbertas(true)
-      } finally {
-        setChecandoInscricoes(false)
-      }
-    })()
-  }, [])
 
   const handleCadastro = async (e) => {
     e.preventDefault()
     setErro('')
-    const aindaAberto = await lerInscricoesAbertas({ fromServer: true })
-    if (!aindaAberto) {
-      setInscricoesAbertas(false)
-      setErro(MSG_INSCRICOES_ENCERRADAS)
-      return
-    }
     const nomeNormalizado = normalizarEspacos(nome)
     const sobrenomeNormalizado = normalizarEspacos(sobrenome)
 
@@ -140,23 +119,9 @@ const Page = () => {
             <div className='w-full max-w-md'>
               <div className='text-center lg:text-left'>
                 <h1 className='text-3xl md:text-[2.2rem] text-[#82181A] font-medium'>Autenticação</h1>
-                <p className='text-[#2e2e2e] pt-5'>
-                  {checandoInscricoes || inscricoesAbertas
-                    ? 'Entre com sua conta ou crie-a aqui mesmo'
-                    : MSG_INSCRICOES_ENCERRADAS}
-                </p>
+                <p className='text-[#2e2e2e] pt-5'>Entre com sua conta ou crie-a aqui mesmo</p>
               </div>
 
-              {!checandoInscricoes && !inscricoesAbertas ? (
-                <div className="pt-10">
-                  <a
-                    href="/login"
-                    className="block w-full text-center bg-[#82181A] py-4 font-semibold text-white hover:bg-[#631214] transition-colors rounded-xl lg:rounded-none"
-                  >
-                    Ir para o login
-                  </a>
-                </div>
-              ) : (
               <form onSubmit={handleCadastro} className="space-y-6 pt-10">
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-neutral-900">Email</label>
@@ -264,7 +229,6 @@ const Page = () => {
                   </p>
                 </div>
               </form>
-              )}
             </div>
           </div>
         </main>
