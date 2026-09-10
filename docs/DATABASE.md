@@ -130,6 +130,18 @@ Documento: `membro-index/{base64(email)_edicaoId}`
 
 ---
 
+### 2.5. Coleção `config`
+Documento: `config/plataforma`
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `inscricoesAbertas` | boolean | Se `false`, o site recusa cadastro de conta, criação de equipe e inclusão/troca de membros. Documento ausente vale como aberto. |
+| `atualizadoEm` | string (ISO) | Momento em que o admin alterou o interruptor |
+
+Completude para seguir à sala (com inscrições encerradas): existem `membros[0]` … `membros[3]`. O campo `isCompleta` da equipe **não** é usado nessa trava.
+
+---
+
 ## 3. Esquema do Banco de Suporte
 
 ### 3.1. Coleção `chamados`

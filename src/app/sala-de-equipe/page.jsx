@@ -8,6 +8,7 @@ import { db } from '@/lib/firebase'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter, useSearchParams } from 'next/navigation'
 import ModalQuestionarioEquipe from '@/components/ModalQuestionarioEquipe'
+import { equipeTemQuatroMembros, lerInscricoesAbertas, MSG_INSCRICOES_ENCERRADAS } from '@/lib/inscricoes'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -26,6 +27,7 @@ function SalaEquipeContent() {
   const [carregando, setCarregando] = useState(true)
   const [questionarioPendente, setQuestionarioPendente] = useState(null)
   const [verificandoQuestionario, setVerificandoQuestionario] = useState(true)
+  const [salaBloqueada, setSalaBloqueada] = useState(false)
 
   useEffect(() => {
     if (!loading && !authUser) router.push('/login')
@@ -67,6 +69,21 @@ function SalaEquipeContent() {
       setQuestionarioPendente(!jaRespondeu)
     }
   }, [verificandoQuestionario, equipe])
+
+  useEffect(() => {
+    if (!equipe) return
+    let ativo = true
+    ;(async () => {
+      try {
+        const aberto = await lerInscricoesAbertas()
+        if (!ativo) return
+        setSalaBloqueada(!aberto && !equipeTemQuatroMembros(equipe))
+      } catch {
+        if (ativo) setSalaBloqueada(false)
+      }
+    })()
+    return () => { ativo = false }
+  }, [equipe])
 
   if (loading || !authUser) {
     return <div className={`${poppins.className} w-full min-h-screen flex items-center justify-center`}><p className="text-[#82181A] text-lg">Carregando...</p></div>
@@ -177,7 +194,7 @@ function SalaEquipeContent() {
 
   return (
     <div className={poppins.className}>
-      {questionarioPendente && equipe && (
+      {questionarioPendente && equipe && !salaBloqueada && (
         <ModalQuestionarioEquipe
           authUser={authUser}
           userData={userData}
@@ -213,6 +230,10 @@ function SalaEquipeContent() {
             ) : !equipe ? (
               <div className='flex min-h-[360px] items-center justify-center'>
                 <p className="text-lg font-medium text-[#82181A]">Equipe não encontrada.</p>
+              </div>
+            ) : salaBloqueada ? (
+              <div className='flex min-h-[360px] items-center justify-center px-6'>
+                <p className="text-lg font-medium text-[#82181A] text-center max-w-lg">{MSG_INSCRICOES_ENCERRADAS}</p>
               </div>
             ) : (
               <>

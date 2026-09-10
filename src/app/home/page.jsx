@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import ModalQuestionarioIndividual from '@/components/ModalQuestionarioIndividual'
+import { lerInscricoesAbertas, MSG_INSCRICOES_ENCERRADAS } from '@/lib/inscricoes'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -105,12 +106,23 @@ const Page = () => {
     } catch {}
 
 
+    const aindaAberto = await lerInscricoesAbertas()
+    if (!aindaAberto) {
+      setErro(MSG_INSCRICOES_ENCERRADAS)
+      return
+    }
+
     router.push(`/criar-equipe?edicaoId=${edicaoId}`)
   }
 
-  const handleQuestionarioComplete = () => {
+  const handleQuestionarioComplete = async () => {
     const edId = edicaoQuestionarioPendente
     setEdicaoQuestionarioPendente(null)
+    const aindaAberto = await lerInscricoesAbertas()
+    if (!aindaAberto) {
+      setErro(MSG_INSCRICOES_ENCERRADAS)
+      return
+    }
     if (edId) router.push(`/criar-equipe?edicaoId=${edId}`)
   }
 

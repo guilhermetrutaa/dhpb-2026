@@ -7,6 +7,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { lerInscricoesAbertas, MSG_INSCRICOES_ENCERRADAS } from '@/lib/inscricoes'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -41,10 +42,24 @@ function CadastroEscolaForm() {
   const [escola, setEscola] = useState(null)
   const [cadastrando, setCadastrando] = useState(false)
   const [erroCadastro, setErroCadastro] = useState('')
+  const [inscricoesAbertas, setInscricoesAbertas] = useState(true)
+  const [checandoInscricoes, setChecandoInscricoes] = useState(true)
 
   useEffect(() => {
     if (!loading && !authUser) router.push('/login')
   }, [loading, authUser, router])
+
+  useEffect(() => {
+    ;(async () => {
+      try {
+        setInscricoesAbertas(await lerInscricoesAbertas())
+      } catch {
+        setInscricoesAbertas(true)
+      } finally {
+        setChecandoInscricoes(false)
+      }
+    })()
+  }, [])
 
   const handleBuscar = async (e) => {
     e?.preventDefault()
@@ -87,6 +102,13 @@ function CadastroEscolaForm() {
     setCadastrando(true)
     setErroCadastro('')
     try {
+      const aindaAberto = await lerInscricoesAbertas({ fromServer: true })
+      if (!aindaAberto) {
+        setInscricoesAbertas(false)
+        setErroCadastro(MSG_INSCRICOES_ENCERRADAS)
+        setCadastrando(false)
+        return
+      }
       await setDoc(doc(db, 'escolas', escola.id), {
         cadastrada: true,
         cadastradaPor: authUser.uid,
@@ -105,8 +127,24 @@ function CadastroEscolaForm() {
     }
   }
 
-  if (loading || !authUser) {
+  if (loading || !authUser || checandoInscricoes) {
     return <div className={`${poppins.className} w-full min-h-screen flex items-center justify-center`}><p className="text-[#82181A] text-lg">Carregando...</p></div>
+  }
+
+  if (!inscricoesAbertas) {
+    return (
+      <div className={poppins.className}>
+        <div className='w-full min-h-screen bg-[#fff] text-[#000] flex items-center justify-center px-6'>
+          <div className='max-w-md text-center space-y-6'>
+            <h1 className='text-3xl text-[#82181A] font-medium'>Inscrições encerradas</h1>
+            <p className='text-[#2e2e2e]'>{MSG_INSCRICOES_ENCERRADAS}</p>
+            <a href="/home" className='inline-block bg-[#82181A] text-white font-semibold px-8 py-3 rounded-xl hover:bg-[#631214]'>
+              Voltar à home
+            </a>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

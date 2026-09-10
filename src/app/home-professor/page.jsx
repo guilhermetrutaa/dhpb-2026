@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import ModalQuestionarioIndividual from '@/components/ModalQuestionarioIndividual'
+import { lerInscricoesAbertas, MSG_INSCRICOES_ENCERRADAS } from '@/lib/inscricoes'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -20,6 +21,7 @@ const Page = () => {
   const [equipes, setEquipes] = useState({})
   const [showAvatares, setShowAvatares] = useState(false)
   const [edicaoQuestionarioPendente, setEdicaoQuestionarioPendente] = useState(null)
+  const [erro, setErro] = useState('')
   const [abaAvatar, setAbaAvatar] = useState('avatares')
   const avatares = ['/avatar.svg', '/avatar2.svg', '/avatar3.svg', '/avatar4.svg', '/avatar5.svg']
   const cidades = [
@@ -61,6 +63,7 @@ const Page = () => {
   }, [authUser])
 
   const handleEdicaoClick = async (edicaoId) => {
+    setErro('')
     if (userData?.documentoStatus === 'pendente') {
       return
     }
@@ -110,12 +113,23 @@ const Page = () => {
     } catch {}
 
 
+    const aindaAberto = await lerInscricoesAbertas()
+    if (!aindaAberto) {
+      setErro(MSG_INSCRICOES_ENCERRADAS)
+      return
+    }
+
     router.push(`/criar-equipe?edicaoId=${edicaoId}`)
   }
 
-  const handleQuestionarioComplete = () => {
+  const handleQuestionarioComplete = async () => {
     const edId = edicaoQuestionarioPendente
     setEdicaoQuestionarioPendente(null)
+    const aindaAberto = await lerInscricoesAbertas()
+    if (!aindaAberto) {
+      setErro(MSG_INSCRICOES_ENCERRADAS)
+      return
+    }
     if (edId) router.push(`/criar-equipe?edicaoId=${edId}`)
   }
 
@@ -270,6 +284,8 @@ const Page = () => {
                     <div className='flex justify-center items-center'>
                         <p className='text-[1.3rem] md:text-[1.5rem] text-[#82181A] font-medium'>Edições</p>
                     </div>
+
+                    {erro && <p className='text-center text-red-600 text-sm mt-2 max-w-lg mx-auto'>{erro}</p>}
 
                     <div className='flex flex-wrap justify-center gap-4 pt-5 pb-10'>
                       {edicoes.length === 0 ? (

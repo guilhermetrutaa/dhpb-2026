@@ -7,6 +7,7 @@ import { doc, getDoc, updateDoc, arrayUnion, arrayRemove, setDoc, collection, qu
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { equipeTemQuatroMembros, lerInscricoesAbertas, MSG_INSCRICOES_ENCERRADAS } from '@/lib/inscricoes'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -28,7 +29,7 @@ const calcularIsCompleta = (membrosAtuais, novoMembro, op) => {
   return profs === 1 && resps === 1 && alunos === 2
 }
 
-function SingleTeamView({ equipeId, authUser, userData }) {
+function SingleTeamView({ equipeId, authUser, userData, inscricoesAbertas }) {
   const router = useRouter()
   const [equipe, setEquipe] = useState(null)
   const [carregando, setCarregando] = useState(true)
@@ -67,7 +68,7 @@ function SingleTeamView({ equipeId, authUser, userData }) {
 
   const currentUserMembro = membrosAtivos.find(m => m.uid === authUser?.uid)
   const currentUserPapel = currentUserMembro?.papel
-  const podeAddMembro = currentUserPapel === 'professor_orientador' || currentUserPapel === 'responsavel'
+  const podeAddMembro = inscricoesAbertas && (currentUserPapel === 'professor_orientador' || currentUserPapel === 'responsavel')
 
   const slotsDisponiveis = () => {
     if (!equipe) return { professor: 0, aluno: 0, responsavel: 0, total: 0 }
@@ -86,6 +87,7 @@ function SingleTeamView({ equipeId, authUser, userData }) {
       delete autoAddTimeoutRef.current[slotKey]
     }
     setAutoAddAviso(prev => (prev?.slotKey === slotKey ? null : prev))
+    if (!inscricoesAbertas) { setErro(MSG_INSCRICOES_ENCERRADAS); return }
     if (!data?.email?.trim()) { setErro('Digite o email do participante.'); return }
     if (slotsDisponiveis().total <= 0) { setErro('Equipe já está completa.'); return }
     setErro('')
@@ -439,7 +441,7 @@ function SingleTeamView({ equipeId, authUser, userData }) {
             ))}
           </div>
 
-          {s.total === 0 && (
+          {(inscricoesAbertas ? s.total === 0 : equipeTemQuatroMembros(equipe)) && (
             <div className="mt-7 text-center">
               <a
                 href={`/sala-de-equipe?equipeId=${equipeId}`}
@@ -448,6 +450,9 @@ function SingleTeamView({ equipeId, authUser, userData }) {
                 Sala de Equipe
               </a>
             </div>
+          )}
+          {!inscricoesAbertas && !equipeTemQuatroMembros(equipe) && (
+            <p className="mt-4 bg-white/90 px-4 py-2 text-sm font-medium text-[#82181A]">{MSG_INSCRICOES_ENCERRADAS}</p>
           )}
 
           {erro && <p className="mt-4 bg-white/90 px-4 py-2 text-sm font-medium text-[#82181A]">{erro}</p>}
@@ -458,7 +463,7 @@ function SingleTeamView({ equipeId, authUser, userData }) {
   )
 }
 
-function MultiTeamView({ authUser, userData, edicoes }) {
+function MultiTeamView({ authUser, userData, edicoes, inscricoesAbertas }) {
   const POR_PAGINA = 3
   const [todasEquipes, setTodasEquipes] = useState([])
   const [visiveis, setVisiveis] = useState(POR_PAGINA)
@@ -607,7 +612,7 @@ function MultiTeamView({ authUser, userData, edicoes }) {
   const equipesOrientador = todasEquipes.filter(eq =>
     eq.membros?.some(m => m.uid === authUser?.uid && m.papel === 'professor_orientador')
   )
-  const podeArrastar = equipesOrientador.length >= 2
+  const podeArrastar = inscricoesAbertas && equipesOrientador.length >= 2
 
   const podeFazerSwap = (teamA, teamB) => {
     if (!teamA || !teamB || teamA.id === teamB.id) return false
@@ -621,6 +626,10 @@ function MultiTeamView({ authUser, userData, edicoes }) {
   }
 
   const handleSwap = async (targetTeamId, targetMembro) => {
+    if (!inscricoesAbertas) {
+      alert(MSG_INSCRICOES_ENCERRADAS)
+      return
+    }
     if (!dragSource) return
     const { teamId: sourceTeamId, membro: sourceMembro } = dragSource
     setDragSource(null)
@@ -739,6 +748,7 @@ function MultiTeamView({ authUser, userData, edicoes }) {
                     delete autoAddTimeoutRefMulti.current[slotStateKey]
                   }
                   setAutoAddAvisoMulti(prev => (prev?.slotStateKey === slotStateKey ? null : prev))
+                  if (!inscricoesAbertas) { alert(MSG_INSCRICOES_ENCERRADAS); return }
                   if (!data?.email?.trim()) return
                   try {
                     const usersSnap = await getDocs(query(collection(db, 'users'), where('email', '==', data.email.trim())))
@@ -901,7 +911,7 @@ function MultiTeamView({ authUser, userData, edicoes }) {
                           )
                         }
 
-                        if (podeAddMembro) {
+                        if (podeAddMembro && inscricoesAbertas) {
                           const papelLabel = slot.papel === 'professor_orientador' ? 'orientador' : slot.papel === 'responsavel' ? 'responsável' : 'estudante'
                           return (
                             <React.Fragment key={`${equipe.id}-slot-${slot.slotIndex}`}>
@@ -978,11 +988,13 @@ function MultiTeamView({ authUser, userData, edicoes }) {
                     </div>
 
                     <div className="mt-7 text-center">
-                      {membrosAtivos.length === 4 ? (
+                      {equipeTemQuatroMembros(equipe) ? (
                         <a href={`/sala-de-equipe?equipeId=${equipe.id}`}
                           className="inline-block bg-white px-8 py-3 text-sm font-semibold text-[#830000] transition-colors hover:bg-gray-100">
                           Sala de Equipe
                         </a>
+                      ) : !inscricoesAbertas ? (
+                        <p className="text-white/90 text-sm px-4">{MSG_INSCRICOES_ENCERRADAS}</p>
                       ) : !podeAddMembro && (
                         <p className="text-white/60 text-sm">Aguardando os administradores completarem a equipe.</p>
                       )}
@@ -1015,10 +1027,21 @@ function MontagemEquipeForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const equipeId = searchParams.get('equipeId')
+  const [inscricoesAbertas, setInscricoesAbertas] = useState(true)
 
   useEffect(() => {
     if (!loading && !authUser) router.push('/login')
   }, [loading, authUser, router])
+
+  useEffect(() => {
+    ;(async () => {
+      try {
+        setInscricoesAbertas(await lerInscricoesAbertas())
+      } catch {
+        setInscricoesAbertas(true)
+      }
+    })()
+  }, [])
 
   if (loading || !authUser) {
     return <div className={`${poppins.className} w-full min-h-screen flex items-center justify-center`}><p className="text-[#82181A] text-lg">Carregando...</p></div>
@@ -1044,10 +1067,10 @@ function MontagemEquipeForm() {
 
         <main style={{ backgroundImage: 'url(/bg-dhpb.svg)' }} className='w-full bg-cover bg-center px-4 pb-8 sm:px-6 md:px-8'>
           {equipeId ? (
-            <SingleTeamView equipeId={equipeId} authUser={authUser} userData={userData} />
+            <SingleTeamView equipeId={equipeId} authUser={authUser} userData={userData} inscricoesAbertas={inscricoesAbertas} />
           ) : (
             <div className="py-12">
-              <MultiTeamView authUser={authUser} userData={userData} edicoes={edicoes} />
+              <MultiTeamView authUser={authUser} userData={userData} edicoes={edicoes} inscricoesAbertas={inscricoesAbertas} />
             </div>
           )}
         </main>
