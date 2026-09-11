@@ -110,13 +110,12 @@ const Page = () => {
     } catch {}
 
 
-    router.push(`/criar-equipe?edicaoId=${edicaoId}`)
+    window.alert('As inscrições do 4º DHPB foram encerradas em 10/09/2026.')
   }
 
   const handleQuestionarioComplete = () => {
-    const edId = edicaoQuestionarioPendente
     setEdicaoQuestionarioPendente(null)
-    if (edId) router.push(`/criar-equipe?edicaoId=${edId}`)
+    window.alert('As inscrições do 4º DHPB foram encerradas em 10/09/2026.')
   }
 
   if (loading || !authUser) {
