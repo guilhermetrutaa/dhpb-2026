@@ -905,6 +905,7 @@ const Page = () => {
 
                         {edicaoAberta === ed.id && (
                           <div className='border-t border-neutral-100 bg-neutral-50/50 p-4 space-y-4'>
+                            <p className='text-[11px] text-neutral-500'>Pesos oficiais do 4º DHPB: 1, 2, 4, 8 e 16. Nota máxima da fase: 100. Desempenho da fase = nota bruta × peso.</p>
                             <div className='grid grid-cols-1 sm:grid-cols-6 gap-2'>
                               <input type="text" placeholder="Nome" value={faseForm.nome} onChange={(e) => setFaseForm({ ...faseForm, nome: e.target.value })}
                                 className="rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-[#82181A]" />
@@ -912,10 +913,10 @@ const Page = () => {
                                 className="rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-[#82181A]" />
                               <input type="date" value={faseForm.dataFim} onChange={(e) => setFaseForm({ ...faseForm, dataFim: e.target.value })}
                                 className="rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-[#82181A]" />
-                              <input type="number" placeholder="Peso" value={faseForm.peso} onChange={(e) => setFaseForm({ ...faseForm, peso: e.target.value })}
-                                className="rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-[#82181A]" />
-                              <input type="number" placeholder="Nota Máx" value={faseForm.notaMaxima} onChange={(e) => setFaseForm({ ...faseForm, notaMaxima: e.target.value })}
-                                className="rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-[#82181A]" />
+                              <input type="number" placeholder="Peso (1, 2, 4, 8, 16)" value={faseForm.peso} onChange={(e) => setFaseForm({ ...faseForm, peso: e.target.value })}
+                                className="rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-[#82181A]" title="Pesos oficiais do 4º DHPB: 1, 2, 4, 8 e 16. Di = Ni × peso." />
+                              <input type="number" placeholder="Nota Máx (100)" value={faseForm.notaMaxima} onChange={(e) => setFaseForm({ ...faseForm, notaMaxima: e.target.value })}
+                                className="rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-[#82181A]" title="Teto da nota bruta da fase (100). Não divide o Di." />
                               <button onClick={() => criarFase(ed.id)}
                                 className='bg-[#82181A] text-white font-semibold rounded-xl hover:bg-[#631214] transition-all cursor-pointer'>+ Fase</button>
                             </div>

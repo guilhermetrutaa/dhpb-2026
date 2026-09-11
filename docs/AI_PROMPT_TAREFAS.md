@@ -2,9 +2,9 @@
 
 Cole este arquivo (ou as seções marcadas) no chat da IA que for **implementar uma tarefa interativa**.
 
-**Não use** `MANUAL-PROGRAMADOR-TAREFAS.md`. Ele está obsoleto: a fórmula de `Di` está errada (`pontos * Pi` sem dividir por `notaMaxima`) e o padrão de escrita (só `updateDoc` no documento da equipe, sem transação nem subcoleção) **não é o código atual**.
+**Não use** `MANUAL-PROGRAMADOR-TAREFAS.md`. Ele está obsoleto no padrão de escrita (só `updateDoc` no documento da equipe, sem transação nem subcoleção).
 
-A fórmula de pontuação da olimpíada **pode mudar**. Até haver spec nova, use o contrato abaixo (igual ao das questões objetivas em `src/app/questao/page.jsx`).
+A fórmula vigente é a da spec `011-sistema-pontuacao-eliminacao-fases` (igual às questões objetivas em `src/app/questao/page.jsx`): `Di = Ni × peso`.
 
 ---
 
@@ -38,7 +38,7 @@ Fluxo:
 4. Aluno abre a fase em `/resumo-fase` e clica no cartão da tarefa.
 5. A página entrega com `runTransaction` + `increment`, igual à questão.
 
-`notaMaxima` da fase é **manual** no dashboard. Ela deve ser a soma do máximo das questões **mais** `tarefa.pontuacao`. Se a fase 1 tiver 8 questões × 5 pontos + tarefa 10, `notaMaxima` = **50**. Se ficar 40, `Di` infla.
+`notaMaxima` da fase é **manual** no dashboard e vale como teto da nota bruta (100 no 4º DHPB: 80 nas questões + 20 na tarefa). Ela **não** divide o `Di`.
 
 ---
 
@@ -104,25 +104,24 @@ Ranking lê o **mapa** `equipes.pontuacoes` e `df`.
 
 ```
 Ni  = soma dos pesos das questões entregues + pontos da tarefa nesta fase
-Di  = (Ni / notaMaxima) * peso
-Df  = soma dos Di de todas as fases
+Di  = Ni * peso
+Df  = soma dos Di de todas as fases (máximo 3100)
 ```
+
+Pesos oficiais: 1, 2, 4, 8, 16.
 
 No código isso é **incremental** (igual à questão):
 
 ```
-fator   = peso / notaMaxima          // se notaMaxima <= 0, NÃO entregue; avise o admin
 delta   = pontosNovos - pontosJaCreditados   // rascunho: pontosNovos = 0
-deltaDi = delta * fator
+deltaDi = Math.round(delta * peso * 100) / 100
 ```
 
 Depois: `increment(delta)` em `ni`, `increment(deltaDi)` em `di` e `df`.
 
-**Errado (manual antigo):** `deltaDi = pontosGanhos * pesoDaFase`.
-
 `entregue` é imutável. Se outro membro já entregou, a transação aborta.
 
-`notaMaxima` e `peso` vêm do documento da fase (`getDoc` uma vez). Não recalcule ranking. Não leia a coleção `equipes`.
+`peso` vem do documento da fase (`getDoc` uma vez). Não recalcule ranking. Não leia a coleção `equipes`.
 
 ---
 
@@ -141,16 +140,11 @@ const pontuacaoRef = doc(db, 'equipes', equipeId, 'pontuacoes', faseId)
 
 const faseSnap = await getDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId))
 const fase = faseSnap.data()
-const notaMaxima = fase?.notaMaxima
 const pesoFase = fase?.peso || 0
-if (!(notaMaxima > 0)) {
-  throw new Error('Fase sem notaMaxima. Peça ao admin para corrigir o dashboard.')
-}
 
 const novoPeso = status === 'entregue' ? pontosTarefa : 0
 const delta = novoPeso - respostaPesoAnterior
-const fator = pesoFase / notaMaxima
-const deltaDi = delta * fator
+const deltaDi = Math.round(delta * pesoFase * 100) / 100
 
 const respostaObj = {
   status, // 'rascunho' | 'entregue'
@@ -247,14 +241,14 @@ Tarefa a implementar:
 - Regras do jogo e como calcular pontosTarefa (0 até tarefa.pontuacao da fase):
   <DESCREVA>
 - Pontuação máxima prevista desta tarefa: <N>
-- Lembre o admin: notaMaxima da fase = max questões + este N
+- Lembre o admin: notaMaxima da fase = 100 (questões + esta tarefa); peso oficial da fase (1, 2, 4, 8 ou 16)
 
 Contrato:
 - 'use client' + Suspense em useSearchParams
 - Query: equipeId, faseId, edicaoId
 - Firebase: @/lib/firebase apenas
 - Entrega: runTransaction + increment como no snippet de docs/AI_PROMPT_TAREFAS.md
-- Di = delta * (peso / notaMaxima). NÃO use pontos * peso
+- Di = delta * peso (arredondar 2 casas). Não dividir por notaMaxima
 - Dual-write respostas + pontuacoes (subcoleção e mapa)
 - Status entregue imutável
 - Sem getDocs sem where/limit no path do aluno

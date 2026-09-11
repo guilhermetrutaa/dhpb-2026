@@ -42,14 +42,16 @@ Este documento consolida as regras de negócio identificadas no código-fonte, s
   * **Anti-Concorrência:** Transação atômica (`runTransaction`) impede que dois alunos entreguem a mesma questão quase simultaneamente e dupliquem a pontuação.
 
 ### 1.4. Sistema de Pontuação e Ranqueamento (Fórmula $Df$)
-* **Cálculo da Nota da Fase ($d_i$):**
-  $$d_i = \left( rac{n_i}{	ext{notaMaxima}_i} ight) 	imes 	ext{peso}_i$$
-  Onde $n_i$ é a soma dos pesos das questões entregues e da tarefa da fase.
-* **Desempenho Final ($Df$):**
-  $$Df = \sum_{i=1}^{k} d_i$$
-* **Sistema de Cotas e Aprovação (Admin Ranking):**
-  * 4 categorias: Médio Pública, Fundamental Pública, Médio Particular, Fundamental Particular.
-  * O administrador define o número de vagas por categoria e aprova os classificados preenchendo o campo `aprovadoAte` nas equipes.
+* **Nota bruta da fase ($N_i$):** 0 a 100 (`notaMaxima` é o teto, não o divisor do $d_i$). Fases 1–3: até 80 nas questões (itens 0 / 2 / 8 / 10) + até 20 na tarefa.
+* **Cálculo do desempenho da fase ($d_i$):** $d_i = n_i \times peso_i$. Pesos oficiais: 1, 2, 4, 8, 16. Valores arredondados na 2ª casa decimal.
+* **Desempenho Final ($Df$):** soma dos $d_i$, máximo 3100.
+* **Eliminação e aprovação (Admin Ranking):** o admin gera preview e grava `aprovadoAte`.
+  * Fase 1 → 2: $N_1 \ge 25{,}00$; sem teto de vagas.
+  * Fase 2 → 3: $N_2 \ge 50{,}00$; sem teto de vagas.
+  * Fase 3 → 4: até 125 ampla concorrência + 125 reservadas à rede pública, pelo $Df$ acumulado.
+  * Fase 4 → final: até 120; 60 do ranking geral; completa mínimo de 60 públicas; resto na ordem geral.
+  * Desempate: $N_3$, depois $N_2$, depois $N_1$. Empate persistente na linha de corte: todas avançam.
+  * Rede pública: `municipal`, `estadual`, `federal`, `publica`.
 
 ---
 
@@ -65,5 +67,4 @@ Este documento consolida as regras de negócio identificadas no código-fonte, s
 
 ## 3. Regras que Precisam de Confirmação Humana
 
-* **Critérios de Desempate no Ranking:** O código atual faz ordenação decrescente simples por `df` (`b.df - a.df`). Critérios secundários de desempate (ex: tempo de envio, data de criação da equipe, menor pontuação na tarefa) não estão explicitados no código.
 * **Critérios de Emissão de Medalhas:** Em `/admin/medalhas` e `/certificado-medalha`, confirmar se a nota de corte para Ouro, Prata e Bronze é definida manualmente pelo admin ou segue percentil estatístico fixo.

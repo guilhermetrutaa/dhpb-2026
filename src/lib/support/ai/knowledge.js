@@ -165,6 +165,16 @@ O DHPB é uma olimpíada/desafio de conhecimento do IFPB sobre História da Para
 - Se recusado, aparece o motivo quando houver e a pessoa deve enviar novo documento.
 - Se o documento foi enviado errado, reprovado, não aparece ou precisa ser corrigido, isso é caso de suporte humano.
 
+## Pontuação e classificação
+- Cada fase tem nota bruta de 0 a 100. Fases 1 a 3: até 8 questões (teto 80) com itens 0, 2, 8 ou 10 pontos, mais tarefa da banca (teto 20). Fases 4 e 5 valem até 100 pontos na atividade.
+- Pesos das 5 fases: 1, 2, 4, 8 e 16. Desempenho da fase (Di) = nota bruta × peso. Desempenho final (Df) = soma dos Di, máximo 3100.
+- Fase 1 → 2: avança quem tiver nota bruta N1 ≥ 25,00; sem limite de vagas.
+- Fase 2 → 3: avança quem tiver nota bruta N2 ≥ 50,00; sem limite de vagas.
+- Fase 3 → 4: até 250 equipes (125 ampla concorrência pelo Df acumulado + 125 reservadas à rede pública subsequente).
+- Fase 4 → final presencial: até 120 equipes; 60 primeiras do ranking geral; se nessas 60 houver menos de 60 públicas, completa a reserva; o resto segue o ranking geral. Mínimo de 60 vagas para escolas públicas (municipal, estadual ou federal).
+- Desempate nas fases 4 e 5: maior N3, depois N2, depois N1. Se ainda empatar na linha de corte, todas avançam juntas.
+- A liberação para a fase seguinte é gravada pela administração após preview; a sala da equipe usa essa liberação para bloquear ou abrir a fase.
+
 ## Sala de Equipe e fases
 - O DHPB tem 4 fases online e uma final presencial.
 - As fases online com prova têm 8 questões por fase.

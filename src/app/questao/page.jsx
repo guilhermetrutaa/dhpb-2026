@@ -566,9 +566,8 @@ function QuestaoContent() {
 
         // Atualiza pontuação e equipe se houve entrega/mudança
         if (delta !== 0) {
-          const notaMaxima = fase?.notaMaxima > 0 ? fase?.notaMaxima : 1
-          const fator = (fase?.peso || 0) / notaMaxima
-          const deltaDi = delta * fator
+          const pesoFase = fase?.peso || 0
+          const deltaDi = Math.round(delta * pesoFase * 100) / 100
 
           transaction.set(pontuacaoRef, {
             ni: increment(delta),

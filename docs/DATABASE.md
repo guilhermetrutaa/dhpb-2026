@@ -58,8 +58,8 @@ Documento representativo da Fase da Olimpíada (mantido leve):
 | `dataInicio` | string (ISO/date) | Data de abertura da fase |
 | `dataFim` | string (ISO/date) | Data de encerramento da fase |
 | `status` | string | `'pendente'`, `'aberta'`, `'finalizada'`, `'correcao'` |
-| `peso` | number | Peso da fase no cálculo da nota final |
-| `notaMaxima` | number | Pontuação máxima da fase (usado como divisor no cálculo do $d_i$) |
+| `peso` | number | Peso da fase no $d_i$ (oficiais 4º DHPB: 1, 2, 4, 8, 16) |
+| `notaMaxima` | number | Teto da nota bruta $n_i$ (100). Não divide o $d_i$ |
 | `provaPdfUrl` | string (opcional) | Link do caderno de prova em PDF |
 | `questoesIndex` | array | Lista leve com `[{ id: string, numero: number }]` para paginação rápida |
 | `tarefa` | object (opcional) | `{ titulo: string, pontuacao: number }` |
@@ -98,7 +98,7 @@ Documento: `equipes/{equipeId}`
 | `criadorEmail` | string | E-mail do criador |
 | `membros` | array | Lista de membros: `[{ uid, nome, email, papel, status: 'ativo' }]` |
 | `orientadorUids` | array | Array de UIDs dos orientadores (para queries com `array-contains`) |
-| `df` | number | Desempenho Final consolidado da equipe (soma ponderada de todas as fases) |
+| `df` | number | Desempenho Final consolidado da equipe ($\sum n_i \times \text{peso}_i$, máximo 3100) |
 | `aprovadoAte` | string (opcional) | Qual fase a equipe está liberada (ex: `'fase1'`, `'fase2'`, `'fase3'`, `'fase4'`) |
 | `questionarioEquipe` | object (opcional) | Respostas do questionário coletivo da equipe |
 | `ultimoNomeEditadoEm` | string (ISO) | Timestamp da última alteração de nome (cooldown de 25 dias) |
@@ -119,7 +119,7 @@ Documento: `equipes/{equipeId}`
 | Campo | Tipo | Descrição |
 |---|---|---|
 | `ni` | number | Nota bruta da equipe na fase (soma dos pesos das questões entregues) |
-| `di` | number | Desempenho ponderado da fase: $(n_i / 	ext{notaMaxima}) 	imes 	ext{peso}$ |
+| `di` | number | Desempenho da fase: $n_i \times \text{peso}$ |
 
 ---
 
