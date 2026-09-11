@@ -8,7 +8,7 @@
 
 ## Problema / valor
 
-Os bloqueios de UI apos o prazo foram **revertidos**. Cadastro, criacao de equipe e montagem voltam ao fluxo original.
+Prazo de inscricao acabou. Cadastro de conta e criacao de equipe bloqueados na UI. Quem ja tem equipe entra normal. Sem documento Firestore, sem admin.
 
 ## Atores
 
@@ -17,20 +17,20 @@ Os bloqueios de UI apos o prazo foram **revertidos**. Cadastro, criacao de equip
 
 ## Escopo negativo
 
-Nao altera `AuthContext`, `firebase.js`, `firestore-rest.js`, `escolas-pb.json`, ranking, `membro-index`, sala-de-equipe, admin.
+Nao altera `criar-equipe` (pagina/URL), `montagem-equipe`, `AuthContext`, `firebase.js`, `firestore-rest.js`, `escolas-pb.json`, ranking, `membro-index`, sala-de-equipe, admin.
 
 ## As-is vs to-be
 
-| Regra | Depois do bloqueio | Agora |
+| Regra | No codigo hoje | Depois desta spec |
 |---|---|---|
-| Botao criar conta | Removido | "Crie agora" no login |
-| Pagina `/cadastro` | Mensagem de encerrado | Formulario cria Auth + `users/{uid}` |
-| Clique na edicao sem equipe | `alert` | Vai a `/criar-equipe` |
-| Montagem | (nao estava bloqueada no commit) | Incluir membro liberado |
+| Botao criar conta | "Crie agora" no login | Removido |
+| Pagina `/cadastro` | Formulario cria Auth | Mensagem de encerrado; sem `createUser` |
+| Clique na edicao sem equipe | Vai a `/criar-equipe` | `alert` de inscricoes encerradas |
+| Clique com equipe | Montagem/sala | Inalterado |
 
 ## Firestore
 
-**Leituras:** nenhuma extra do bloqueio. **Writes:** cadastro e criar equipe como antes.
+**Leituras:** nenhuma nova. **Writes:** nenhum.
 
 ## Required reading
 
@@ -43,11 +43,11 @@ Nao altera `AuthContext`, `firebase.js`, `firestore-rest.js`, `escolas-pb.json`,
 
 ## Criterios de aceite
 
-- [x] "Crie agora" no login leva a `/cadastro`
-- [x] `/cadastro` cria conta
-- [x] Sem equipe: vai para criar-equipe
-- [x] Montagem permite incluir membros
-- [x] Cota Spark: zero leitura extra do bloqueio
+- [x] "Crie agora" nao aparece no login
+- [x] `/cadastro` nao cria conta
+- [x] Sem equipe: alert, nao navega para criar-equipe
+- [x] Com equipe: fluxo atual
+- [x] Cota Spark: zero leitura extra
 
 ## Principios da constitution aplicaveis
 

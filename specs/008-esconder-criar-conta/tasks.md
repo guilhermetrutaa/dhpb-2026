@@ -1,5 +1,6 @@
-# Tasks: Liberar cadastro, equipe e montagem
+# Tasks: Bloquear so criacao de equipe apos prazo
 
 | ID | Task | Arquivos | Pronto quando | Risco Firestore |
 |---|---|---|---|---|
-| T1 | Restaurar UI | login, cadastro, home, home-professor | fluxos originais | nenhum |
+| T1 | Spec | `specs/008-esconder-criar-conta/*` | pasta alinhada: conta liberada | nenhum |
+| T2 | UI | login, home, home-professor | Crie agora visivel; alert sem equipe | nenhum |
