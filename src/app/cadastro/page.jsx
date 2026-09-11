@@ -1,8 +1,15 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import Image from 'next/image'
 import { Poppins } from 'next/font/google';
+import { createUserWithEmailAndPassword } from 'firebase/auth'
+import { doc, setDoc, getDocFromServer } from 'firebase/firestore'
+import { auth, db } from '@/lib/firebase'
+import { useRouter } from 'next/navigation'
+
+const timeout = (ms) => new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), ms))
+const normalizarEspacos = (valor) => String(valor || '').trim().replace(/\s+/g, ' ')
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -10,6 +17,88 @@ const poppins = Poppins({
 });
 
 const Page = () => {
+  const [email, setEmail] = useState('')
+  const [nome, setNome] = useState('')
+  const [sobrenome, setSobrenome] = useState('')
+  const [tipo, setTipo] = useState('')
+  const [senha, setSenha] = useState('')
+  const [confirmarSenha, setConfirmarSenha] = useState('')
+  const [erro, setErro] = useState('')
+  const [carregando, setCarregando] = useState(false)
+  const router = useRouter()
+
+  const handleCadastro = async (e) => {
+    e.preventDefault()
+    setErro('')
+    const nomeNormalizado = normalizarEspacos(nome)
+    const sobrenomeNormalizado = normalizarEspacos(sobrenome)
+
+    if (!nomeNormalizado || !sobrenomeNormalizado) {
+      setErro('Nome e sobrenome devem conter caracteres válidos.')
+      return
+    }
+
+    if (senha !== confirmarSenha) {
+      setErro('As senhas não coincidem.')
+      return
+    }
+
+    if (senha.length < 6) {
+      setErro('A senha deve ter pelo menos 6 caracteres.')
+      return
+    }
+
+    if (!tipo) {
+      setErro('Selecione se você é Professor ou Estudante.')
+      return
+    }
+
+    setCarregando(true)
+
+    try {
+      const credencial = await createUserWithEmailAndPassword(auth, email, senha)
+
+      try {
+        // Salva localmente (cache persistente responde na hora)
+        await setDoc(doc(db, 'users', credencial.user.uid), {
+          nome: nomeNormalizado,
+          sobrenome: sobrenomeNormalizado,
+          email,
+          tipo,
+          createdAt: new Date().toISOString(),
+        })
+
+        // FORÇA uma comunicação com o servidor real para garantir que não estamos offline (Conta Fantasma)
+        // Se a internet tiver caído ou bloqueado, isso vai falhar e o bloco catch será ativado.
+        await Promise.race([
+          getDocFromServer(doc(db, 'users', credencial.user.uid)),
+          timeout(8000)
+        ])
+      } catch (err) {
+        if (err.message === 'TIMEOUT') {
+          setErro('Firestore não respondeu. Confirme se criou o banco no Firebase Console → Firestore Database.')
+        } else {
+          setErro('Erro no Firestore: ' + (err.code || err.message))
+        }
+        return
+      }
+
+      router.push(tipo === 'professor' ? '/home-professor' : '/home')
+    } catch (err) {
+      if (err.code === 'auth/email-already-in-use') {
+        setErro('Este email já está cadastrado.')
+      } else if (err.code === 'auth/invalid-email') {
+        setErro('Email inválido.')
+      } else if (err.code === 'auth/weak-password') {
+        setErro('Senha muito fraca.')
+      } else {
+        setErro('Erro ao cadastrar. Tente novamente.')
+      }
+    } finally {
+      setCarregando(false)
+    }
+  }
+
   return (
     <div className={poppins.className}>
       <div className='w-full min-h-screen bg-[#fff] text-[#000] flex flex-col'>
@@ -30,17 +119,116 @@ const Page = () => {
             <div className='w-full max-w-md'>
               <div className='text-center lg:text-left'>
                 <h1 className='text-3xl md:text-[2.2rem] text-[#82181A] font-medium'>Autenticação</h1>
-                <p className='text-[#2e2e2e] pt-5'>As inscrições do 4º DHPB foram encerradas em 10/09/2026. Quem já tem conta continua podendo entrar.</p>
+                <p className='text-[#2e2e2e] pt-5'>Entre com sua conta ou crie-a aqui mesmo</p>
               </div>
 
-              <div className="pt-10">
-                <a
-                  href="/login"
-                  className="block w-full text-center bg-[#82181A] py-4 font-semibold text-white hover:bg-[#631214] transition-colors rounded-xl lg:rounded-none"
-                >
-                  Ir para o login
-                </a>
-              </div>
+              <form onSubmit={handleCadastro} className="space-y-6 pt-10">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-neutral-900">Email</label>
+                  <input
+                    type="email"
+                    placeholder="Digite seu email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="block w-full rounded-2xl border border-neutral-300 p-4 pl-6 text-sm text-neutral-900 placeholder-neutral-400 shadow-sm focus:border-[#82181A] focus:ring-1 focus:ring-[#82181A] outline-none"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-neutral-900">Nome</label>
+                  <input
+                    type="text"
+                    placeholder="Digite seu nome"
+                    value={nome}
+                    onChange={(e) => setNome(e.target.value)}
+                    required
+                    className="block w-full rounded-2xl border border-neutral-300 p-4 pl-6 text-sm text-neutral-900 placeholder-neutral-400 shadow-sm focus:border-[#82181A] focus:ring-1 focus:ring-[#82181A] outline-none"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-neutral-900">Sobrenome</label>
+                  <input
+                    type="text"
+                    placeholder="Digite seu sobrenome"
+                    value={sobrenome}
+                    onChange={(e) => setSobrenome(e.target.value)}
+                    required
+                    className="block w-full rounded-2xl border border-neutral-300 p-4 pl-6 text-sm text-neutral-900 placeholder-neutral-400 shadow-sm focus:border-[#82181A] focus:ring-1 focus:ring-[#82181A] outline-none"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                    <label className="block text-sm font-medium text-neutral-900">
+                        Você é Professor ou Estudante ?
+                    </label>
+                    
+                    <div className="relative">
+                        <select
+                            value={tipo}
+                            onChange={(e) => setTipo(e.target.value)}
+                            required
+                            className="block w-full rounded-2xl border border-neutral-300 p-4 pl-6 text-sm text-neutral-900 placeholder-neutral-400 shadow-sm focus:border-[#82181A] focus:ring-1 focus:ring-[#82181A] outline-none"
+                        >
+                    
+                        <option value="" disabled>
+                            Selecione uma opção
+                        </option>
+                    
+                        <option value="professor">Professor</option>
+                        <option value="estudante">Estudante</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-neutral-900">Senha</label>
+                  <input
+                    type="password"
+                    placeholder="********"
+                    value={senha}
+                    onChange={(e) => setSenha(e.target.value)}
+                    required
+                    className="block w-full rounded-2xl border border-neutral-300 p-4 pl-6 text-sm text-neutral-900 placeholder-neutral-400 shadow-sm focus:border-[#82181A] focus:ring-1 focus:ring-[#82181A] outline-none"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-neutral-900">Confirmação Senha</label>
+                  <input
+                    type="password"
+                    placeholder="********"
+                    value={confirmarSenha}
+                    onChange={(e) => setConfirmarSenha(e.target.value)}
+                    required
+                    className="block w-full rounded-2xl border border-neutral-300 p-4 pl-6 text-sm text-neutral-900 placeholder-neutral-400 shadow-sm focus:border-[#82181A] focus:ring-1 focus:ring-[#82181A] outline-none"
+                  />
+                </div>
+
+                {erro && (
+                  <p className="text-red-600 text-sm text-center">{erro}</p>
+                )}
+
+                <div>
+                  <button
+                    type="submit"
+                    disabled={carregando}
+                    className="w-full bg-[#82181A] py-4 font-semibold text-white cursor-pointer hover:bg-[#631214] transition-colors rounded-xl lg:rounded-none disabled:opacity-50"
+                  >
+                    {carregando ? 'Cadastrando...' : 'Prosseguir'}
+                  </button>
+                </div>
+
+                <div className="mt-8 text-center text-sm text-neutral-900">
+                  <p>
+                    Já tem uma conta?
+                    <a href="/login" className="font-semibold text-[#82181A] hover:underline pl-2">
+                      Logue agora
+                    </a>
+                  </p>
+                </div>
+              </form>
             </div>
           </div>
         </main>

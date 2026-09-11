@@ -18,6 +18,11 @@ function mapEquipeDoc(d, edMap) {
   return { ...data, id: d.id, edicaoNome: edMap[data.edicaoId] || '—' }
 }
 
+function equipeTemQuatroMembros(data) {
+  const m = data?.membros
+  return Boolean(m?.[0] && m?.[1] && m?.[2] && m?.[3])
+}
+
 function dedupeEquipes(list) {
   const seen = new Set()
   return list.filter((eq) => {
@@ -258,22 +263,30 @@ function TabEquipes() {
     }
   }
 
-  const handleShareGlayds = () => {
+  const handleShareGlayds = async () => {
     if (totalServidor === null) return
-    const pub = totalServidor - (totalParticular || 0)
-    const publica = totalPublicaGenerica || 0
-    const msg = `*Relação de Equipes - DHPB*\n\n` +
-      `Total Bruto: ${totalServidor}\n` +
-      `Equipes Completas: ${totalCompletas || 0}\n\n` +
-      `Públicas: ${pub}\n` +
-      `Privadas: ${totalParticular || 0}\n\n` +
-      `*Detalhes Escolas Públicas:*\n` +
-      `Municipal: ${totalMunicipal || 0}\n` +
-      `Estadual: ${totalEstadual || 0}\n` +
-      `Federal: ${totalFederal || 0}\n`
+    try {
+      setCarregando(true)
+      const snap = await getDocsFromServer(collection(db, 'equipes'))
+      const completas = snap.docs.filter((d) => equipeTemQuatroMembros(d.data())).length
+      const pub = totalServidor - (totalParticular || 0)
+      const msg = `*Relação de Equipes - DHPB*\n\n` +
+        `Total Bruto: ${totalServidor}\n` +
+        `Equipes Completas: ${completas}\n\n` +
+        `Públicas: ${pub}\n` +
+        `Privadas: ${totalParticular || 0}\n\n` +
+        `*Detalhes Escolas Públicas:*\n` +
+        `Municipal: ${totalMunicipal || 0}\n` +
+        `Estadual: ${totalEstadual || 0}\n` +
+        `Federal: ${totalFederal || 0}\n`
 
-    const url = `https://wa.me/558399600143?text=${encodeURIComponent(msg)}`
-    window.open(url, '_blank')
+      const url = `https://wa.me/558399600143?text=${encodeURIComponent(msg)}`
+      window.open(url, '_blank')
+    } catch (err) {
+      alert('Erro ao buscar equipes: ' + err.message)
+    } finally {
+      setCarregando(false)
+    }
   }
 
   const abrirWhatsAppGlayds = async (msg, resumoSeLongo) => {
@@ -338,7 +351,7 @@ function TabEquipes() {
     try {
       setCarregando(true)
       const snap = await getDocsFromServer(collection(db, 'equipes'))
-      const incompletas = snap.docs.filter((d) => d.data().isCompleta !== true)
+      const incompletas = snap.docs.filter((d) => !equipeTemQuatroMembros(d.data()))
 
       const secoes = [
         { tipo: 'estadual', titulo: 'Estadual' },

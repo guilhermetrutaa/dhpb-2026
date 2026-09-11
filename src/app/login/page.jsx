@@ -72,7 +72,7 @@ const Page = () => {
             <div className='w-full max-w-md'>
               <div className='text-center lg:text-left'>
                 <h1 className='text-3xl md:text-[2.2rem] text-[#82181A] font-medium'>Autenticação</h1>
-                <p className='text-[#2e2e2e] pt-5'>Entre com sua conta</p>
+                <p className='text-[#2e2e2e] pt-5'>Entre com sua conta ou crie-a aqui mesmo</p>
               </div>
 
               <form onSubmit={handleLogin} className="space-y-6 pt-10">
@@ -127,6 +127,15 @@ const Page = () => {
                   >
                     {carregando ? 'Entrando...' : 'Prosseguir'}
                   </button>
+                </div>
+
+                <div className="mt-8 text-center text-sm text-neutral-900">
+                  <p>
+                    Não tem uma conta?
+                    <a href="/cadastro" className="font-semibold text-[#82181A] hover:underline pl-2">
+                      Crie agora
+                    </a>
+                  </p>
                 </div>
               </form>
             </div>
