@@ -67,7 +67,7 @@ function SingleTeamView({ equipeId, authUser, userData }) {
 
   const currentUserMembro = membrosAtivos.find(m => m.uid === authUser?.uid)
   const currentUserPapel = currentUserMembro?.papel
-  const podeAddMembro = currentUserPapel === 'professor_orientador' || currentUserPapel === 'responsavel'
+  const podeAddMembro = false
 
   const slotsDisponiveis = () => {
     if (!equipe) return { professor: 0, aluno: 0, responsavel: 0, total: 0 }
@@ -86,7 +86,7 @@ function SingleTeamView({ equipeId, authUser, userData }) {
       delete autoAddTimeoutRef.current[slotKey]
     }
     setAutoAddAviso(prev => (prev?.slotKey === slotKey ? null : prev))
-    if (!data?.email?.trim()) { setErro('Digite o email do participante.'); return }
+    return
     if (slotsDisponiveis().total <= 0) { setErro('Equipe já está completa.'); return }
     setErro('')
     setSucesso('')
@@ -711,8 +711,8 @@ function MultiTeamView({ authUser, userData, edicoes }) {
                 const membrosAtivos = equipe.membros?.filter((m) => m.status === 'ativo') || []
                 const formatarModalidade = equipe.modalidade?.replaceAll('_', ' ') || '(selecionada na inscrição)'
                 const memberRole = equipe.membros?.find(m => m.uid === authUser?.uid)?.papel
-                const podeAddMembro = memberRole === 'professor_orientador' || memberRole === 'responsavel'
-                const podeRemover = podeAddMembro
+                const podeAddMembro = false
+                const podeRemover = memberRole === 'professor_orientador' || memberRole === 'responsavel'
                 const papelOrdem = { 'professor_orientador': 0, 'responsavel': 1, 'aluno': 2 }
                 const membrosOrdenados = [...membrosAtivos].sort((a, b) => papelOrdem[a.papel] - papelOrdem[b.papel])
 
@@ -739,7 +739,7 @@ function MultiTeamView({ authUser, userData, edicoes }) {
                     delete autoAddTimeoutRefMulti.current[slotStateKey]
                   }
                   setAutoAddAvisoMulti(prev => (prev?.slotStateKey === slotStateKey ? null : prev))
-                  if (!data?.email?.trim()) return
+                  return
                   try {
                     const usersSnap = await getDocs(query(collection(db, 'users'), where('email', '==', data.email.trim())))
                     if (usersSnap.empty) { alert('Usuário com este email não encontrado.'); return }

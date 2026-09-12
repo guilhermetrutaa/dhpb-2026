@@ -17,7 +17,7 @@ Prazo de inscricao acabou. Cadastro de conta e criacao de equipe bloqueados na U
 
 ## Escopo negativo
 
-Nao altera `criar-equipe` (pagina/URL), `montagem-equipe`, `AuthContext`, `firebase.js`, `firestore-rest.js`, `escolas-pb.json`, ranking, `membro-index`, sala-de-equipe, admin.
+Nao altera `criar-equipe` (pagina/URL), `AuthContext`, `firebase.js`, `firestore-rest.js`, `escolas-pb.json`, ranking, `membro-index`, sala-de-equipe, admin. Em `montagem-equipe` so desliga incluir membro.
 
 ## As-is vs to-be
 
@@ -27,6 +27,7 @@ Nao altera `criar-equipe` (pagina/URL), `montagem-equipe`, `AuthContext`, `fireb
 | Pagina `/cadastro` | Formulario cria Auth | Mensagem de encerrado; sem `createUser` |
 | Clique na edicao sem equipe | Vai a `/criar-equipe` | `alert` de inscricoes encerradas |
 | Clique com equipe | Montagem/sala | Inalterado |
+| Incluir membro | Formularios e auto-add | Desligado. Remover/trocar iguais |
 
 ## Firestore
 
@@ -47,6 +48,7 @@ Nao altera `criar-equipe` (pagina/URL), `montagem-equipe`, `AuthContext`, `fireb
 - [x] `/cadastro` nao cria conta
 - [x] Sem equipe: alert, nao navega para criar-equipe
 - [x] Com equipe: fluxo atual
+- [x] Incluir membro na montagem desligado; remover/trocar iguais
 - [x] Cota Spark: zero leitura extra
 
 ## Principios da constitution aplicaveis
