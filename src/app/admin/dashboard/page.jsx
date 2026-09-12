@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Poppins } from 'next/font/google'
 import { useRouter } from 'next/navigation'
-import { collection, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, orderBy, query, where, getDocs, getDocsFromServer, getCountFromServer, limit, startAfter, documentId, writeBatch, setDoc } from 'firebase/firestore'
+import { collection, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, orderBy, query, getDocs, getDocsFromServer, getCountFromServer, limit, startAfter, documentId, writeBatch, setDoc } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { db, auth } from '@/lib/firebase'
 import Image from 'next/image'
@@ -21,6 +21,67 @@ function mapEquipeDoc(d, edMap) {
 function equipeTemQuatroMembros(data) {
   const m = data?.membros
   return Boolean(m?.[0] && m?.[1] && m?.[2] && m?.[3])
+}
+
+function modalidadeResumo(mod) {
+  const t = String(mod || '').toLowerCase()
+  if (t === 'fundamental' || t === 'eja_fundamental') return 'fundamental'
+  if (t === 'medio' || t === 'eja_medio') return 'medio'
+  return t
+}
+
+function chaveOrientador(membro) {
+  if (membro?.uid) return `uid:${membro.uid}`
+  const email = String(membro?.email || '').trim().toLowerCase()
+  return email ? `email:${email}` : null
+}
+
+function computarStatsCompletas(docs) {
+  let municipal = 0
+  let estadual = 0
+  let federal = 0
+  let publica = 0
+  let particular = 0
+  let fundamental = 0
+  let medio = 0
+  const orientadores = new Set()
+  const completas = []
+
+  for (const d of docs) {
+    const data = d.data()
+    if (!equipeTemQuatroMembros(data)) continue
+    completas.push({ escolaId: data.escolaId })
+
+    if (data.tipoEscola === 'municipal') municipal++
+    else if (data.tipoEscola === 'estadual') estadual++
+    else if (data.tipoEscola === 'federal') federal++
+    else if (data.tipoEscola === 'particular') particular++
+    else if (data.tipoEscola === 'publica') publica++
+
+    const mod = modalidadeResumo(data.modalidade)
+    if (mod === 'fundamental') fundamental++
+    else if (mod === 'medio') medio++
+
+    for (const membro of (data.membros || [])) {
+      if (membro?.papel !== 'professor_orientador') continue
+      const chave = chaveOrientador(membro)
+      if (chave) orientadores.add(chave)
+    }
+  }
+
+  return {
+    completas: completas.length,
+    municipal,
+    estadual,
+    federal,
+    publica,
+    particular,
+    publicas: municipal + estadual + federal + publica,
+    fundamental,
+    medio,
+    orientadores: orientadores.size,
+    completasEscolaIds: completas,
+  }
 }
 
 function dedupeEquipes(list) {
@@ -41,8 +102,14 @@ function TabEquipes() {
   const [totalEstadual, setTotalEstadual] = useState(null)
   const [totalFederal, setTotalFederal] = useState(null)
   const [totalPublicaGenerica, setTotalPublicaGenerica] = useState(null)
+  const [totalPublicas, setTotalPublicas] = useState(null)
   const [totalCompletas, setTotalCompletas] = useState(null)
+  const [totalFundamental, setTotalFundamental] = useState(null)
+  const [totalMedio, setTotalMedio] = useState(null)
+  const [totalOrientadores, setTotalOrientadores] = useState(null)
+  const [completasEscolaIds, setCompletasEscolaIds] = useState([])
   const [carregando, setCarregando] = useState(true)
+  const [copiando, setCopiando] = useState(false)
   const [expanded, setExpanded] = useState(null)
   const [mostrarFerramentas, setMostrarFerramentas] = useState(false)
 
@@ -51,26 +118,27 @@ function TabEquipes() {
 
   useEffect(() => {
     const carregar = async () => {
-      const [edSnap, countSnap, particularSnap, municipalSnap, estadualSnap, federalSnap, publicaSnap, completasSnap] = await Promise.all([
+      const [edSnap, countSnap, allSnap] = await Promise.all([
         getDocsFromServer(collection(db, 'edicoes')),
         getCountFromServer(collection(db, 'equipes')),
-        getCountFromServer(query(collection(db, 'equipes'), where('tipoEscola', '==', 'particular'))),
-        getCountFromServer(query(collection(db, 'equipes'), where('tipoEscola', '==', 'municipal'))),
-        getCountFromServer(query(collection(db, 'equipes'), where('tipoEscola', '==', 'estadual'))),
-        getCountFromServer(query(collection(db, 'equipes'), where('tipoEscola', '==', 'federal'))),
-        getCountFromServer(query(collection(db, 'equipes'), where('tipoEscola', '==', 'publica'))),
-        getCountFromServer(query(collection(db, 'equipes'), where('isCompleta', '==', true))),
+        getDocsFromServer(collection(db, 'equipes')),
       ])
       const edMap = {}
       edSnap.docs.forEach((d) => { edMap[d.id] = d.data().nome || '—' })
       setEdicoes(edSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
       setTotalServidor(countSnap.data().count)
-      setTotalParticular(particularSnap.data().count)
-      setTotalMunicipal(municipalSnap.data().count)
-      setTotalEstadual(estadualSnap.data().count)
-      setTotalFederal(federalSnap.data().count)
-      setTotalPublicaGenerica(publicaSnap.data().count)
-      setTotalCompletas(completasSnap.data().count)
+      const stats = computarStatsCompletas(allSnap.docs)
+      setTotalParticular(stats.particular)
+      setTotalMunicipal(stats.municipal)
+      setTotalEstadual(stats.estadual)
+      setTotalFederal(stats.federal)
+      setTotalPublicaGenerica(stats.publica)
+      setTotalPublicas(stats.publicas)
+      setTotalCompletas(stats.completas)
+      setTotalFundamental(stats.fundamental)
+      setTotalMedio(stats.medio)
+      setTotalOrientadores(stats.orientadores)
+      setCompletasEscolaIds(stats.completasEscolaIds)
 
       const q = query(collection(db, 'equipes'), orderBy(documentId()), limit(50))
       const eSnap = await getDocsFromServer(q)
@@ -263,52 +331,11 @@ function TabEquipes() {
     }
   }
 
-  const handleShareGlayds = async () => {
-    if (totalServidor === null) return
+  const handleCopiarResumoCompletas = async () => {
+    if (totalCompletas === null) return
+    setCopiando(true)
     try {
-      setCarregando(true)
-      const snap = await getDocsFromServer(collection(db, 'equipes'))
-      const completas = snap.docs.filter((d) => equipeTemQuatroMembros(d.data())).length
-      const pub = totalServidor - (totalParticular || 0)
-      const msg = `*Relação de Equipes - DHPB*\n\n` +
-        `Total Bruto: ${totalServidor}\n` +
-        `Equipes Completas: ${completas}\n\n` +
-        `Públicas: ${pub}\n` +
-        `Privadas: ${totalParticular || 0}\n\n` +
-        `*Detalhes Escolas Públicas:*\n` +
-        `Municipal: ${totalMunicipal || 0}\n` +
-        `Estadual: ${totalEstadual || 0}\n` +
-        `Federal: ${totalFederal || 0}\n`
-
-      const url = `https://wa.me/558399600143?text=${encodeURIComponent(msg)}`
-      window.open(url, '_blank')
-    } catch (err) {
-      alert('Erro ao buscar equipes: ' + err.message)
-    } finally {
-      setCarregando(false)
-    }
-  }
-
-  const abrirWhatsAppGlayds = async (msg, resumoSeLongo) => {
-    const encoded = encodeURIComponent(msg)
-    const base = 'https://wa.me/558399600143?text='
-    if (encoded.length > 1800) {
-      try {
-        await navigator.clipboard.writeText(msg)
-      } catch { /* clipboard pode falhar sem HTTPS/permissão */ }
-      window.open(base + encodeURIComponent(resumoSeLongo), '_blank')
-      return
-    }
-    window.open(base + encoded, '_blank')
-  }
-
-  const handleShareCidades = async () => {
-    try {
-      setCarregando(true)
-      const [snap, escolasRes] = await Promise.all([
-        getDocsFromServer(collection(db, 'equipes')),
-        fetch('/escolas-pb.json'),
-      ])
+      const escolasRes = await fetch('/escolas-pb.json')
       if (!escolasRes.ok) throw new Error('Não foi possível carregar escolas-pb.json')
       const escolas = await escolasRes.json()
       const idToMunicipio = {}
@@ -316,114 +343,38 @@ function TabEquipes() {
         if (e.id && e.municipio) idToMunicipio[String(e.id)] = String(e.municipio).trim()
       }
 
-      const cidadesCount = {}
-      let semMunicipio = 0
-      snap.docs.forEach((d) => {
-        const escolaId = d.data().escolaId
-        const municipio = escolaId ? idToMunicipio[String(escolaId)] : null
-        if (municipio) cidadesCount[municipio] = (cidadesCount[municipio] || 0) + 1
-        else semMunicipio++
-      })
-
-      const lista = Object.entries(cidadesCount).sort((a, b) => {
-        if (b[1] !== a[1]) return b[1] - a[1]
-        return a[0].localeCompare(b[0], 'pt-BR')
-      })
-      const linhas = lista.map(([cidade, count]) => `${cidade} - ${count} equipes`)
-      if (semMunicipio > 0) linhas.push(`Sem município - ${semMunicipio} equipes`)
-
-      const msg = `*Relação de Cidades Cadastradas - DHPB*\n\n` +
-        `Total: ${lista.length} municípios\n\n` +
-        linhas.join('\n')
-      const resumo = `*Relação de Cidades Cadastradas - DHPB*\n\n` +
-        `Total de cidades: ${lista.length}\n` +
-        `Total de equipes: ${snap.docs.length}\n\n` +
-        `Lista completa colada na área de transferência.`
-      await abrirWhatsAppGlayds(msg, resumo)
-    } catch (err) {
-      alert('Erro ao buscar cidades: ' + err.message)
-    } finally {
-      setCarregando(false)
-    }
-  }
-
-  const handleShareIncompletas = async () => {
-    try {
-      setCarregando(true)
-      const snap = await getDocsFromServer(collection(db, 'equipes'))
-      const incompletas = snap.docs.filter((d) => !equipeTemQuatroMembros(d.data()))
-
-      const secoes = [
-        { tipo: 'estadual', titulo: 'Estadual' },
-        { tipo: 'municipal', titulo: 'Municipal' },
-        { tipo: 'federal', titulo: 'Federal' },
-        { tipo: 'particular', titulo: 'Privadas' },
-        { tipo: 'publica', titulo: 'Pública (sem classificação)' },
-      ]
-
-      const porRede = {}
-      for (const { tipo } of secoes) porRede[tipo] = {}
-
-      for (const d of incompletas) {
-        const data = d.data()
-        const tipo = secoes.some((s) => s.tipo === data.tipoEscola) ? data.tipoEscola : 'publica'
-        const escola = String(data.escola || '').trim() || 'Sem escola'
-        porRede[tipo][escola] = (porRede[tipo][escola] || 0) + 1
+      const cidades = new Set()
+      for (const eq of completasEscolaIds) {
+        const municipio = eq.escolaId ? idToMunicipio[String(eq.escolaId)] : null
+        if (municipio) cidades.add(municipio)
       }
 
-      const linhasSecao = (mapa) => {
-        const lista = Object.entries(mapa).sort((a, b) => {
-          if (b[1] !== a[1]) return b[1] - a[1]
-          return a[0].localeCompare(b[0], 'pt-BR')
-        })
-        if (lista.length === 0) return ['Nenhuma']
-        return lista.map(([escola, n]) => `${escola} - ${n} equipes incompletas`)
+      const publicasLinha = totalPublicaGenerica > 0
+        ? `Públicas: ${totalPublicas} (Municipal: ${totalMunicipal} · Estadual: ${totalEstadual} · Federal: ${totalFederal} · Sem classificação: ${totalPublicaGenerica})`
+        : `Públicas: ${totalPublicas} (Municipal: ${totalMunicipal} · Estadual: ${totalEstadual} · Federal: ${totalFederal})`
+
+      const msg = [
+        'Equipes inscritas completas — DHPB',
+        '',
+        `Total: ${totalCompletas}`,
+        publicasLinha,
+        `Privadas: ${totalParticular}`,
+        `Fundamental: ${totalFundamental}`,
+        `Médio: ${totalMedio}`,
+        `Cidades: ${cidades.size}`,
+        `Professores orientadores: ${totalOrientadores}`,
+      ].join('\n')
+
+      try {
+        await navigator.clipboard.writeText(msg)
+        alert('Resumo das equipes completas copiado.')
+      } catch {
+        window.prompt('Copie o resumo abaixo:', msg)
       }
-
-      const blocos = secoes
-        .filter((s) => s.tipo !== 'publica' || Object.keys(porRede.publica).length > 0)
-        .map((s) => `*${s.titulo}:*\n${linhasSecao(porRede[s.tipo]).join('\n')}`)
-
-      const msg = `*Equipes incompletas - DHPB*\n\n` +
-        `Total de equipes incompletas: ${incompletas.length}\n\n` +
-        blocos.join('\n\n')
-      const resumo = `*Equipes incompletas - DHPB*\n\n` +
-        `Total de equipes incompletas: ${incompletas.length}\n\n` +
-        `Lista completa colada na área de transferência.`
-      await abrirWhatsAppGlayds(msg, resumo)
     } catch (err) {
-      alert('Erro ao buscar equipes incompletas: ' + err.message)
+      alert('Erro ao montar o resumo: ' + err.message)
     } finally {
-      setCarregando(false)
-    }
-  }
-
-  const handleShareEscolasList = async (tipo) => {
-    try {
-      setCarregando(true)
-      const snap = await getDocs(query(collection(db, 'equipes'), where('tipoEscola', '==', tipo)))
-      const escolasCount = {}
-      snap.docs.forEach(d => {
-        const escola = d.data().escola
-        if (escola) {
-          const nome = escola.trim()
-          escolasCount[nome] = (escolasCount[nome] || 0) + 1
-        }
-      })
-
-      const lista = Object.entries(escolasCount).sort((a, b) => a[0].localeCompare(b[0]))
-      const tipoNome = tipo === 'municipal' ? 'Municipais' : tipo === 'estadual' ? 'Estaduais' : 'Federais'
-
-      const msg = `*Relação de Escolas ${tipoNome} Cadastradas - DHPB*\n\n` +
-        `Total: ${lista.length} escolas ${tipo.toLowerCase()}s\n\n` +
-        lista.map(([e, count]) => `${e} - ${count} equipe(s)`).join('\n')
-
-      const url = `https://wa.me/558399600143?text=${encodeURIComponent(msg)}`
-      window.open(url, '_blank')
-    } catch (err) {
-      alert(`Erro ao buscar escolas ${tipo}: ` + err.message)
-    } finally {
-      setCarregando(false)
+      setCopiando(false)
     }
   }
 
@@ -436,11 +387,11 @@ function TabEquipes() {
         {totalServidor !== null && (
           <p className='text-xs text-neutral-500 flex justify-center items-center gap-2'>
             {equipes.length} exibida(s) · {totalServidor} no servidor
-            {totalParticular !== null && (
+            {totalCompletas !== null && (
               <span className='ml-1'>
-                <span className='text-blue-600 font-medium'>{totalServidor - totalParticular} públicas</span>
+                <span className='text-blue-600 font-medium'>{totalPublicas} públicas</span>
                 {' ('}
-                <span className='text-neutral-500 font-medium' title='Pública geral, Municipal, Estadual, Federal'>
+                <span className='text-neutral-500 font-medium' title='Municipal, Estadual, Federal (só equipes com 4 membros)'>
                   {totalMunicipal}M · {totalEstadual}E · {totalFederal}F
                 </span>
                 {') · '}
@@ -451,47 +402,12 @@ function TabEquipes() {
             )}
 
             <button
-              onClick={() => handleShareEscolasList('municipal')}
-              className='flex items-center gap-1 text-xs bg-[#25D366] text-white px-3 py-1.5 rounded-md hover:bg-[#128C7E] transition-colors cursor-pointer font-bold shadow-sm'
-              title='Enviar lista de escolas municipais no WhatsApp'
+              onClick={handleCopiarResumoCompletas}
+              disabled={copiando || totalCompletas === null}
+              className='flex items-center gap-1 text-xs bg-[#82181A] text-white px-3 py-1.5 rounded-md hover:bg-[#631214] transition-colors cursor-pointer font-bold shadow-sm disabled:opacity-50 disabled:cursor-not-allowed'
+              title='Copiar resumo das equipes inscritas completas (4 membros)'
             >
-              Lista de Municipais
-            </button>
-            <button
-              onClick={() => handleShareEscolasList('estadual')}
-              className='flex items-center gap-1 text-xs bg-[#25D366] text-white px-3 py-1.5 rounded-md hover:bg-[#128C7E] transition-colors cursor-pointer font-bold shadow-sm'
-              title='Enviar lista de escolas estaduais no WhatsApp'
-            >
-              Lista de Estaduais
-            </button>
-            <button
-              onClick={() => handleShareEscolasList('federal')}
-              className='flex items-center gap-1 text-xs bg-[#25D366] text-white px-3 py-1.5 rounded-md hover:bg-[#128C7E] transition-colors cursor-pointer font-bold shadow-sm'
-              title='Enviar lista de escolas federais no WhatsApp'
-            >
-              Lista de Federais
-            </button>
-            <button
-              onClick={handleShareCidades}
-              className='flex items-center gap-1 text-xs bg-[#25D366] text-white px-3 py-1.5 rounded-md hover:bg-[#128C7E] transition-colors cursor-pointer font-bold shadow-sm'
-              title='Enviar lista de cidades (municípios) no WhatsApp'
-            >
-              Lista de Cidades
-            </button>
-            <button
-              onClick={handleShareIncompletas}
-              className='flex items-center gap-1 text-xs bg-[#25D366] text-white px-3 py-1.5 rounded-md hover:bg-[#128C7E] transition-colors cursor-pointer font-bold shadow-sm'
-              title='Enviar lista de equipes incompletas para Glayds no WhatsApp'
-            >
-              Equipes incompletas
-            </button>
-            <button
-              onClick={handleShareGlayds}
-              className='flex items-center gap-1 text-xs bg-[#25D366] text-white px-3 py-1.5 rounded-md hover:bg-[#128C7E] transition-colors cursor-pointer font-bold shadow-sm'
-              title='Enviar relatório para Glayds no WhatsApp'
-            >
-              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.347-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.876 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" /></svg>
-              Compartilhar com Glayds
+              {copiando ? 'Copiando...' : 'Copiar resumo das completas'}
             </button>
           </p>
         )}
