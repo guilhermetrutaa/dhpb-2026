@@ -1,4 +1,4 @@
-# Spec: Bloquear so criacao de equipe apos prazo
+# Spec: Bloquear cadastro, equipe e montagem apos prazo
 
 | Campo | Valor |
 |---|---|
@@ -8,7 +8,7 @@
 
 ## Problema / valor
 
-Prazo de inscricao acabou. Cadastro de conta e criacao de equipe bloqueados na UI. Quem ja tem equipe entra normal. Sem documento Firestore, sem admin.
+Prazo de inscricao acabou. Cadastro de conta, criacao de equipe e inclusao de membros bloqueados na UI. Quem ja tem equipe entra na sala. Sem documento Firestore.
 
 ## Atores
 
@@ -21,17 +21,16 @@ Nao altera `criar-equipe` (pagina/URL), `AuthContext`, `firebase.js`, `firestore
 
 ## As-is vs to-be
 
-| Regra | No codigo hoje | Depois desta spec |
+| Regra | Fluxo aberto | Agora |
 |---|---|---|
-| Botao criar conta | "Crie agora" no login | Removido |
-| Pagina `/cadastro` | Formulario cria Auth | Mensagem de encerrado; sem `createUser` |
-| Clique na edicao sem equipe | Vai a `/criar-equipe` | `alert` de inscricoes encerradas |
-| Clique com equipe | Montagem/sala | Inalterado |
-| Incluir membro | Formularios e auto-add | Desligado. Remover/trocar iguais |
+| Botao criar conta | "Crie agora" | Removido |
+| `/cadastro` | Cria Auth | Mensagem de encerrado |
+| Clique sem equipe | `/criar-equipe` | `alert` |
+| Incluir membro | Formularios | Desligado. Remover/trocar iguais |
 
 ## Firestore
 
-**Leituras:** nenhuma nova. **Writes:** nenhum.
+**Leituras:** nenhuma nova. **Writes:** nenhum write de cadastro/equipe/membro pelo fluxo bloqueado.
 
 ## Required reading
 
@@ -46,9 +45,8 @@ Nao altera `criar-equipe` (pagina/URL), `AuthContext`, `firebase.js`, `firestore
 
 - [x] "Crie agora" nao aparece no login
 - [x] `/cadastro` nao cria conta
-- [x] Sem equipe: alert, nao navega para criar-equipe
-- [x] Com equipe: fluxo atual
-- [x] Incluir membro na montagem desligado; remover/trocar iguais
+- [x] Sem equipe: alert, nao vai para criar-equipe
+- [x] Incluir membro desligado; remover/trocar iguais
 - [x] Cota Spark: zero leitura extra
 
 ## Principios da constitution aplicaveis

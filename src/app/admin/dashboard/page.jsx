@@ -36,11 +36,18 @@ function chaveOrientador(membro) {
   return email ? `email:${email}` : null
 }
 
+const EQUIPE_EXCLUIDA_RESUMO_ID = 'LhT2fV3JvyQhZU8PrSFl'
+const TIPOS_ESCOLA_RESUMO = new Set(['municipal', 'estadual', 'federal', 'particular'])
+
+function equipeContaNoResumo(id, data) {
+  if (id === EQUIPE_EXCLUIDA_RESUMO_ID) return false
+  return TIPOS_ESCOLA_RESUMO.has(data?.tipoEscola)
+}
+
 function computarStatsCompletas(docs) {
   let municipal = 0
   let estadual = 0
   let federal = 0
-  let publica = 0
   let particular = 0
   let fundamental = 0
   let medio = 0
@@ -50,13 +57,13 @@ function computarStatsCompletas(docs) {
   for (const d of docs) {
     const data = d.data()
     if (!equipeTemQuatroMembros(data)) continue
+    if (!equipeContaNoResumo(d.id, data)) continue
     completas.push({ escolaId: data.escolaId })
 
     if (data.tipoEscola === 'municipal') municipal++
     else if (data.tipoEscola === 'estadual') estadual++
     else if (data.tipoEscola === 'federal') federal++
     else if (data.tipoEscola === 'particular') particular++
-    else if (data.tipoEscola === 'publica') publica++
 
     const mod = modalidadeResumo(data.modalidade)
     if (mod === 'fundamental') fundamental++
@@ -74,9 +81,8 @@ function computarStatsCompletas(docs) {
     municipal,
     estadual,
     federal,
-    publica,
     particular,
-    publicas: municipal + estadual + federal + publica,
+    publicas: municipal + estadual + federal,
     fundamental,
     medio,
     orientadores: orientadores.size,
@@ -101,7 +107,6 @@ function TabEquipes() {
   const [totalMunicipal, setTotalMunicipal] = useState(null)
   const [totalEstadual, setTotalEstadual] = useState(null)
   const [totalFederal, setTotalFederal] = useState(null)
-  const [totalPublicaGenerica, setTotalPublicaGenerica] = useState(null)
   const [totalPublicas, setTotalPublicas] = useState(null)
   const [totalCompletas, setTotalCompletas] = useState(null)
   const [totalFundamental, setTotalFundamental] = useState(null)
@@ -132,7 +137,6 @@ function TabEquipes() {
       setTotalMunicipal(stats.municipal)
       setTotalEstadual(stats.estadual)
       setTotalFederal(stats.federal)
-      setTotalPublicaGenerica(stats.publica)
       setTotalPublicas(stats.publicas)
       setTotalCompletas(stats.completas)
       setTotalFundamental(stats.fundamental)
@@ -142,7 +146,7 @@ function TabEquipes() {
 
       const q = query(collection(db, 'equipes'), orderBy(documentId()), limit(50))
       const eSnap = await getDocsFromServer(q)
-      setEquipes(eSnap.docs.map((d) => mapEquipeDoc(d, edMap)))
+      setEquipes(eSnap.docs.filter((d) => d.id !== EQUIPE_EXCLUIDA_RESUMO_ID).map((d) => mapEquipeDoc(d, edMap)))
       setLastVisible(eSnap.docs[eSnap.docs.length - 1] || null)
       setTemMais(eSnap.docs.length === 50)
       setCarregando(false)
@@ -156,7 +160,7 @@ function TabEquipes() {
     edicoes.forEach((ed) => { edMap[ed.id] = ed.nome })
     const q = query(collection(db, 'equipes'), orderBy(documentId()), startAfter(lastVisible), limit(50))
     const eSnap = await getDocsFromServer(q)
-    setEquipes((prev) => dedupeEquipes([...prev, ...eSnap.docs.map((d) => mapEquipeDoc(d, edMap))]))
+    setEquipes((prev) => dedupeEquipes([...prev, ...eSnap.docs.filter((d) => d.id !== EQUIPE_EXCLUIDA_RESUMO_ID).map((d) => mapEquipeDoc(d, edMap))]))
     setLastVisible(eSnap.docs[eSnap.docs.length - 1] || null)
     setTemMais(eSnap.docs.length === 50)
   }
@@ -349,15 +353,11 @@ function TabEquipes() {
         if (municipio) cidades.add(municipio)
       }
 
-      const publicasLinha = totalPublicaGenerica > 0
-        ? `Públicas: ${totalPublicas} (Municipal: ${totalMunicipal} · Estadual: ${totalEstadual} · Federal: ${totalFederal} · Sem classificação: ${totalPublicaGenerica})`
-        : `Públicas: ${totalPublicas} (Municipal: ${totalMunicipal} · Estadual: ${totalEstadual} · Federal: ${totalFederal})`
-
       const msg = [
         'Equipes inscritas completas — DHPB',
         '',
         `Total: ${totalCompletas}`,
-        publicasLinha,
+        `Públicas: ${totalPublicas} (Municipal: ${totalMunicipal} · Estadual: ${totalEstadual} · Federal: ${totalFederal})`,
         `Privadas: ${totalParticular}`,
         `Fundamental: ${totalFundamental}`,
         `Médio: ${totalMedio}`,
