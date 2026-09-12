@@ -61,6 +61,7 @@ Documento representativo da Fase da Olimpíada (mantido leve):
 | `peso` | number | Peso da fase no $d_i$ (oficiais 4º DHPB: 1, 2, 4, 8, 16) |
 | `notaMaxima` | number | Teto da nota bruta $n_i$ (100). Não divide o $d_i$ |
 | `provaPdfUrl` | string (opcional) | Link do caderno de prova em PDF |
+| `gabaritoPdfUrl` | string (opcional) | Link do gabarito em PDF |
 | `questoesIndex` | array | Lista leve com `[{ id: string, numero: number }]` para paginação rápida |
 | `tarefa` | object (opcional) | `{ titulo: string, pontuacao: number }` |
 | `tarefaUrl` | string (opcional) | Link interno ou externo da atividade interativa |

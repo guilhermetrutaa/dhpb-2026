@@ -195,6 +195,7 @@ O DHPB é uma olimpíada/desafio de conhecimento do IFPB sobre História da Para
 - O Resumo da Fase fica em /resumo-fase com faseId, edicaoId e equipeId na URL.
 - O topo mostra "Resumo Fase" e o nome da equipe.
 - Se existir PDF da prova, aparece o botão "Baixar prova em PDF".
+- Se a fase estiver em correção e existir URL do gabarito, o botão vira "Baixar gabarito" (fundo azul) e abre o PDF do gabarito.
 - Se não existir PDF, aparece "PDF não disponível".
 - O resumo mostra contadores de respostas: em branco, em rascunho e entregues.
 - Cada questão aparece em uma linha clicável com número e status.

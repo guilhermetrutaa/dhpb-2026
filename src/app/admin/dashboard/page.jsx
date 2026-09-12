@@ -802,6 +802,10 @@ const Page = () => {
     try { await updateDoc(doc(db, 'edicoes', edId, 'fases', faseId), { provaPdfUrl: url }); carregarFases(edId) } catch { }
   }
 
+  const salvarGabaritoUrl = async (edId, faseId, url) => {
+    try { await updateDoc(doc(db, 'edicoes', edId, 'fases', faseId), { gabaritoPdfUrl: url }); carregarFases(edId) } catch { }
+  }
+
   const handleSair = async () => {
     try { await signOut(auth) } catch { }
     localStorage.removeItem('admin-authenticated')
@@ -972,6 +976,15 @@ const Page = () => {
                                         <button onClick={() => {
                                           const url = document.getElementById(`pdf-${f.id}`).value
                                           salvarPdfUrl(ed.id, f.id, url)
+                                        }}
+                                          className='text-xs font-semibold text-blue-600 hover:underline cursor-pointer'>Salvar</button>
+                                      </div>
+                                      <div className='flex items-center gap-2 pt-2'>
+                                        <input type="text" placeholder="URL do gabarito em PDF (Google Drive, etc)" defaultValue={f.gabaritoPdfUrl || ''}
+                                          id={`gabarito-${f.id}`} className='flex-1 rounded-lg border border-neutral-300 p-2 text-xs outline-none focus:border-[#82181A]' />
+                                        <button onClick={() => {
+                                          const url = document.getElementById(`gabarito-${f.id}`).value
+                                          salvarGabaritoUrl(ed.id, f.id, url)
                                         }}
                                           className='text-xs font-semibold text-blue-600 hover:underline cursor-pointer'>Salvar</button>
                                       </div>
