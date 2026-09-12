@@ -7,6 +7,7 @@ import { Poppins } from 'next/font/google'
 import { doc, getDoc } from 'firebase/firestore'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { db } from '@/lib/firebase'
+import { optimizeCloudinaryUrl } from '@/lib/cloudinary'
 
 const poppins = Poppins({
   subsets: ['latin'],

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Poppins } from 'next/font/google'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
+import { optimizeCloudinaryUrl } from '@/lib/cloudinary'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter, useSearchParams } from 'next/navigation'
 
