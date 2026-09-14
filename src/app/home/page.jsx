@@ -85,32 +85,35 @@ const Page = () => {
       } catch {}
     }
 
-    // 2) membro-index (até 2 leituras)
-    const miKey = btoa(authUser.email).replace(/=+$/, '') + '_' + edicaoId
-    try {
-      const idxSnap = await getDoc(doc(db, 'membro-index', miKey))
-      if (idxSnap.exists()) {
-        const idxData = idxSnap.data()
-        const eqSnap = await getDoc(doc(db, 'equipes', idxData.equipeId))
-        if (eqSnap.exists() && verificarMembro(eqSnap.data())) {
-          await setDoc(doc(db, 'users', authUser.uid, 'participacoes', edicaoId), {
-            equipeId: idxData.equipeId,
-            papel: idxData.papel || '',
-          })
-          setEquipes((prev) => ({ ...prev, [edicaoId]: { equipeId: idxData.equipeId, papel: idxData.papel } }))
-          router.push(`/montagem-equipe?equipeId=${idxData.equipeId}`)
-          return
+    // 2) membro-index (e-mail original e lowercased)
+    const emailsMi = [...new Set([authUser.email, String(authUser.email || '').trim().toLowerCase()].filter(Boolean))]
+    for (const email of emailsMi) {
+      const miKey = btoa(email).replace(/=+$/, '') + '_' + edicaoId
+      try {
+        const idxSnap = await getDoc(doc(db, 'membro-index', miKey))
+        if (idxSnap.exists()) {
+          const idxData = idxSnap.data()
+          const eqSnap = await getDoc(doc(db, 'equipes', idxData.equipeId))
+          if (eqSnap.exists() && verificarMembro(eqSnap.data())) {
+            await setDoc(doc(db, 'users', authUser.uid, 'participacoes', edicaoId), {
+              equipeId: idxData.equipeId,
+              papel: idxData.papel || '',
+            })
+            setEquipes((prev) => ({ ...prev, [edicaoId]: { equipeId: idxData.equipeId, papel: idxData.papel } }))
+            router.push(`/montagem-equipe?equipeId=${idxData.equipeId}`)
+            return
+          }
         }
-      }
-    } catch {}
-
+      } catch {}
+    }
 
     window.alert('As inscrições do 4º DHPB foram encerradas em 10/09/2026.')
   }
 
   const handleQuestionarioComplete = () => {
+    const edicaoId = edicaoQuestionarioPendente
     setEdicaoQuestionarioPendente(null)
-    window.alert('As inscrições do 4º DHPB foram encerradas em 10/09/2026.')
+    if (edicaoId) handleEdicaoClick(edicaoId)
   }
 
   if (loading || !authUser) {

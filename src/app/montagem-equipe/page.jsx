@@ -28,6 +28,29 @@ const calcularIsCompleta = (membrosAtuais, novoMembro, op) => {
   return profs === 1 && resps === 1 && alunos === 2
 }
 
+const chaveMembroIndex = (email, edicaoId) =>
+  btoa(String(email || '').trim()).replace(/=+$/, '') + '_' + edicaoId
+
+async function atualizarIndiceAposRemocao(membro, equipeId, edicaoId) {
+  if (membro.papel === 'professor_orientador' && membro.uid) {
+    const restSnap = await getDocs(query(
+      collection(db, 'equipes'),
+      where('orientadorUids', 'array-contains', membro.uid)
+    ))
+    const outras = restSnap.docs.filter((d) => d.id !== equipeId && d.data().edicaoId === edicaoId)
+    if (outras.length > 0) {
+      const pRef = doc(db, 'users', membro.uid, 'participacoes', edicaoId)
+      const pSnap = await getDoc(pRef)
+      if (!pSnap.exists() || pSnap.data().equipeId === equipeId) {
+        await setDoc(pRef, { equipeId: outras[0].id, papel: membro.papel || 'professor_orientador' })
+      }
+      return
+    }
+  }
+  await deleteDoc(doc(db, 'users', membro.uid, 'participacoes', edicaoId))
+  await deleteDoc(doc(db, 'membro-index', chaveMembroIndex(membro.email, edicaoId)))
+}
+
 function SingleTeamView({ equipeId, authUser, userData }) {
   const router = useRouter()
   const [equipe, setEquipe] = useState(null)
@@ -67,7 +90,7 @@ function SingleTeamView({ equipeId, authUser, userData }) {
 
   const currentUserMembro = membrosAtivos.find(m => m.uid === authUser?.uid)
   const currentUserPapel = currentUserMembro?.papel
-  const podeAddMembro = false
+  const podeAddMembro = currentUserPapel === 'professor_orientador' || currentUserPapel === 'responsavel'
 
   const slotsDisponiveis = () => {
     if (!equipe) return { professor: 0, aluno: 0, responsavel: 0, total: 0 }
@@ -75,8 +98,8 @@ function SingleTeamView({ equipeId, authUser, userData }) {
     const r = membrosAtivos.filter(m => m.papel === 'responsavel').length
     const a = membrosAtivos.filter(m => m.papel === 'aluno').length
     const t = membrosAtivos.length
-    if (userData?.tipo === 'professor') return { professor: 0, responsavel: 1 - r, aluno: 2 - a, total: 4 - t }
-    return { professor: 1 - p, responsavel: 1 - r, aluno: 2 - a, total: 4 - t }
+    if (userData?.tipo === 'professor') return { professor: 0, responsavel: 1 - r, aluno: 2 - a, total: Math.max(0, 4 - t) }
+    return { professor: 1 - p, responsavel: 1 - r, aluno: 2 - a, total: Math.max(0, 4 - t) }
   }
 
   const handleAddSlot = async (slotKey, papel, dados = null) => {
@@ -86,7 +109,6 @@ function SingleTeamView({ equipeId, authUser, userData }) {
       delete autoAddTimeoutRef.current[slotKey]
     }
     setAutoAddAviso(prev => (prev?.slotKey === slotKey ? null : prev))
-    return
     if (slotsDisponiveis().total <= 0) { setErro('Equipe já está completa.'); return }
     setErro('')
     setSucesso('')
@@ -200,8 +222,7 @@ function SingleTeamView({ equipeId, authUser, userData }) {
         membros: membrosAtivos.filter(m => m.uid !== membro.uid),
         ...(membro.papel === 'professor_orientador' ? { orientadorUids: arrayRemove(membro.uid) } : {}),
       })
-      await deleteDoc(doc(db, 'users', membro.uid, 'participacoes', equipe.edicaoId))
-      await deleteDoc(doc(db, 'membro-index', btoa(membro.email).replace(/=+$/, '') + '_' + equipe.edicaoId))
+      await atualizarIndiceAposRemocao(membro, equipeId, equipe.edicaoId)
       setSucesso(`${membro.nome} removido da equipe!`)
       setTimeout(() => setSucesso(''), 3000)
     } catch (err) {
@@ -439,7 +460,7 @@ function SingleTeamView({ equipeId, authUser, userData }) {
             ))}
           </div>
 
-          {s.total === 0 && (
+          {membrosAtivos.length >= 4 && (
             <div className="mt-7 text-center">
               <a
                 href={`/sala-de-equipe?equipeId=${equipeId}`}
@@ -691,13 +712,6 @@ function MultiTeamView({ authUser, userData, edicoes }) {
             Minhas Equipes
           </h1>
 
-          <div className="mt-10 text-center">
-            <a href="/criar-equipe"
-              className="inline-block bg-white px-8 py-3 text-sm font-semibold text-[#830000] transition-colors hover:bg-gray-100">
-              Criar Nova Equipe
-            </a>
-          </div>
-
           {todasEquipes.length === 0 ? (
             <p className="text-white/80 text-center mt-16 text-lg">Você não participa de nenhuma equipe ainda.</p>
           ) : (
@@ -711,7 +725,7 @@ function MultiTeamView({ authUser, userData, edicoes }) {
                 const membrosAtivos = equipe.membros?.filter((m) => m.status === 'ativo') || []
                 const formatarModalidade = equipe.modalidade?.replaceAll('_', ' ') || '(selecionada na inscrição)'
                 const memberRole = equipe.membros?.find(m => m.uid === authUser?.uid)?.papel
-                const podeAddMembro = false
+                const podeAddMembro = memberRole === 'professor_orientador' || memberRole === 'responsavel'
                 const podeRemover = memberRole === 'professor_orientador' || memberRole === 'responsavel'
                 const papelOrdem = { 'professor_orientador': 0, 'responsavel': 1, 'aluno': 2 }
                 const membrosOrdenados = [...membrosAtivos].sort((a, b) => papelOrdem[a.papel] - papelOrdem[b.papel])
@@ -723,8 +737,7 @@ function MultiTeamView({ authUser, userData, edicoes }) {
                       membros: membrosAtivos.filter(m => m.uid !== membro.uid),
                       ...(membro.papel === 'professor_orientador' ? { orientadorUids: arrayRemove(membro.uid) } : {}),
                     })
-                    await deleteDoc(doc(db, 'users', membro.uid, 'participacoes', equipe.edicaoId))
-                    await deleteDoc(doc(db, 'membro-index', btoa(membro.email).replace(/=+$/, '') + '_' + equipe.edicaoId))
+                    await atualizarIndiceAposRemocao(membro, equipe.id, equipe.edicaoId)
                     setTodasEquipes(prev => prev.map(eq =>
                       eq.id === equipe.id ? { ...eq, membros: eq.membros.filter(m => m.uid !== membro.uid) } : eq
                     ))
@@ -739,7 +752,6 @@ function MultiTeamView({ authUser, userData, edicoes }) {
                     delete autoAddTimeoutRefMulti.current[slotStateKey]
                   }
                   setAutoAddAvisoMulti(prev => (prev?.slotStateKey === slotStateKey ? null : prev))
-                  return
                   try {
                     const usersSnap = await getDocs(query(collection(db, 'users'), where('email', '==', data.email.trim())))
                     if (usersSnap.empty) { alert('Usuário com este email não encontrado.'); return }
@@ -978,7 +990,7 @@ function MultiTeamView({ authUser, userData, edicoes }) {
                     </div>
 
                     <div className="mt-7 text-center">
-                      {membrosAtivos.length === 4 ? (
+                      {membrosAtivos.length >= 4 ? (
                         <a href={`/sala-de-equipe?equipeId=${equipe.id}`}
                           className="inline-block bg-white px-8 py-3 text-sm font-semibold text-[#830000] transition-colors hover:bg-gray-100">
                           Sala de Equipe

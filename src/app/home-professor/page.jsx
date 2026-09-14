@@ -78,44 +78,84 @@ const Page = () => {
 
     const verificarMembro = (data) => (data.membros || []).some(m => m.uid === authUser.uid && m.status === 'ativo')
 
+    const irParaMontagem = async (equipeId, papel) => {
+      try {
+        const pExist = await getDoc(doc(db, 'users', authUser.uid, 'participacoes', edicaoId))
+        if (!pExist.exists() && equipeId) {
+          await setDoc(doc(db, 'users', authUser.uid, 'participacoes', edicaoId), {
+            equipeId,
+            papel: papel || 'professor_orientador',
+          })
+          setEquipes((prev) => ({ ...prev, [edicaoId]: { equipeId, papel: papel || 'professor_orientador' } }))
+        }
+      } catch {}
+      router.push('/montagem-equipe')
+    }
+
     // 1) Participações já carregadas em memória (zero leituras)
     const participacao = equipes[edicaoId]
     if (participacao?.equipeId) {
       try {
         const eqSnap = await getDoc(doc(db, 'equipes', participacao.equipeId))
         if (eqSnap.exists() && verificarMembro(eqSnap.data())) {
-          router.push(`/montagem-equipe`)
+          router.push('/montagem-equipe')
           return
         }
       } catch {}
     }
 
-    // 2) membro-index (até 2 leituras)
-    const miKey = btoa(authUser.email).replace(/=+$/, '') + '_' + edicaoId
-    try {
-      const idxSnap = await getDoc(doc(db, 'membro-index', miKey))
-      if (idxSnap.exists()) {
-        const idxData = idxSnap.data()
-        const eqSnap = await getDoc(doc(db, 'equipes', idxData.equipeId))
-        if (eqSnap.exists() && verificarMembro(eqSnap.data())) {
-          await setDoc(doc(db, 'users', authUser.uid, 'participacoes', edicaoId), {
-            equipeId: idxData.equipeId,
-            papel: idxData.papel || '',
-          })
-          setEquipes((prev) => ({ ...prev, [edicaoId]: { equipeId: idxData.equipeId, papel: idxData.papel } }))
-          router.push(`/montagem-equipe`)
-          return
+    // 2) membro-index (e-mail original e lowercased)
+    const emailsMi = [...new Set([authUser.email, String(authUser.email || '').trim().toLowerCase()].filter(Boolean))]
+    let achouIndex = false
+    for (const email of emailsMi) {
+      const miKey = btoa(email).replace(/=+$/, '') + '_' + edicaoId
+      try {
+        const idxSnap = await getDoc(doc(db, 'membro-index', miKey))
+        if (idxSnap.exists()) {
+          const idxData = idxSnap.data()
+          const eqSnap = await getDoc(doc(db, 'equipes', idxData.equipeId))
+          if (eqSnap.exists() && verificarMembro(eqSnap.data())) {
+            await setDoc(doc(db, 'users', authUser.uid, 'participacoes', edicaoId), {
+              equipeId: idxData.equipeId,
+              papel: idxData.papel || '',
+            })
+            setEquipes((prev) => ({ ...prev, [edicaoId]: { equipeId: idxData.equipeId, papel: idxData.papel } }))
+            router.push('/montagem-equipe')
+            achouIndex = true
+            break
+          }
         }
+      } catch {}
+    }
+    if (achouIndex) return
+
+    // 3) Equipes onde o professor é orientador (várias por edição)
+    try {
+      const oSnap = await getDocs(query(collection(db, 'equipes'), where('orientadorUids', 'array-contains', authUser.uid)))
+      const daEdicao = oSnap.docs.find((d) => d.data().edicaoId === edicaoId)
+      if (daEdicao) {
+        await irParaMontagem(daEdicao.id, 'professor_orientador')
+        return
       }
     } catch {}
 
+    // 4) Equipes criadas pelo professor
+    try {
+      const cSnap = await getDocs(query(collection(db, 'equipes'), where('criadorUid', '==', authUser.uid)))
+      const daEdicao = cSnap.docs.find((d) => d.data().edicaoId === edicaoId)
+      if (daEdicao) {
+        await irParaMontagem(daEdicao.id, 'professor_orientador')
+        return
+      }
+    } catch {}
 
     window.alert('As inscrições do 4º DHPB foram encerradas em 10/09/2026.')
   }
 
   const handleQuestionarioComplete = () => {
+    const edicaoId = edicaoQuestionarioPendente
     setEdicaoQuestionarioPendente(null)
-    window.alert('As inscrições do 4º DHPB foram encerradas em 10/09/2026.')
+    if (edicaoId) handleEdicaoClick(edicaoId)
   }
 
   if (loading || !authUser) {

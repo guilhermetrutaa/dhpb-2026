@@ -53,7 +53,7 @@ O DHPB é uma olimpíada/desafio de conhecimento do IFPB sobre História da Para
 - Se o questionário individual ainda não foi respondido, abre o "Questionário de Inscrição".
 - Se o questionário individual já foi respondido, o site procura participação do usuário em equipe daquela edição.
 - Se o estudante já está em uma equipe ativa, o site manda para /montagem-equipe?equipeId=ID_DA_EQUIPE.
-- Se o estudante ainda não está em equipe naquela edição, o site manda para /criar-equipe?edicaoId=ID_DA_EDICAO.
+- Se o estudante ainda não está em equipe naquela edição, o site informa que as inscrições encerraram em 10/09/2026. Não manda mais para criar equipe.
 - O estudante pode trocar avatar, escolhendo entre avatares padrão ou cidades premiadas.
 
 ## Home do professor
@@ -65,7 +65,8 @@ O DHPB é uma olimpíada/desafio de conhecimento do IFPB sobre História da Para
 - Se o documento foi recusado, a home mostra "Documento recusado", o motivo quando existir e o link "Enviar novo documento".
 - Se o documento foi aprovado, ao clicar em uma edição o professor passa pela mesma verificação de questionário individual.
 - Se o professor já participa de equipe na edição, o site manda para /montagem-equipe.
-- Se o professor não participa de equipe na edição, o site manda para /criar-equipe?edicaoId=ID_DA_EDICAO.
+- O site também encontra o professor pelas equipes em que ele é orientador (várias equipes na mesma edição), mesmo se o cadastro de participação estiver incompleto.
+- Se o professor não participa de nenhuma equipe na edição, o site informa que as inscrições encerraram em 10/09/2026. Não manda mais para criar equipe.
 
 ## Questionário individual / Questionário de Inscrição
 - Na primeira vez que a pessoa clicar no botão da edição na home, o site pode abrir o questionário socioeconômico individual.
@@ -125,6 +126,8 @@ O DHPB é uma olimpíada/desafio de conhecimento do IFPB sobre História da Para
 
 ## Tela de montagem da equipe
 - A tela de montagem da equipe fica em /montagem-equipe.
+- Responsável e professor orientador podem adicionar e remover integrantes nas equipes já existentes.
+- Não há botão "Criar Nova Equipe" na lista de equipes do professor.
 - Para estudante, normalmente a URL tem equipeId: /montagem-equipe?equipeId=ID_DA_EQUIPE.
 - Para professor, /montagem-equipe pode mostrar múltiplas equipes que ele orienta.
 - A tela mostra o título "Tela de montagem da equipe".
@@ -146,8 +149,9 @@ O DHPB é uma olimpíada/desafio de conhecimento do IFPB sobre História da Para
 - O nome da equipe pode ser editado pelo ícone de lápis, com botões "Salvar" e "Cancelar".
 - O nome da equipe só pode ser alterado a cada 25 dias.
 - Se alguma fase já iniciou, não é possível alterar o nome da equipe.
-- Quando a equipe completa 4 membros ativos, aparece o botão/link "Sala de Equipe".
-- Se usuário relata que não aparece "Sala de Equipe", peça para verificar se a equipe tem 4 membros ativos e se ele está na equipe correta; se persistir, transfira para atendente humano.
+- Quando a equipe tem 4 ou mais membros ativos, aparece o botão/link "Sala de Equipe".
+- Equipes que ficaram com 5 membros no cadastro também devem ver a Sala de Equipe e acessar as questões.
+- Se usuário relata que não aparece "Sala de Equipe", peça para verificar se a equipe tem pelo menos 4 membros ativos e se ele está na equipe correta; se persistir, transfira para atendente humano.
 
 ## Documentos do professor
 - Professor orientador pode precisar enviar comprovante de vínculo com a escola.

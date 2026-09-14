@@ -11,6 +11,7 @@ Este documento consolida as regras de negócio identificadas no código-fonte, s
   * 1 Professor Orientador (conta tipo `professor` com comprovante aprovado).
   * 1 Estudante Responsável (criador ou indicado na equipe).
   * 2 Estudantes Ajudantes.
+* **Acesso à Sala de Equipe:** o botão aparece com **4 ou mais** membros ativos (equipes com 5 no array também entram). `/sala-de-equipe` e `/questao` só exigem o usuário como membro ativo.
 * **Restrição de Instituição e Nível:** Os estudantes da equipe devem pertencer à mesma escola e à mesma modalidade/nível de ensino (`fundamental` ou `medio`).
 * **Unicidade de Estudantes:** Um estudante só pode participar de **uma única equipe** por edição. Essa regra é garantida no código pela coleção `membro-index` via chave `base64(email)_edicaoId`.
 * **Multi-Orientação de Professores:** Um professor pode orientar e criar **múltiplas equipes** na mesma edição.

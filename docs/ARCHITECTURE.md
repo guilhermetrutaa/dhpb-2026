@@ -82,11 +82,13 @@ O backend do Next.js é utilizado exclusivamente para operações seguras do sis
 1. **Cadastro/Login:** Cria conta como `estudante`.
 2. **Home (`/home`):** Carrega edições ativas. Ao clicar em uma edição:
    * Verifica se já respondeu o questionário individual (`users/{uid}/questionarios/{edicaoId}`). Se não, abre o modal obrigatório.
-   * Verifica participação em equipe (`users/{uid}/participacoes/{edicaoId}`). Se estiver em equipe, vai para `/montagem-equipe` ou `/sala-de-equipe`. Se não, vai para `/criar-equipe`.
+   * Verifica participação em equipe (`users/{uid}/participacoes/{edicaoId}` e `membro-index` com e-mail original e lowercased). Se estiver em equipe, vai para `/montagem-equipe`. Se não, alerta que as inscrições encerraram (criação de equipe nova permanece fechada).
 3. **Criação de Equipe (`/criar-equipe`):**
    * Busca escola no dataset estático `escolas-pb.json`.
    * Executa gravação atômica via `writeBatch`: grava a equipe, grava a participação e cria a trava no `membro-index/{base64email_edicaoId}`.
-4. **Sala de Prova (`/sala-de-equipe` $ightarrow$ `/resumo-fase` $ightarrow$ `/questao`):**
+4. **Sala de Prova (`/sala-de-equipe` $
+ightarrow$ `/resumo-fase` $
+ightarrow$ `/questao`):**
    * Acesso à fase liberado apenas se status for `aberta` ou `correcao` e equipe aprovada até aquela fase.
    * Na tela de questão (`/questao`), faz `getDoc()` estático da questão (sem broadcast em massa) e escuta apenas a subcoleção de respostas da equipe (`equipes/{id}/respostas/{questaoId}`).
    * Ao entregar questão, executa `runTransaction` no Firestore: bloqueia edição concorrente, salva resposta e atualiza pontuação (`pontuacoes/{faseId}`) e nota final (`df`).
@@ -95,7 +97,7 @@ O backend do Next.js é utilizado exclusivamente para operações seguras do sis
 1. **Cadastro:** Cria conta como `professor`.
 2. **Envio de Comprovante (`/enviar-documento`):** Faz upload do documento de vínculo (contracheque, termo de posse ou carteira de trabalho; máx 500KB) para o Cloudinary e grava status `pendente` em `users/{uid}`.
 3. **Bloqueio:** Fica bloqueado em `/home-professor` até que o administrador aprove o documento.
-4. **Orientação Multi-Equipe:** Uma vez aprovado, pode criar e orientar múltiplas equipes simultaneamente na mesma edição.
+4. **Orientação Multi-Equipe:** Uma vez aprovado, ao clicar na edição o site procura `participacoes`, `membro-index` (e-mail original e lowercased), depois `equipes.orientadorUids array-contains uid` e `criadorUid`. Se achar equipe da edição, vai para `/montagem-equipe`. Se não achar, alerta que as inscrições encerraram. Um professor pode orientar várias equipes na mesma edição; o acesso não depende só de `membro-index` (1 equipe por e-mail).
 
 ---
 

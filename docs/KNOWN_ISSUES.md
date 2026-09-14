@@ -38,3 +38,12 @@ Este documento registra problemas conhecidos, limitações técnicas e pontos de
 ### 1.7. Busca admin de equipe por prefixo (`nomeNormalized`)
 * **Localização:** `src/app/admin/firestore/page.jsx`.
 * **Descrição:** A busca por nome usa prefixo em `nomeNormalized` (`limit(15)`). Equipes antigas sem esse campo só são encontradas pelo fallback de igualdade em `nomeLower` (nome inteiro, minúsculas). “Contém no meio” não é usada (Spark).
+
+### 1.8. `membro-index` é 1 equipe por e-mail/edição
+* **Localização:** `membro-index/{btoa(email)_edicaoId}`; home do professor e montagem.
+* **Descrição:** A chave impede estudante em duas equipes, mas o professor pode orientar várias. O dashboard de reconsolidação **pula** professores. Acesso do professor usa `equipes.orientadorUids` quando `participacoes`/`membro-index` estão ausentes ou desatualizados.
+* **Impacto:** Remover o professor de uma equipe não deve apagar o índice se ele ainda orientar outra da mesma edição.
+
+### 1.9. Equipes com mais de 4 membros no array
+* **Localização:** `equipes.membros`; botão Sala de Equipe em `src/app/montagem-equipe/page.jsx`.
+* **Descrição:** Algumas equipes ficaram com 5+ membros ativos. A sala e as questões só exigem membro ativo. O botão Sala de Equipe aparece com **4 ou mais** ativos; a composição oficial continua 1+1+2. Não há migração que apague o membro extra.
