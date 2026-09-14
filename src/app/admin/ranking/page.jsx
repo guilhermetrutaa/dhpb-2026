@@ -13,6 +13,8 @@ const poppins = Poppins({
   weight: ['400', '500', '600', '700'],
 })
 
+const EQUIPE_EXCLUIDA_RANKING_ID = 'LhT2fV3JvyQhZU8PrSFl'
+
 function formatNota(valor) {
   if (valor === undefined || valor === null) return '—'
   return Number(valor).toFixed(2)
@@ -59,7 +61,7 @@ function RankingContent() {
       setFases(fasesData)
 
       const eSnap = await getDocs(query(collection(db, 'equipes'), where('edicaoId', '==', edId)))
-      const equipesData = eSnap.docs.map((doc_) => {
+      const equipesData = eSnap.docs.filter((d) => d.id !== EQUIPE_EXCLUIDA_RANKING_ID).map((doc_) => {
         const team = { id: doc_.id, ...doc_.data() }
         const pontuacao = {}
         for (const fase of fasesData) {

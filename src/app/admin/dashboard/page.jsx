@@ -20,7 +20,9 @@ function mapEquipeDoc(d, edMap) {
 
 function equipeTemQuatroMembros(data) {
   const m = data?.membros
-  return Boolean(m?.[0] && m?.[1] && m?.[2] && m?.[3])
+  if (!m) return false
+  const lista = Array.isArray(m) ? m : Object.values(m)
+  return lista.filter(Boolean).length >= 4
 }
 
 function modalidadeResumo(mod) {
@@ -391,7 +393,7 @@ function TabEquipes() {
               <span className='ml-1'>
                 <span className='text-blue-600 font-medium'>{totalPublicas} públicas</span>
                 {' ('}
-                <span className='text-neutral-500 font-medium' title='Municipal, Estadual, Federal (só equipes com 4 membros)'>
+                <span className='text-neutral-500 font-medium' title='Municipal, Estadual, Federal (só equipes com 4 ou mais membros)'>
                   {totalMunicipal}M · {totalEstadual}E · {totalFederal}F
                 </span>
                 {') · '}
@@ -405,7 +407,7 @@ function TabEquipes() {
               onClick={handleCopiarResumoCompletas}
               disabled={copiando || totalCompletas === null}
               className='flex items-center gap-1 text-xs bg-[#82181A] text-white px-3 py-1.5 rounded-md hover:bg-[#631214] transition-colors cursor-pointer font-bold shadow-sm disabled:opacity-50 disabled:cursor-not-allowed'
-              title='Copiar resumo das equipes inscritas completas (4 membros)'
+              title='Copiar resumo das equipes inscritas completas (4 ou mais membros)'
             >
               {copiando ? 'Copiando...' : 'Copiar resumo das completas'}
             </button>
