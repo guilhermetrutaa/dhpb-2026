@@ -64,7 +64,7 @@ Documento representativo da Fase da Olimpíada (mantido leve):
 | `gabaritoPdfUrl` | string (opcional) | Link do gabarito em PDF |
 | `questoesIndex` | array | Lista leve com `[{ id: string, numero: number }]` para paginação rápida |
 | `tarefa` | object (opcional) | `{ titulo: string, pontuacao: number }` |
-| `tarefaUrl` | string (opcional) | Link interno ou externo da atividade interativa |
+| `tarefaUrl` | string (opcional) | Path interno da atividade (ex: `/tarefas/migalhas-flavio-tavares`) |
 | `questoes` | array (legado) | Array espelhado de questões mantido para retrocompatibilidade |
 
 #### Subcoleção `edicoes/{edicaoId}/fases/{faseId}/questoes/{questaoId}`
@@ -114,6 +114,18 @@ Documento: `equipes/{equipeId}`
 | `faseId` | string | ID da fase |
 | `numero` | number | Número da questão |
 | `atualizadoEm` | string/timestamp | Momento da gravação |
+| `atualizadoPor` | string | Nome ou e-mail do integrante que gravou |
+
+Documento de tarefa interativa: `equipes/{equipeId}/respostas/tarefa_{faseId}` (espelho legado também em `equipes.respostas.tarefa` e `equipes.respostas.tarefa_{faseId}`).
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `tipo` | string | `'tarefa'` |
+| `status` | string | `'rascunho'` ou `'entregue'` |
+| `peso` | number | Pontos da tarefa nesta entrega (`pontosTarefa`, acertos até `fase.tarefa.pontuacao`) |
+| `faseId` | string | ID da fase |
+| `associacoes` | object | Mapa `{ "1": "O", "2": "T", ... }` número → letra |
+| `atualizadoEm` | string (ISO) | Momento da gravação |
 | `atualizadoPor` | string | Nome ou e-mail do integrante que gravou |
 
 #### Subcoleção `equipes/{equipeId}/pontuacoes/{faseId}`

@@ -707,7 +707,7 @@ function QuestaoContent() {
                   <button
                     type="button"
                     onClick={() => handleSalvar('rascunho')}
-                    className="min-w-[190px] rounded-full bg-[#FFD0D0] px-6 py-3 text-sm font-medium uppercase text-[#2F2F2F] transition-colors hover:bg-[#FFC0C0] cursor-pointer"
+                    className="min-w-[190px] cursor-pointer rounded-none border-2 border-[#8A7007] bg-[#C5A00A] px-6 py-3 text-sm font-medium uppercase text-white transition-colors hover:bg-[#B08F09]"
                   >
                     Salvar rascunho
                   </button>
@@ -715,7 +715,7 @@ function QuestaoContent() {
                 <button
                   type="button"
                   onClick={() => { if (confirm('Tem certeza? Não será possível alterar depois.')) handleSalvar('entregue') }}
-                  className="min-w-[210px] rounded-full bg-[#FF9D9D] px-6 py-3 text-sm font-medium uppercase text-[#2F2F2F] transition-colors hover:bg-[#FF8B8B] cursor-pointer"
+                  className="min-w-[210px] cursor-pointer rounded-none border-2 border-[#0F4D00] bg-[#197400] px-6 py-3 text-sm font-medium uppercase text-white transition-colors hover:bg-[#156300]"
                 >
                   Entregar questão
                 </button>

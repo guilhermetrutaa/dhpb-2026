@@ -94,7 +94,7 @@ function ResumoFaseContent() {
     return respostas[key]?.status || 'pendente'
   }
 
-  const tarefaStatus = getStatus('tarefa')
+  const tarefaStatus = respostas[`tarefa_${faseId}`]?.status || respostas.tarefa?.status || 'pendente'
 
   const temTarefa = !!fase?.tarefa?.titulo
 
