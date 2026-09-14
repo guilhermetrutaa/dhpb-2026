@@ -1,4 +1,4 @@
-export const PDF_DRIVE_URL = ''
+export const PDF_DRIVE_URL = 'https://drive.google.com/file/d/1wEBbVD2N7aG_yeFQsQfNZTstTSqUjqvP/view?usp=sharing'
 
 export const IMAGEM_SRC = '/tarefas/migalhas-flavio-tavares/imagem-central.webp'
 
