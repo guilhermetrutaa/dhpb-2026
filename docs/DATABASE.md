@@ -15,7 +15,7 @@ O DHPB utiliza **duas instâncias separadas do Google Cloud Firestore**:
 ## 2. Esquema do Banco Principal
 
 ### 2.1. Coleção `users`
-Documento: `users/{uid}` (Criado no cadastro pelo Firebase Auth)
+Documento: `users/{uid}` (Criado no cadastro pelo Firebase Auth, ou pelo admin em `POST /api/admin/auth/create-user`)
 
 | Campo | Tipo | Descrição |
 |---|---|---|
@@ -139,7 +139,8 @@ Documento de tarefa interativa: `equipes/{equipeId}/respostas/tarefa_{faseId}` (
 ### 2.4. Coleção `membro-index`
 Documento: `membro-index/{base64(email)_edicaoId}`
 * **Finalidade:** Trava atômica de unicidade no Firestore. Garante que um estudante não possa ingressar em duas equipes na mesma edição simultaneamente.
-* Campos: `{ equipeId: string, email: string, uid: string, edicaoId: string }`.
+* Payload gravado por `criar-equipe` e pelo admin (`/admin/firestore`, spec 022): `{ equipeId, papel, uid }`. A chave canônica usa e-mail **lowercased**; exclusão/troca também tenta a chave sem lowercase (inconsistência legada).
+* Professor orientador em várias equipes: o index 1:1 **não** é sobrescrito ao adicionar outra equipe (spec 015 / 022).
 
 ---
 

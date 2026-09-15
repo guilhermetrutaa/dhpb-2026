@@ -56,6 +56,14 @@ Rota                    Condição de Acesso                             Redirec
 1. **Nunca confiar exclusivamente no `localStorage` para mutações críticas:**
    * Operações de alteração de dados no Firestore devem sempre utilizar o `authUser.uid` do Firebase Auth para garantir a identidade do autor.
 2. **Tokens de Service Account:**
-   * A chave `SUPPORT_SERVICE_ACCOUNT` nunca é exposta no bundle do cliente. É utilizada exclusivamente no servidor via `firestore-rest.js` e `firebase-admin.js`.
+   * A chave `SUPPORT_SERVICE_ACCOUNT` nunca é exposta no bundle do cliente. É utilizada exclusivamente no servidor via `firestore-rest.js` e `firebase-admin.js` (projeto do chat).
+   * A chave `MAIN_SERVICE_ACCOUNT` (ou `MAIN_SERVICE_ACCOUNT_BASE64`) é do Firebase **principal**. Só entra em `src/lib/admin/main-firebase-admin.js` e nas rotas `/api/admin/auth/*`. Não reutilize a service account do suporte.
 3. **Trava de Unicidade de Membros:**
    * Ao adicionar integrantes a uma equipe em `/montagem-equipe` ou `/criar-equipe`, a gravação atômica na coleção `membro-index` impede condições de corrida e inscrições duplicadas de estudantes.
+   * O painel `/admin/firestore` (spec 022) replica o mesmo contrato em `writeBatch` ao criar equipe, incluir/remover/mover membro ou mudar e-mail.
+4. **Admin Auth (painel Firestore):**
+   * Login em `/admin` entra como `admin@dhpb.com`. Mutações de **outras** contas (criar, apagar, e-mail, senha) **não** usam o SDK web — isso derrubaria a sessão admin.
+   * O client envia `Authorization: Bearer <idToken>`; o servidor recusa qualquer e-mail que não seja `admin@dhpb.com`.
+   * Rotas: `POST /api/admin/auth/create-user` (Auth + `users/{uid}`), `update-user` (e-mail/senha), `delete-user` (só Auth; cascata Firestore no client), `get-user` (metadados).
+   * Excluir conta: confirmação pelo e-mail; cascata em equipes/`membro-index`/`participacoes`/`questionarios`/`users` e depois Auth. Não apaga `admin@dhpb.com`.
+   * `/cadastro` público permanece encerrado.
