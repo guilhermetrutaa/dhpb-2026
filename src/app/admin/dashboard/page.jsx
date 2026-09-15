@@ -46,6 +46,24 @@ function equipeContaNoResumo(id, data) {
   return TIPOS_ESCOLA_RESUMO.has(data?.tipoEscola)
 }
 
+function equipeComecouProva(data) {
+  const r = data?.respostas
+  if (!r || typeof r !== 'object' || Array.isArray(r)) return false
+  return Object.keys(r).length > 0
+}
+
+function listarEquipesComecaramProva(docs) {
+  const list = []
+  for (const d of docs) {
+    if (d.id === EQUIPE_EXCLUIDA_RESUMO_ID) continue
+    const data = d.data()
+    if (!equipeComecouProva(data)) continue
+    list.push({ id: d.id, nome: data.nome || d.id })
+  }
+  list.sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR'))
+  return list
+}
+
 function computarStatsCompletas(docs) {
   let municipal = 0
   let estadual = 0
@@ -115,6 +133,7 @@ function TabEquipes() {
   const [totalMedio, setTotalMedio] = useState(null)
   const [totalOrientadores, setTotalOrientadores] = useState(null)
   const [completasEscolaIds, setCompletasEscolaIds] = useState([])
+  const [equipesComecaram, setEquipesComecaram] = useState([])
   const [carregando, setCarregando] = useState(true)
   const [copiando, setCopiando] = useState(false)
   const [expanded, setExpanded] = useState(null)
@@ -145,6 +164,7 @@ function TabEquipes() {
       setTotalMedio(stats.medio)
       setTotalOrientadores(stats.orientadores)
       setCompletasEscolaIds(stats.completasEscolaIds)
+      setEquipesComecaram(listarEquipesComecaramProva(allSnap.docs))
 
       const q = query(collection(db, 'equipes'), orderBy(documentId()), limit(50))
       const eSnap = await getDocsFromServer(q)
@@ -380,6 +400,21 @@ function TabEquipes() {
     }
   }
 
+  const handleMostrarEquipesComecaram = async () => {
+    if (equipesComecaram.length === 0) {
+      alert('Nenhuma equipe começou a responder as provas.')
+      return
+    }
+    const nomes = equipesComecaram.map((eq) => eq.nome)
+    const msg = `${nomes.length} equipe(s) já começaram a responder as provas:\n\n${nomes.join('\n')}`
+    try {
+      await navigator.clipboard.writeText(msg)
+      alert(`${nomes.length} equipe(s) copiada(s) para a área de transferência.`)
+    } catch {
+      window.prompt('Copie a lista abaixo:', msg)
+    }
+  }
+
   if (carregando) return <p className='text-neutral-400 text-sm text-center py-10'>Carregando...</p>
   if (equipes.length === 0) return <p className='text-neutral-400 text-sm text-center py-10'>Nenhuma equipe cadastrada.</p>
 
@@ -410,6 +445,13 @@ function TabEquipes() {
               title='Copiar resumo das equipes inscritas completas (4 ou mais membros)'
             >
               {copiando ? 'Copiando...' : 'Copiar resumo das completas'}
+            </button>
+            <button
+              onClick={handleMostrarEquipesComecaram}
+              className='flex items-center gap-1 text-xs bg-white text-[#82181A] px-3 py-1.5 rounded-md hover:bg-neutral-50 transition-colors cursor-pointer font-bold shadow-sm border border-[#82181A]'
+              title='Copiar quantas equipes já gravaram alguma resposta de prova (rascunho ou entregue) e os nomes'
+            >
+              Copiar quem começou as provas
             </button>
           </p>
         )}
