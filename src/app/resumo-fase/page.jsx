@@ -185,7 +185,7 @@ function ResumoFaseContent() {
                   <p className='pl-2 text-sm'>em branco</p>
                 </div>
                 <div className='flex items-center pr-3'>
-                  <div className='w-8 h-8 flex items-center justify-center border-2 border-[#000]/25 bg-[#F8E3E3] text-sm font-medium'>{rascunhos}</div>
+                  <div className='w-8 h-8 flex items-center justify-center border-2 border-[#000]/25 bg-[#F8E9B0] text-sm font-medium'>{rascunhos}</div>
                   <p className='pl-2 text-sm'>em rascunho</p>
                 </div>
                 <div className='flex items-center'>
@@ -203,7 +203,7 @@ function ResumoFaseContent() {
           ) : (
             questoes.map((q, idx) => {
               const st = getStatus(q.id)
-              const bg = st === 'entregue' ? 'bg-[#CCFFE6]' : st === 'rascunho' ? 'bg-[#F8E3E3]' : 'bg-[#F7F7F7]'
+              const bg = st === 'entregue' ? 'bg-[#CCFFE6]' : st === 'rascunho' ? 'bg-[#F8E9B0]' : 'bg-[#F7F7F7]'
               const prevId = idx > 0 ? questoes[idx - 1].id : ''
               const nextId = idx < questoes.length - 1 ? questoes[idx + 1].id : ''
               return (
@@ -226,7 +226,7 @@ function ResumoFaseContent() {
             <div className='flex justify-center pt-5 sm:pt-8 pb-8'>
               <Link
                 href={hrefTarefa}
-                className={`flex flex-col sm:flex-row justify-between items-center p-4 w-full mx-4 sm:w-[90rem] ${tarefaStatus === 'entregue' ? 'bg-[#CCFFE6]' : tarefaStatus === 'rascunho' ? 'bg-[#F8E3E3]' : 'bg-[#F7F7F7]'} hover:opacity-80 transition-opacity`}
+                className={`flex flex-col sm:flex-row justify-between items-center p-4 w-full mx-4 sm:w-[90rem] ${tarefaStatus === 'entregue' ? 'bg-[#CCFFE6]' : tarefaStatus === 'rascunho' ? 'bg-[#F8E9B0]' : 'bg-[#F7F7F7]'} hover:opacity-80 transition-opacity`}
               >
                 <div><p className='text-base font-medium'>{fase.tarefa.titulo}</p></div>
                 <div className='flex flex-col items-center mt-1 sm:flex-row sm:space-x-2 sm:mt-0'>

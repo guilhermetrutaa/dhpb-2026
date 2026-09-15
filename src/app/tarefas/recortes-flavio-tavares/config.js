@@ -2,6 +2,8 @@ export const PDF_DRIVE_URL = 'https://drive.google.com/file/d/1wEBbVD2N7aG_yeFQs
 
 export const IMAGEM_SRC = '/tarefas/migalhas-flavio-tavares/imagem-central.webp'
 
+export const FUNDO_SRC = '/tarefas/migalhas-flavio-tavares/recortes/fundo.svg'
+
 export const recorteSrc = (id) => `/tarefas/migalhas-flavio-tavares/recortes/${id}.svg`
 
 export const PONTOS = [

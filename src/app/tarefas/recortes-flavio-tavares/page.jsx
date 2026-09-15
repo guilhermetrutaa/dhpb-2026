@@ -10,6 +10,7 @@ import { useAuth } from '@/context/AuthContext'
 import { db } from '@/lib/firebase'
 import {
   FRASES,
+  FUNDO_SRC,
   IMAGEM_SRC,
   INSTRUCAO,
   PDF_DRIVE_URL,
@@ -683,7 +684,10 @@ function TarefaContent() {
       {modalPonto != null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#5A5A5A] p-3 text-[#000] md:p-6">
           <div className="flex h-[96vh] w-[96vw] max-w-[1600px] flex-col overflow-hidden bg-white shadow-2xl lg:flex-row">
-            <div className="relative flex min-h-[42vh] flex-[1.6] items-center justify-center overflow-hidden bg-[#2A2A2A] lg:min-h-0">
+            <div
+              className="relative flex min-h-[42vh] flex-[1.6] items-center justify-center overflow-hidden bg-cover bg-center lg:min-h-0"
+              style={{ backgroundImage: `url(${FUNDO_SRC})` }}
+            >
               <button
                 type="button"
                 onClick={() => setModalPonto(null)}
@@ -701,9 +705,9 @@ function TarefaContent() {
                   onError={() => setRecorteOk(false)}
                 />
               ) : (
-                <p className="px-4 text-center text-sm text-white/80">Recorte pendente em /recortes/{modalPonto}.svg</p>
+                <p className="relative z-10 px-4 text-center text-sm text-white/80">Recorte pendente em /recortes/{modalPonto}.svg</p>
               )}
-              <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-3 rounded bg-black/45 px-3 py-2">
+              <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-3 rounded bg-black/45 px-3 py-2">
                 <button type="button" onClick={() => setZoomLevel((prev) => Math.max(0.5, prev - 0.1))} className="cursor-pointer bg-white/90 px-3 py-1 text-sm">−</button>
                 <input type="range" min="0.5" max="3" step="0.1" value={zoomLevel} onChange={(event) => setZoomLevel(parseFloat(event.target.value))} className="w-36 accent-[#82181A] md:w-48" />
                 <button type="button" onClick={() => setZoomLevel((prev) => Math.min(3, prev + 0.1))} className="cursor-pointer bg-white/90 px-3 py-1 text-sm">+</button>
