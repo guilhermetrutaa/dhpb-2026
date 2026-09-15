@@ -700,7 +700,7 @@ function TarefaContent() {
                 <img
                   src={recorteSrc(modalPonto)}
                   alt={`Recorte do ponto ${modalPonto}`}
-                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-200 ease-in-out"
+                  className="absolute inset-0 h-full w-full object-contain transition-transform duration-200 ease-in-out"
                   style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'center' }}
                   onError={() => setRecorteOk(false)}
                 />

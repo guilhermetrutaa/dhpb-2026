@@ -8,7 +8,7 @@
 
 ## Problema / valor
 
-No modal da tarefa, o painel da imagem usa fundo cinza (`#2A2A2A`). Os recortes passaram a ser transparentes. Com zoom-out, o cinza aparece ao redor. O painel deve ter **um** `fundo.svg` fixo (cover, sem zoom); só o recorte escala.
+No modal da tarefa, o painel da imagem usa fundo cinza (`#2A2A2A`). Os recortes passaram a ser transparentes. Com zoom-out, o cinza aparece ao redor. O painel deve ter **um** `fundo.svg` fixo (cover, sem zoom); só o recorte escala. O recorte (16:9) usa `object-contain` para caber inteiro no painel (celular quase quadrado); o fundo preenche as faixas.
 
 Spec 014 permanece a regra da tarefa (associação, entrega, pontos). Esta spec só cobre o visual do painel.
 
@@ -27,7 +27,7 @@ Não altera pontuação, Firestore, auth, pins, frases, gabarito, entrega. Não 
 
 | Regra | No código hoje | Depois desta spec |
 |---|---|---|
-| Painel do recorte | `bg-[#2A2A2A]`; um `<img>` do recorte com `scale(zoom)` | Um `fundo.svg` CSS cover (sem zoom) + recorte com `scale` |
+| Painel do recorte | `bg-[#2A2A2A]`; recorte `object-cover` + `scale(zoom)` | Um `fundo.svg` CSS cover (sem zoom) + recorte `object-contain` com `scale` |
 | Recortes | SVGs transparentes no `public/`; código ignora `fundo.svg` | `FUNDO_SRC` em `config.js`; recortes 1–20 sobre o fundo |
 
 ## Firestore
@@ -46,7 +46,8 @@ Não altera pontuação, Firestore, auth, pins, frases, gabarito, entrega. Não 
 
 - [x] Painel do modal sem `#2A2A2A`; um único `fundo.svg` (CSS cover, sem zoom)
 - [x] Zoom-out (até 0.5): espaço ao redor é esse fundo, sem segunda camada nem cinza
-- [x] Zoom-in: só o recorte escala (`object-cover`, origem no centro)
+- [x] Recorte inteiro no zoom ≤ 1 (`object-contain`); fundo nas faixas
+- [x] Zoom-in: só o recorte escala (origem no centro); overflow recorta o excesso
 - [x] Range de zoom 0.5–3 inalterado; overlay do modal inalterada
 - [x] Cota Spark: nenhuma query nova
 - [x] `npm run build` código 0

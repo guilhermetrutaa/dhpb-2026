@@ -7,7 +7,7 @@ Traduz `spec.md` para o stack **atual** (Next.js 16 App Router, Firebase Spark).
 | Arquivo | Motivo |
 |---|---|
 | `src/app/tarefas/recortes-flavio-tavares/config.js` | `FUNDO_SRC` |
-| `src/app/tarefas/recortes-flavio-tavares/page.jsx` | Fundo CSS único no painel; recorte com zoom |
+| `src/app/tarefas/recortes-flavio-tavares/page.jsx` | Fundo CSS único; recorte `object-contain` + zoom |
 | `public/tarefas/migalhas-flavio-tavares/recortes/fundo.svg` | Capa (já existe; não regenerar) |
 
 ## Queries
