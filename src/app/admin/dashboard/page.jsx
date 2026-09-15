@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Poppins } from 'next/font/google'
 import { useRouter } from 'next/navigation'
 import { collection, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, orderBy, query, getDocs, getDocsFromServer, getCountFromServer, limit, startAfter, documentId, writeBatch, setDoc } from 'firebase/firestore'
@@ -129,11 +129,6 @@ function TabEquipes() {
   const [totalFederal, setTotalFederal] = useState(null)
   const [totalPublicas, setTotalPublicas] = useState(null)
   const [totalCompletas, setTotalCompletas] = useState(null)
-  const [totalFundamental, setTotalFundamental] = useState(null)
-  const [totalMedio, setTotalMedio] = useState(null)
-  const [totalOrientadores, setTotalOrientadores] = useState(null)
-  const [completasEscolaIds, setCompletasEscolaIds] = useState([])
-  const [equipesComecaram, setEquipesComecaram] = useState([])
   const [carregando, setCarregando] = useState(true)
   const [copiando, setCopiando] = useState(false)
   const [expanded, setExpanded] = useState(null)
@@ -141,30 +136,18 @@ function TabEquipes() {
 
   const [lastVisible, setLastVisible] = useState(null)
   const [temMais, setTemMais] = useState(true)
+  const equipesScanRef = useRef(null)
 
   useEffect(() => {
     const carregar = async () => {
-      const [edSnap, countSnap, allSnap] = await Promise.all([
+      const [edSnap, countSnap] = await Promise.all([
         getDocsFromServer(collection(db, 'edicoes')),
         getCountFromServer(collection(db, 'equipes')),
-        getDocsFromServer(collection(db, 'equipes')),
       ])
       const edMap = {}
       edSnap.docs.forEach((d) => { edMap[d.id] = d.data().nome || '—' })
       setEdicoes(edSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
       setTotalServidor(countSnap.data().count)
-      const stats = computarStatsCompletas(allSnap.docs)
-      setTotalParticular(stats.particular)
-      setTotalMunicipal(stats.municipal)
-      setTotalEstadual(stats.estadual)
-      setTotalFederal(stats.federal)
-      setTotalPublicas(stats.publicas)
-      setTotalCompletas(stats.completas)
-      setTotalFundamental(stats.fundamental)
-      setTotalMedio(stats.medio)
-      setTotalOrientadores(stats.orientadores)
-      setCompletasEscolaIds(stats.completasEscolaIds)
-      setEquipesComecaram(listarEquipesComecaramProva(allSnap.docs))
 
       const q = query(collection(db, 'equipes'), orderBy(documentId()), limit(50))
       const eSnap = await getDocsFromServer(q)
@@ -357,10 +340,31 @@ function TabEquipes() {
     }
   }
 
-  const handleCopiarResumoCompletas = async () => {
-    if (totalCompletas === null) return
+  const garantirScanEquipes = async () => {
+    if (equipesScanRef.current) return equipesScanRef.current
+    const snap = await getDocsFromServer(collection(db, 'equipes'))
+    equipesScanRef.current = snap.docs
+    return snap.docs
+  }
+
+  const aplicarStatsDoScan = (docs) => {
+    const stats = computarStatsCompletas(docs)
+    const comecaram = listarEquipesComecaramProva(docs)
+    setTotalParticular(stats.particular)
+    setTotalMunicipal(stats.municipal)
+    setTotalEstadual(stats.estadual)
+    setTotalFederal(stats.federal)
+    setTotalPublicas(stats.publicas)
+    setTotalCompletas(stats.completas)
+    return { stats, comecaram }
+  }
+
+  const handleCopiarResumo = async () => {
     setCopiando(true)
     try {
+      const docs = await garantirScanEquipes()
+      const { stats, comecaram } = aplicarStatsDoScan(docs)
+
       const escolasRes = await fetch('/escolas-pb.json')
       if (!escolasRes.ok) throw new Error('Não foi possível carregar escolas-pb.json')
       const escolas = await escolasRes.json()
@@ -370,26 +374,32 @@ function TabEquipes() {
       }
 
       const cidades = new Set()
-      for (const eq of completasEscolaIds) {
+      for (const eq of stats.completasEscolaIds) {
         const municipio = eq.escolaId ? idToMunicipio[String(eq.escolaId)] : null
         if (municipio) cidades.add(municipio)
       }
 
-      const msg = [
+      const blocoCompletas = [
         'Equipes inscritas completas — DHPB',
         '',
-        `Total: ${totalCompletas}`,
-        `Públicas: ${totalPublicas} (Municipal: ${totalMunicipal} · Estadual: ${totalEstadual} · Federal: ${totalFederal})`,
-        `Privadas: ${totalParticular}`,
-        `Fundamental: ${totalFundamental}`,
-        `Médio: ${totalMedio}`,
+        `Total: ${stats.completas}`,
+        `Públicas: ${stats.publicas} (Municipal: ${stats.municipal} · Estadual: ${stats.estadual} · Federal: ${stats.federal})`,
+        `Privadas: ${stats.particular}`,
+        `Fundamental: ${stats.fundamental}`,
+        `Médio: ${stats.medio}`,
         `Cidades: ${cidades.size}`,
-        `Professores orientadores: ${totalOrientadores}`,
+        `Professores orientadores: ${stats.orientadores}`,
       ].join('\n')
+
+      const blocoProvas = comecaram.length === 0
+        ? 'Nenhuma equipe começou a responder as provas.'
+        : `${comecaram.length} equipe(s) já começaram a responder as provas:\n\n${comecaram.map((eq) => eq.nome).join('\n')}`
+
+      const msg = `${blocoCompletas}\n\n${blocoProvas}`
 
       try {
         await navigator.clipboard.writeText(msg)
-        alert('Resumo das equipes completas copiado.')
+        alert('Resumo copiado.')
       } catch {
         window.prompt('Copie o resumo abaixo:', msg)
       }
@@ -397,21 +407,6 @@ function TabEquipes() {
       alert('Erro ao montar o resumo: ' + err.message)
     } finally {
       setCopiando(false)
-    }
-  }
-
-  const handleMostrarEquipesComecaram = async () => {
-    if (equipesComecaram.length === 0) {
-      alert('Nenhuma equipe começou a responder as provas.')
-      return
-    }
-    const nomes = equipesComecaram.map((eq) => eq.nome)
-    const msg = `${nomes.length} equipe(s) já começaram a responder as provas:\n\n${nomes.join('\n')}`
-    try {
-      await navigator.clipboard.writeText(msg)
-      alert(`${nomes.length} equipe(s) copiada(s) para a área de transferência.`)
-    } catch {
-      window.prompt('Copie a lista abaixo:', msg)
     }
   }
 
@@ -439,19 +434,12 @@ function TabEquipes() {
             )}
 
             <button
-              onClick={handleCopiarResumoCompletas}
-              disabled={copiando || totalCompletas === null}
+              onClick={handleCopiarResumo}
+              disabled={copiando}
               className='flex items-center gap-1 text-xs bg-[#82181A] text-white px-3 py-1.5 rounded-md hover:bg-[#631214] transition-colors cursor-pointer font-bold shadow-sm disabled:opacity-50 disabled:cursor-not-allowed'
-              title='Copiar resumo das equipes inscritas completas (4 ou mais membros)'
+              title='Lê todas as equipes no primeiro clique e copia o resumo das completas (4 ou mais membros) e quem já começou as provas'
             >
-              {copiando ? 'Copiando...' : 'Copiar resumo das completas'}
-            </button>
-            <button
-              onClick={handleMostrarEquipesComecaram}
-              className='flex items-center gap-1 text-xs bg-white text-[#82181A] px-3 py-1.5 rounded-md hover:bg-neutral-50 transition-colors cursor-pointer font-bold shadow-sm border border-[#82181A]'
-              title='Copiar quantas equipes já gravaram alguma resposta de prova (rascunho ou entregue) e os nomes'
-            >
-              Copiar quem começou as provas
+              {copiando ? 'Copiando...' : 'Copiar resumo'}
             </button>
           </p>
         )}
