@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getMainAdminAuth } from '@/lib/admin/main-firebase-admin'
-import { requireMainAdmin, MAIN_ADMIN_EMAIL } from '@/lib/admin/require-admin'
+import { requireMainAdmin, MAIN_ADMIN_EMAIL, respostaFalhaAdminAuth } from '@/lib/admin/require-admin'
 
 export const runtime = 'nodejs'
 
@@ -28,7 +28,7 @@ export async function POST(req) {
     if (code === 'auth/user-not-found') {
       return NextResponse.json({ erro: 'Conta Auth não encontrada (Firestore pode já ter sido limpo).' }, { status: 404 })
     }
-    console.error('[admin/auth/delete-user]', err?.message || err)
-    return NextResponse.json({ erro: err?.message || 'Falha ao excluir conta Auth.' }, { status: 500 })
+    console.error('[admin/auth/delete-user]', err?.code || '', err?.message || err)
+    return respostaFalhaAdminAuth(err, 'Falha ao excluir conta Auth.')
   }
 }

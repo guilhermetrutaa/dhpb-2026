@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getMainAdminAuth, getMainAdminDb } from '@/lib/admin/main-firebase-admin'
-import { requireMainAdmin, normalizarNomeCampo } from '@/lib/admin/require-admin'
+import { requireMainAdmin, normalizarNomeCampo, respostaFalhaAdminAuth } from '@/lib/admin/require-admin'
 
 export const runtime = 'nodejs'
 
@@ -34,7 +34,7 @@ export async function POST(req) {
     })
 
     try {
-      const db = getMainAdminDb()
+      const db = await getMainAdminDb()
       await db.collection('users').doc(userRecord.uid).set({
         nome,
         sobrenome,
@@ -57,7 +57,7 @@ export async function POST(req) {
     if (code === 'auth/invalid-email') {
       return NextResponse.json({ erro: 'E-mail inválido.' }, { status: 400 })
     }
-    console.error('[admin/auth/create-user]', err?.message || err)
-    return NextResponse.json({ erro: err?.message || 'Falha ao criar conta.' }, { status: 500 })
+    console.error('[admin/auth/create-user]', err?.code || '', err?.message || err)
+    return respostaFalhaAdminAuth(err, 'Falha ao criar conta.')
   }
 }

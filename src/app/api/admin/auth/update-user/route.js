@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getMainAdminAuth } from '@/lib/admin/main-firebase-admin'
-import { requireMainAdmin, MAIN_ADMIN_EMAIL } from '@/lib/admin/require-admin'
+import { requireMainAdmin, MAIN_ADMIN_EMAIL, respostaFalhaAdminAuth } from '@/lib/admin/require-admin'
 
 export const runtime = 'nodejs'
 
@@ -48,12 +48,12 @@ export async function POST(req) {
   } catch (err) {
     const code = err?.code || ''
     if (code === 'auth/user-not-found') {
-      return NextResponse.json({ erro: 'Conta Auth não encontrada.' }, { status: 404 })
+      return NextResponse.json({ erro: 'Conta Auth não encontrada.', code }, { status: 404 })
     }
     if (code === 'auth/email-already-exists') {
-      return NextResponse.json({ erro: 'Já existe uma conta com este e-mail.' }, { status: 409 })
+      return NextResponse.json({ erro: 'Já existe uma conta com este e-mail.', code }, { status: 409 })
     }
-    console.error('[admin/auth/update-user]', err?.message || err)
-    return NextResponse.json({ erro: err?.message || 'Falha ao atualizar conta.' }, { status: 500 })
+    console.error('[admin/auth/update-user]', err?.code || '', err?.message || err)
+    return respostaFalhaAdminAuth(err, 'Falha ao atualizar conta.')
   }
 }

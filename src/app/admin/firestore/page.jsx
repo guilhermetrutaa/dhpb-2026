@@ -89,7 +89,10 @@ async function adminApi(path, body) {
     body: JSON.stringify(body),
   })
   const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(data.erro || `Erro ${res.status}`)
+  if (!res.ok) {
+    const msg = data.erro || `Erro ${res.status}`
+    throw new Error(data.code ? `${msg} (${data.code})` : msg)
+  }
   return data
 }
 
@@ -500,7 +503,7 @@ export default function FirestoreAdminPage() {
       setNovaSenha('')
       alert('Senha atualizada no Auth.')
     } catch (err) {
-      alert(err.message)
+      alert('Não foi possível definir a senha: ' + err.message)
     }
   }
 
@@ -772,7 +775,11 @@ export default function FirestoreAdminPage() {
                           <p>Criado em: {authMeta.creationTime || '—'}</p>
                         </div>
                       )}
-                      {authMeta?.erro && <p className='text-xs text-amber-700'>{authMeta.erro}</p>}
+                      {authMeta?.erro && (
+                        <p className='text-xs text-amber-700'>
+                          Auth: {authMeta.erro}. Sem isso, definir senha / e-mail no Auth falha. Confira MAIN_SERVICE_ACCOUNT no servidor (local ou Vercel) e reinicie.
+                        </p>
+                      )}
                       <div className='pt-3 border-t border-red-200 space-y-2'>
                         <p className='text-xs text-red-700'>Excluir conta (cascata). Digite o e-mail para confirmar.</p>
                         <input className={inputCls} value={confirmExcluir} onChange={(e) => setConfirmExcluir(e.target.value)} placeholder={usuarioResultado.email || 'e-mail'} />

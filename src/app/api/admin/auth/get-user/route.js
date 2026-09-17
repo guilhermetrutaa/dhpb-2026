@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getMainAdminAuth } from '@/lib/admin/main-firebase-admin'
-import { requireMainAdmin } from '@/lib/admin/require-admin'
+import { requireMainAdmin, respostaFalhaAdminAuth } from '@/lib/admin/require-admin'
 
 export const runtime = 'nodejs'
 
@@ -38,9 +38,9 @@ export async function POST(req) {
   } catch (err) {
     const code = err?.code || ''
     if (code === 'auth/user-not-found') {
-      return NextResponse.json({ erro: 'Conta Auth não encontrada.' }, { status: 404 })
+      return NextResponse.json({ erro: 'Conta Auth não encontrada.', code }, { status: 404 })
     }
-    console.error('[admin/auth/get-user]', err?.message || err)
-    return NextResponse.json({ erro: err?.message || 'Falha ao buscar conta Auth.' }, { status: 500 })
+    console.error('[admin/auth/get-user]', err?.code || '', err?.message || err)
+    return respostaFalhaAdminAuth(err, 'Falha ao buscar conta Auth.')
   }
 }
