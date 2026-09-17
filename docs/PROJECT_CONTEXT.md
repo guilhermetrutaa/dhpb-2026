@@ -22,7 +22,7 @@ O **DHPB (Desafio em História da Paraíba)** é uma plataforma web para uma oli
 | **Estilização** | Tailwind CSS v4 + Poppins | Cores: Vinho/Bordô `#82181A` (hover `#631214`), Fundo `#ffffff`. |
 | **Banco Principal** | Firebase Web SDK v12 | Firestore (Olimpíada: users, equipes, fases, questoes, ranking). Long polling ativo (`experimentalForceLongPolling: true`). |
 | **Banco de Suporte** | Firebase Instance Separada | Firestore isolado apenas para o chat (`chamados`, `mensagens`). NUNCA misturar com o banco principal. |
-| **Backend Helpers** | `firestore-rest.js` + `jose` + Admin SDK | Chat: REST no projeto de suporte. Auth admin da olimpíada: `src/lib/admin/main-firebase-admin.js` (`MAIN_SERVICE_ACCOUNT`), rotas `/api/admin/auth/*`. Nunca misturar com `SUPPORT_SERVICE_ACCOUNT`. |
+| **Backend Helpers** | `firestore-rest.js` + `jose` + Identity Toolkit REST | Chat: REST no projeto de suporte. Auth admin da olimpíada: `src/lib/admin/main-auth-rest.js` (`MAIN_SERVICE_ACCOUNT` / `MAIN_SERVICE_ACCOUNT_BASE64`), rotas `/api/admin/auth/*`. Sem `firebase-admin` nessas rotas (evita 500 no Vercel). Nunca misturar com `SUPPORT_SERVICE_ACCOUNT`. |
 | **Mídia** | Cloudinary | Renderização **sempre** via helper `@/lib/cloudinary` (`optimizeCloudinaryUrl`). |
 | **Dados Estáticos** | `public/escolas-pb.json` | 5.240 escolas da PB cacheadas localmente (**0 leituras no Firestore** no cadastro/busca). |
 
@@ -45,7 +45,7 @@ O **DHPB (Desafio em História da Paraíba)** é uma plataforma web para uma oli
 | **Ranking, Medalhas e Certificados** | `docs/BUSINESS_RULES.md` | `src/app/admin/ranking/page.jsx`, `src/app/admin/medalhas/page.jsx`, `src/app/certificado/page.jsx`, `src/app/certificado-medalha/page.jsx` |
 | **Chat e Suporte** | `docs/INTEGRATIONS.md` e `docs/DATABASE.md` | `src/components/support/*`, `src/hooks/useSupportChat.js`, `src/app/api/support/*`, `src/app/admin/suporte/page.jsx` |
 | **Upload de Mídias e Imagens** | `docs/INTEGRATIONS.md` e `docs/CODE_CONVENTIONS.md` | `src/lib/cloudinary.js`, `src/app/enviar-documento/page.jsx`, `src/app/admin/documentos/page.jsx` |
-| **Admin / dados / questionários** | `docs/DATABASE.md` e `docs/AUTHENTICATION.md` | `src/app/admin/dashboard/page.jsx`, `src/app/admin/firestore/page.jsx`, `src/app/admin/firestore/ops.js`, `src/app/admin/questionarios/page.jsx`, `src/app/api/admin/auth/*` |
+| **Admin / dados / questionários** | `docs/DATABASE.md` e `docs/AUTHENTICATION.md` | `src/app/admin/dashboard/page.jsx`, `src/app/admin/firestore/page.jsx`, `src/app/admin/firestore/ops.js`, `src/app/admin/questionarios/page.jsx`, `src/app/api/admin/auth/*`, `src/lib/admin/main-auth-rest.js` |
 | **Páginas institucionais** | `docs/CODE_CONVENTIONS.md` | `src/app/page.jsx`, `src/app/sobre/page.jsx`, `src/app/regulamento/page.jsx`, `src/app/calendario/page.jsx`, `src/app/biblioteca/page.jsx`, `src/app/contato/page.jsx`, `src/app/provas-antigas/**` |
 
 ### 3.3. Arquivos Críticos (NÃO ALTERAR SEM ANÁLISE RIGOROSA)

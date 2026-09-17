@@ -88,7 +88,9 @@ async function adminApi(path, body) {
     },
     body: JSON.stringify(body),
   })
-  const data = await res.json().catch(() => ({}))
+  const text = await res.text()
+  let data = {}
+  try { data = text ? JSON.parse(text) : {} } catch { data = {} }
   if (!res.ok) {
     const msg = data.erro || `Erro ${res.status}`
     throw new Error(data.code ? `${msg} (${data.code})` : msg)
@@ -777,7 +779,10 @@ export default function FirestoreAdminPage() {
                       )}
                       {authMeta?.erro && (
                         <p className='text-xs text-amber-700'>
-                          Auth: {authMeta.erro}. Sem isso, definir senha / e-mail no Auth falha. Confira MAIN_SERVICE_ACCOUNT no servidor (local ou Vercel) e reinicie.
+                          Auth: {authMeta.erro}. Sem isso, definir senha / e-mail no Auth falha.
+                          {/MAIN_SERVICE_ACCOUNT|Erro \d{3}|private_key|ausente|OAuth|PEM/i.test(authMeta.erro)
+                            ? ' No Vercel, se MAIN_SERVICE_ACCOUNT estiver com Needs Attention, recrie como MAIN_SERVICE_ACCOUNT_BASE64 (arquivo .json em Base64, uma linha, Production) e faça Redeploy.'
+                            : ''}
                         </p>
                       )}
                       <div className='pt-3 border-t border-red-200 space-y-2'>

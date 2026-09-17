@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server'
-import { getMainAdminAuth, getMainAdminDb } from '@/lib/admin/main-firebase-admin'
 import { requireMainAdmin, normalizarNomeCampo, respostaFalhaAdminAuth } from '@/lib/admin/require-admin'
+import { createAuthUser, deleteAuthUser, setUsersDoc } from '@/lib/admin/main-auth-rest'
 
 export const runtime = 'nodejs'
 
 export async function POST(req) {
-  const gate = await requireMainAdmin(req)
-  if (gate.error) return gate.error
-
   try {
+    const gate = await requireMainAdmin(req)
+    if (gate.error) return gate.error
+
     const body = await req.json().catch(() => ({}))
     const email = String(body.email || '').trim().toLowerCase()
     const password = String(body.password || '')
@@ -26,16 +26,14 @@ export async function POST(req) {
       return NextResponse.json({ erro: 'Nome e sobrenome são obrigatórios.' }, { status: 400 })
     }
 
-    const auth = getMainAdminAuth()
-    const userRecord = await auth.createUser({
+    const userRecord = await createAuthUser({
       email,
       password,
       displayName: `${nome} ${sobrenome}`.trim(),
     })
 
     try {
-      const db = await getMainAdminDb()
-      await db.collection('users').doc(userRecord.uid).set({
+      await setUsersDoc(userRecord.uid, {
         nome,
         sobrenome,
         email,
@@ -44,7 +42,7 @@ export async function POST(req) {
         createdAt: new Date().toISOString(),
       })
     } catch (err) {
-      await auth.deleteUser(userRecord.uid).catch(() => {})
+      await deleteAuthUser(userRecord.uid).catch(() => {})
       throw err
     }
 
@@ -52,10 +50,10 @@ export async function POST(req) {
   } catch (err) {
     const code = err?.code || ''
     if (code === 'auth/email-already-exists') {
-      return NextResponse.json({ erro: 'Já existe uma conta com este e-mail.' }, { status: 409 })
+      return NextResponse.json({ erro: 'Já existe uma conta com este e-mail.', code }, { status: 409 })
     }
     if (code === 'auth/invalid-email') {
-      return NextResponse.json({ erro: 'E-mail inválido.' }, { status: 400 })
+      return NextResponse.json({ erro: 'E-mail inválido.', code }, { status: 400 })
     }
     console.error('[admin/auth/create-user]', err?.code || '', err?.message || err)
     return respostaFalhaAdminAuth(err, 'Falha ao criar conta.')
