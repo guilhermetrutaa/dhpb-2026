@@ -46,22 +46,68 @@ function equipeContaNoResumo(id, data) {
   return TIPOS_ESCOLA_RESUMO.has(data?.tipoEscola)
 }
 
-function equipeComecouProva(data) {
+function equipeComecouFase(data, faseId) {
+  if (!faseId) return false
   const r = data?.respostas
   if (!r || typeof r !== 'object' || Array.isArray(r)) return false
-  return Object.keys(r).length > 0
+  const alvo = String(faseId)
+  for (const valor of Object.values(r)) {
+    if (!valor || typeof valor !== 'object' || Array.isArray(valor)) continue
+    if (String(valor.faseId || '') === alvo) return true
+  }
+  return false
 }
 
-function listarEquipesComecaramProva(docs) {
+function listarEquipesComecaramProva(docs, edicaoId, faseId) {
   const list = []
   for (const d of docs) {
     if (d.id === EQUIPE_EXCLUIDA_RESUMO_ID) continue
     const data = d.data()
-    if (!equipeComecouProva(data)) continue
+    if (data.edicaoId !== edicaoId) continue
+    if (!equipeComecouFase(data, faseId)) continue
     list.push({ id: d.id, nome: data.nome || d.id })
   }
   list.sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR'))
   return list
+}
+
+function listarMembros(data) {
+  const m = data?.membros
+  if (!m) return []
+  return Array.isArray(m) ? m : Object.values(m)
+}
+
+function listarCompletasSemProva(docs, edicaoId, faseId) {
+  const escolasPorChave = new Map()
+  const emails = new Set()
+
+  for (const d of docs) {
+    const data = d.data()
+    if (!equipeTemQuatroMembros(data)) continue
+    if (!equipeContaNoResumo(d.id, data)) continue
+    if (data.edicaoId !== edicaoId) continue
+    if (equipeComecouFase(data, faseId)) continue
+
+    const nome = String(data.escola || '').trim()
+    const escolaId = String(data.escolaId || '').trim()
+    if (escolaId && nome) {
+      escolasPorChave.set(`id:${escolaId}`, nome)
+    } else if (!escolaId && nome) {
+      const key = `nome:${nome.toLowerCase()}`
+      if (!escolasPorChave.has(key)) escolasPorChave.set(key, nome)
+    }
+
+    for (const membro of listarMembros(data)) {
+      if (membro?.papel !== 'professor_orientador') continue
+      const email = String(membro?.email || '').trim().toLowerCase()
+      if (email) emails.add(email)
+    }
+  }
+
+  return {
+    escolas: [...new Set(escolasPorChave.values())].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    emails: [...emails].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+  }
 }
 
 function computarStatsCompletas(docs) {
@@ -133,6 +179,8 @@ function TabEquipes() {
   const [copiando, setCopiando] = useState(false)
   const [expanded, setExpanded] = useState(null)
   const [mostrarFerramentas, setMostrarFerramentas] = useState(false)
+  const [fasesCopia, setFasesCopia] = useState([])
+  const [faseCopiaKey, setFaseCopiaKey] = useState('')
 
   const [lastVisible, setLastVisible] = useState(null)
   const [temMais, setTemMais] = useState(true)
@@ -148,6 +196,24 @@ function TabEquipes() {
       edSnap.docs.forEach((d) => { edMap[d.id] = d.data().nome || '—' })
       setEdicoes(edSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
       setTotalServidor(countSnap.data().count)
+
+      const fasesPorEdicao = await Promise.all(edSnap.docs.map(async (ed) => {
+        const fSnap = await getDocsFromServer(
+          query(collection(db, 'edicoes', ed.id, 'fases'), orderBy('dataInicio', 'asc'))
+        )
+        return fSnap.docs.map((f) => ({
+          key: `${ed.id}/${f.id}`,
+          edicaoId: ed.id,
+          edicaoNome: ed.data().nome || '—',
+          faseId: f.id,
+          nome: f.data().nome || f.id,
+          status: f.data().status || '',
+        }))
+      }))
+      const fasesList = fasesPorEdicao.flat()
+      setFasesCopia(fasesList)
+      const padrao = fasesList.find((f) => f.status === 'aberta') || fasesList[0]
+      if (padrao) setFaseCopiaKey(padrao.key)
 
       const q = query(collection(db, 'equipes'), orderBy(documentId()), limit(50))
       const eSnap = await getDocsFromServer(q)
@@ -349,21 +415,36 @@ function TabEquipes() {
 
   const aplicarStatsDoScan = (docs) => {
     const stats = computarStatsCompletas(docs)
-    const comecaram = listarEquipesComecaramProva(docs)
     setTotalParticular(stats.particular)
     setTotalMunicipal(stats.municipal)
     setTotalEstadual(stats.estadual)
     setTotalFederal(stats.federal)
     setTotalPublicas(stats.publicas)
     setTotalCompletas(stats.completas)
-    return { stats, comecaram }
+    return stats
   }
 
+  const copiarTexto = async (msg, alertaSucesso) => {
+    try {
+      await navigator.clipboard.writeText(msg)
+      alert(alertaSucesso)
+    } catch {
+      window.prompt('Copie o texto abaixo:', msg)
+    }
+  }
+
+  const faseCopia = fasesCopia.find((f) => f.key === faseCopiaKey) || null
+  const variasEdicoes = edicoes.length > 1
+  const nomeFaseCopia = faseCopia?.nome || 'fase'
+  const semFaseCopia = !faseCopia
+
   const handleCopiarResumo = async () => {
+    if (!faseCopia) return
     setCopiando(true)
     try {
       const docs = await garantirScanEquipes()
-      const { stats, comecaram } = aplicarStatsDoScan(docs)
+      const stats = aplicarStatsDoScan(docs)
+      const comecaram = listarEquipesComecaramProva(docs, faseCopia.edicaoId, faseCopia.faseId)
 
       const escolasRes = await fetch('/escolas-pb.json')
       if (!escolasRes.ok) throw new Error('Não foi possível carregar escolas-pb.json')
@@ -392,19 +473,49 @@ function TabEquipes() {
       ].join('\n')
 
       const blocoProvas = comecaram.length === 0
-        ? 'Nenhuma equipe começou a responder as provas.'
-        : `${comecaram.length} equipe(s) já começaram a responder as provas:\n\n${comecaram.map((eq) => eq.nome).join('\n')}`
+        ? `Nenhuma equipe começou a responder a ${nomeFaseCopia}.`
+        : `${comecaram.length} equipe(s) já começaram a responder a ${nomeFaseCopia}:\n\n${comecaram.map((eq) => eq.nome).join('\n')}`
 
       const msg = `${blocoCompletas}\n\n${blocoProvas}`
-
-      try {
-        await navigator.clipboard.writeText(msg)
-        alert('Resumo copiado.')
-      } catch {
-        window.prompt('Copie o resumo abaixo:', msg)
-      }
+      await copiarTexto(msg, 'Resumo copiado.')
     } catch (err) {
       alert('Erro ao montar o resumo: ' + err.message)
+    } finally {
+      setCopiando(false)
+    }
+  }
+
+  const handleCopiarEscolasSemProva = async () => {
+    if (!faseCopia) return
+    setCopiando(true)
+    try {
+      const docs = await garantirScanEquipes()
+      aplicarStatsDoScan(docs)
+      const { escolas } = listarCompletasSemProva(docs, faseCopia.edicaoId, faseCopia.faseId)
+      const msg = escolas.length === 0
+        ? `Nenhuma escola de equipe completa sem resposta na ${nomeFaseCopia}.`
+        : escolas.join('\n')
+      await copiarTexto(msg, escolas.length === 0 ? msg : `Copiado: ${escolas.length} escola(s) sem a ${nomeFaseCopia}.`)
+    } catch (err) {
+      alert('Erro ao montar a lista: ' + err.message)
+    } finally {
+      setCopiando(false)
+    }
+  }
+
+  const handleCopiarEmailsSemProva = async () => {
+    if (!faseCopia) return
+    setCopiando(true)
+    try {
+      const docs = await garantirScanEquipes()
+      aplicarStatsDoScan(docs)
+      const { emails } = listarCompletasSemProva(docs, faseCopia.edicaoId, faseCopia.faseId)
+      const msg = emails.length === 0
+        ? `Nenhum e-mail de orientador em equipes completas sem resposta na ${nomeFaseCopia}.`
+        : emails.join('\n')
+      await copiarTexto(msg, emails.length === 0 ? msg : `Copiado: ${emails.length} e-mail(s) sem a ${nomeFaseCopia}.`)
+    } catch (err) {
+      alert('Erro ao montar a lista: ' + err.message)
     } finally {
       setCopiando(false)
     }
@@ -417,7 +528,7 @@ function TabEquipes() {
     <div className='space-y-3'>
       <div className='flex items-center justify-between gap-3 flex-wrap'>
         {totalServidor !== null && (
-          <p className='text-xs text-neutral-500 flex justify-center items-center gap-2'>
+          <div className='text-xs text-neutral-500 flex justify-center items-center gap-2 flex-wrap'>
             {equipes.length} exibida(s) · {totalServidor} no servidor
             {totalCompletas !== null && (
               <span className='ml-1'>
@@ -433,15 +544,48 @@ function TabEquipes() {
               </span>
             )}
 
+            <select
+              value={faseCopiaKey}
+              onChange={(e) => setFaseCopiaKey(e.target.value)}
+              disabled={semFaseCopia}
+              className='text-xs border border-neutral-300 rounded-md px-2 py-1.5 bg-white text-neutral-700 font-semibold outline-none focus:border-[#82181A] disabled:opacity-50'
+              title='Fase usada pelos três botões de cópia'
+            >
+              {semFaseCopia ? (
+                <option value=''>Nenhuma fase</option>
+              ) : (
+                fasesCopia.map((f) => (
+                  <option key={f.key} value={f.key}>
+                    {variasEdicoes ? `${f.edicaoNome} — ${f.nome}` : f.nome}
+                  </option>
+                ))
+              )}
+            </select>
             <button
               onClick={handleCopiarResumo}
-              disabled={copiando}
+              disabled={copiando || semFaseCopia}
               className='flex items-center gap-1 text-xs bg-[#82181A] text-white px-3 py-1.5 rounded-md hover:bg-[#631214] transition-colors cursor-pointer font-bold shadow-sm disabled:opacity-50 disabled:cursor-not-allowed'
-              title='Lê todas as equipes no primeiro clique e copia o resumo das completas (4 ou mais membros) e quem já começou as provas'
+              title='Lê todas as equipes no primeiro clique e copia o resumo das completas (4 ou mais membros) e quem já começou a fase selecionada'
             >
               {copiando ? 'Copiando...' : 'Copiar resumo'}
             </button>
-          </p>
+            <button
+              onClick={handleCopiarEscolasSemProva}
+              disabled={copiando || semFaseCopia}
+              className='flex items-center gap-1 text-xs bg-white text-[#82181A] px-3 py-1.5 rounded-md hover:bg-[#82181A]/10 transition-colors cursor-pointer font-bold shadow-sm border border-[#82181A] disabled:opacity-50 disabled:cursor-not-allowed'
+              title='Copia nomes únicos das escolas de equipes completas que ainda não responderam a fase selecionada'
+            >
+              {copiando ? 'Copiando...' : 'Copiar escolas sem prova'}
+            </button>
+            <button
+              onClick={handleCopiarEmailsSemProva}
+              disabled={copiando || semFaseCopia}
+              className='flex items-center gap-1 text-xs bg-white text-[#82181A] px-3 py-1.5 rounded-md hover:bg-[#82181A]/10 transition-colors cursor-pointer font-bold shadow-sm border border-[#82181A] disabled:opacity-50 disabled:cursor-not-allowed'
+              title='Copia e-mails únicos dos professores orientadores de equipes completas que ainda não responderam a fase selecionada'
+            >
+              {copiando ? 'Copiando...' : 'Copiar e-mails sem prova'}
+            </button>
+          </div>
         )}
         <div className='flex items-center gap-2 ml-auto flex-wrap justify-end'>
 
