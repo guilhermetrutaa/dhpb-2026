@@ -132,7 +132,7 @@ function Footer() {
   )
 }
 
-function QuestionArrow({ href, direction }) {
+function QuestionArrow({ href, direction, label }) {
   const disabled = !href
   const triangleClass = direction === 'left'
     ? 'border-y-[7px] border-y-transparent border-r-[10px] border-r-black'
@@ -147,7 +147,7 @@ function QuestionArrow({ href, direction }) {
   if (disabled) return <span aria-hidden="true">{arrow}</span>
 
   return (
-    <Link href={href} aria-label={direction === 'left' ? 'Questão anterior' : 'Próxima questão'}>
+    <Link href={href} aria-label={label || (direction === 'left' ? 'Questão anterior' : 'Próxima questão')}>
       {arrow}
     </Link>
   )
@@ -605,7 +605,22 @@ function QuestaoContent() {
   const qPrevId = prevIdParam || (currentIdx > 0 ? allQuestaoIds[currentIdx - 1] : '')
   const qNextId = nextIdParam || (currentIdx < allQuestaoIds.length - 1 ? allQuestaoIds[currentIdx + 1] : '')
   const prevHref = qPrevId ? `/questao?questaoId=${qPrevId}&faseId=${faseId}&edicaoId=${edicaoId}&equipeId=${equipeId}` : ''
-  const nextHref = qNextId ? `/questao?questaoId=${qNextId}&faseId=${faseId}&edicaoId=${edicaoId}&equipeId=${equipeId}` : ''
+  const tarefaHref = (() => {
+    const base = fase?.tarefaUrl
+    if (!base || base === '#') return ''
+    try {
+      const url = new URL(base, 'https://dhpb.local')
+      if (equipeId) url.searchParams.set('equipeId', equipeId)
+      if (faseId) url.searchParams.set('faseId', faseId)
+      if (edicaoId) url.searchParams.set('edicaoId', edicaoId)
+      return `${url.pathname}${url.search}${url.hash}`
+    } catch {
+      return ''
+    }
+  })()
+  const nextHref = qNextId
+    ? `/questao?questaoId=${qNextId}&faseId=${faseId}&edicaoId=${edicaoId}&equipeId=${equipeId}`
+    : tarefaHref
   const activeDocument = activeDocumentIndex !== null ? questao?.documentos?.[activeDocumentIndex] : null
   const lockedQuestion = respostaStatus === 'entregue' || fase?.status === 'correcao'
 
@@ -646,7 +661,7 @@ function QuestaoContent() {
               </h1>
             </div>
             <div className="justify-self-end">
-              <QuestionArrow href={nextHref} direction="right" />
+              <QuestionArrow href={nextHref} direction="right" label={!qNextId && nextHref ? 'Ir para a tarefa' : undefined} />
             </div>
           </div>
 
