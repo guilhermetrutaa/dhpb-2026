@@ -3,10 +3,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Poppins } from 'next/font/google'
 import { useRouter } from 'next/navigation'
-import { collection, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, orderBy, query, getDocs, getDocsFromServer, getCountFromServer, limit, startAfter, documentId, writeBatch, setDoc } from 'firebase/firestore'
+import { collection, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, orderBy, query, getDocs, getDocsFromServer, getCountFromServer, limit, startAfter, documentId, writeBatch, setDoc, where, runTransaction } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { db, auth } from '@/lib/firebase'
 import Image from 'next/image'
+import { calcularEquipe, gerarPreviewRecalc, payloadGravacao } from '@/lib/recalcularPontuacao'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -185,6 +186,10 @@ function TabEquipes() {
   const [lastVisible, setLastVisible] = useState(null)
   const [temMais, setTemMais] = useState(true)
   const equipesScanRef = useRef(null)
+  const [edicaoRecalcId, setEdicaoRecalcId] = useState('')
+  const [mostraConfirmarRecalc, setMostraConfirmarRecalc] = useState(false)
+  const [previewRecalc, setPreviewRecalc] = useState(null)
+  const recalcContextoRef = useRef(null)
 
   useEffect(() => {
     const carregar = async () => {
@@ -194,8 +199,10 @@ function TabEquipes() {
       ])
       const edMap = {}
       edSnap.docs.forEach((d) => { edMap[d.id] = d.data().nome || '—' })
-      setEdicoes(edSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      const edicoesData = edSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      setEdicoes(edicoesData)
       setTotalServidor(countSnap.data().count)
+      if (edicoesData[0]?.id) setEdicaoRecalcId((atual) => atual || edicoesData[0].id)
 
       const fasesPorEdicao = await Promise.all(edSnap.docs.map(async (ed) => {
         const fSnap = await getDocsFromServer(
@@ -368,6 +375,158 @@ function TabEquipes() {
   }
 
   const [mostraBotaoReal, setMostraBotaoReal] = useState(false)
+
+  const carregarContextoRecalc = async (edId) => {
+    const fSnap = await getDocsFromServer(
+      query(collection(db, 'edicoes', edId, 'fases'), orderBy('dataInicio', 'asc'))
+    )
+    const fases = fSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    const questoesById = {}
+    for (const fase of fases) {
+      let carregouSub = false
+      try {
+        const qSnap = await getDocsFromServer(query(
+          collection(db, 'edicoes', edId, 'fases', fase.id, 'questoes'),
+          orderBy('numero', 'asc'),
+          limit(50)
+        ))
+        if (!qSnap.empty) {
+          qSnap.docs.forEach((q) => {
+            questoesById[q.id] = { id: q.id, faseId: fase.id, ...q.data() }
+          })
+          carregouSub = true
+        }
+      } catch { /* fallback legado */ }
+      if (!carregouSub) {
+        for (const q of fase.questoes || []) {
+          if (q?.id) questoesById[q.id] = { ...q, faseId: fase.id }
+        }
+      }
+    }
+    const eSnap = await getDocsFromServer(query(collection(db, 'equipes'), where('edicaoId', '==', edId)))
+    const equipesEdicao = eSnap.docs
+      .filter((d) => d.id !== EQUIPE_EXCLUIDA_RESUMO_ID)
+      .map((d) => ({ id: d.id, ...d.data() }))
+    return { fases, questoesById, equipes: equipesEdicao }
+  }
+
+  const handleSimularRecalcPesos = async () => {
+    if (!edicaoRecalcId) {
+      alert('Selecione a edição.')
+      return
+    }
+    if (!window.confirm(
+      'Simular recálculo de Ni/Di/Df com os pesos ATUAIS das questões.\n\n' +
+      'Corrija 0/1/4/5 → 0/2/8/10 no console ANTES de simular.\n\nNenhuma gravação será feita.'
+    )) return
+    setCarregando(true)
+    setMostraConfirmarRecalc(false)
+    setPreviewRecalc(null)
+    try {
+      const ctx = await carregarContextoRecalc(edicaoRecalcId)
+      const preview = gerarPreviewRecalc(ctx.equipes, ctx.fases, ctx.questoesById)
+      if (preview.erro === 'questoes_antigas') {
+        alert(
+          'Corrija os pesos das questões no console primeiro (0, 2, 8 e 10).\n' +
+          'Ainda encontrados: ' + (preview.pesos || []).join(', ')
+        )
+        return
+      }
+      if (preview.erro === 'sem_fases') {
+        alert('Cadastre as fases da edição antes de recalcular.')
+        return
+      }
+      if (preview.erro === 'sem_questoes') {
+        alert('Nenhuma questão encontrada nesta edição.')
+        return
+      }
+      recalcContextoRef.current = { fases: ctx.fases, questoesById: ctx.questoesById }
+      setPreviewRecalc(preview)
+      if (preview.alteradas.length === 0) {
+        alert(`SIMULAÇÃO: nenhuma equipe precisa de correção.\n\nEquipes lidas: ${preview.itens.length}.`)
+        return
+      }
+      const porId = Object.fromEntries(ctx.equipes.map((eq) => [eq.id, eq]))
+      const fase0 = ctx.fases[0]
+      const linhas = preview.alteradas.slice().sort((a, b) =>
+        String(a.nome).localeCompare(String(b.nome), 'pt-BR')
+      ).map((item) => {
+        const niAntigo = Number(porId[item.id]?.pontuacoes?.[fase0?.id]?.ni || 0)
+        const niNovo = fase0 ? (item.pontuacoes[fase0.id]?.ni ?? 0) : 0
+        return `${item.nome}: Df ${item.dfAntigo.toFixed(2)} → ${item.dfNovo.toFixed(2)}` +
+          (fase0 ? ` | Ni ${niAntigo.toFixed(2)} → ${niNovo.toFixed(2)}` : '')
+      })
+      const avisoCota = preview.writesEstimados > 5000
+        ? `\nATENÇÃO: ~${preview.writesEstimados} escritas (cota Spark 20k/dia). Grave em horário calmo.`
+        : ''
+      const lista = [
+        `Recálculo Ni/Di/Df — ${preview.alteradas.length} equipe(s)`,
+        `Equipes lidas: ${preview.itens.length}`,
+        `Writes estimados: ${preview.writesEstimados}`,
+        '',
+        ...linhas,
+      ].join('\n')
+      setMostraConfirmarRecalc(true)
+      await copiarTexto(
+        lista,
+        `SIMULAÇÃO: ${preview.alteradas.length} equipe(s) mudam (~${preview.writesEstimados} escritas).` +
+        `\nEquipes lidas: ${preview.itens.length}.` +
+        `\n\nLista completa copiada (${preview.alteradas.length} linhas). Cole num bloco de notas para conferir.` +
+        avisoCota +
+        '\n\nNenhuma gravação foi feita. Confira e depois confirme.'
+      )
+    } catch (err) {
+      alert('Erro na simulação: ' + err.message)
+    } finally {
+      setCarregando(false)
+    }
+  }
+
+  const handleConfirmarRecalcPesos = async () => {
+    if (!previewRecalc?.alteradas?.length || !recalcContextoRef.current) {
+      alert('Simule o recálculo antes de confirmar.')
+      return
+    }
+    if (!window.confirm(
+      `Isto vai GRAVAR Ni/Di/Df de ${previewRecalc.alteradas.length} equipe(s) (~${previewRecalc.writesEstimados} escritas).\n\n` +
+      'A tarefa não será alterada. Tem certeza absoluta?'
+    )) return
+    setCarregando(true)
+    const { fases, questoesById } = recalcContextoRef.current
+    let gravadas = 0
+    let puladas = 0
+    try {
+      for (const item of previewRecalc.alteradas) {
+        const mudou = await runTransaction(db, async (transaction) => {
+          const equipeRef = doc(db, 'equipes', item.id)
+          const snap = await transaction.get(equipeRef)
+          if (!snap.exists()) return false
+          const live = calcularEquipe({ id: item.id, ...snap.data() }, fases, questoesById)
+          if (!live.mudou) return false
+          transaction.update(equipeRef, payloadGravacao(live, fases))
+          for (const fase of fases) {
+            const p = live.pontuacoes[fase.id]
+            if (!p) continue
+            transaction.set(doc(db, 'equipes', item.id, 'pontuacoes', fase.id), { ni: p.ni, di: p.di }, { merge: true })
+          }
+          for (const [rid, peso] of Object.entries(live.respostasPeso)) {
+            transaction.set(doc(db, 'equipes', item.id, 'respostas', rid), { peso }, { merge: true })
+          }
+          return true
+        })
+        if (mudou) gravadas++
+        else puladas++
+      }
+      alert(`RECÁLCULO CONCLUÍDO.\n\nEquipes gravadas: ${gravadas}\nSem mudança na transação: ${puladas}`)
+      setMostraConfirmarRecalc(false)
+      setPreviewRecalc(null)
+      recalcContextoRef.current = null
+    } catch (err) {
+      alert('Erro no recálculo: ' + err.message)
+    } finally {
+      setCarregando(false)
+    }
+  }
 
   const handleRecalcularCompletas = async () => {
     if (!window.confirm('Custo de ~650 leituras e gravações. O sistema fará a contagem exata e atualizará todas as equipes com a tag de completa. Tem certeza?')) return
@@ -607,6 +766,40 @@ function TabEquipes() {
         {mostrarFerramentas && (
           <div className='mt-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 space-y-2'>
             <p className='font-bold'>⚠️ Atenção: estas operações varrrem TODAS as equipes e têm custo alto (~600+ leituras). Use somente quando necessário.</p>
+            <div className='flex gap-2 flex-wrap items-center'>
+              <select
+                value={edicaoRecalcId}
+                onChange={(e) => {
+                  setEdicaoRecalcId(e.target.value)
+                  setMostraConfirmarRecalc(false)
+                  setPreviewRecalc(null)
+                  recalcContextoRef.current = null
+                }}
+                className='text-xs border border-amber-300 rounded-md px-2 py-1 bg-white text-neutral-700 font-semibold outline-none focus:border-[#82181A]'
+                title='Edição usada no recálculo de Ni/Di/Df'
+              >
+                {edicoes.length === 0 && <option value=''>Nenhuma edição</option>}
+                {edicoes.map((ed) => (
+                  <option key={ed.id} value={ed.id}>{ed.nome || ed.id}</option>
+                ))}
+              </select>
+              <button
+                onClick={handleSimularRecalcPesos}
+                disabled={!edicaoRecalcId}
+                className='bg-violet-100 text-violet-800 px-3 py-1 rounded-md hover:bg-violet-200 transition-colors cursor-pointer font-bold disabled:opacity-50'
+                title='Lê questões e equipes da edição. Corrija 0/1/4/5 → 0/2/8/10 no console antes.'
+              >
+                Simular recálculo Ni/Di/Df
+              </button>
+              {mostraConfirmarRecalc && (
+                <button
+                  onClick={handleConfirmarRecalcPesos}
+                  className='bg-orange-100 text-orange-700 px-3 py-1 rounded-md hover:bg-orange-200 transition-colors cursor-pointer font-bold border border-orange-300'
+                >
+                  CONFIRMAR RECÁLCULO REAL
+                </button>
+              )}
+            </div>
             <div className='flex gap-2 flex-wrap'>
               <button onClick={() => handleMigrarOrientadores(true)} className='bg-blue-100 text-blue-700 px-3 py-1 rounded-md hover:bg-blue-200 transition-colors cursor-pointer font-bold'>
                 Simular Migração (orientadorUids)

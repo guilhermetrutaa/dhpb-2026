@@ -46,6 +46,7 @@ Este documento consolida as regras de negócio identificadas no código-fonte, s
 * **Nota bruta da fase ($N_i$):** 0 a 100 (`notaMaxima` é o teto, não o divisor do $d_i$). Fases 1–3: até 80 nas questões (itens 0 / 2 / 8 / 10) + até 20 na tarefa.
 * **Cálculo do desempenho da fase ($d_i$):** $d_i = n_i \times peso_i$. Pesos oficiais: 1, 2, 4, 8, 16. Valores arredondados na 2ª casa decimal.
 * **Desempenho Final ($Df$):** soma dos $d_i$, máximo 3100.
+* **Correção de cadastro (spec 025):** se alternativas foram gravadas na escala antiga (0/1/4/5), o admin corrige as questões no console para 0/2/8/10 e depois simula/confirma o recálculo na aba Equipes do dashboard. Só respostas `entregue` entram; a tarefa não é dobrada. Entregas novas já usam o `peso` cadastrado na alternativa.
 * **Eliminação e aprovação (Admin Ranking):** o admin gera preview e grava `aprovadoAte`.
   * Fase 1 → 2: $N_1 \ge 25{,}00$; sem teto de vagas.
   * Fase 2 → 3: $N_2 \ge 50{,}00$; sem teto de vagas.
