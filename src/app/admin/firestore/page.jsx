@@ -30,6 +30,7 @@ import {
   normalizarEspacos,
   normalizarNomeEquipe,
 } from './ops'
+import RespostasTab from './respostas-tab'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -613,7 +614,7 @@ export default function FirestoreAdminPage() {
           <div className='flex items-center gap-4'>
             <div>
               <h1 className='text-lg font-bold text-[#82181A]'>Ferramentas de Suporte (Firestore)</h1>
-              <p className='text-xs text-neutral-400'>Contas, equipes e questionários — sem console Firebase</p>
+              <p className='text-xs text-neutral-400'>Contas, equipes, questionários e respostas — sem console Firebase</p>
             </div>
           </div>
           <button onClick={() => router.push('/admin/dashboard')} className='border border-neutral-300 text-neutral-500 px-5 py-2 rounded-lg text-sm font-semibold hover:bg-neutral-100 transition-all cursor-pointer'>
@@ -623,9 +624,10 @@ export default function FirestoreAdminPage() {
       </header>
 
       <div className='max-w-5xl mx-auto px-6 py-8'>
-        <div className='flex gap-2 mb-8 bg-white p-1 rounded-xl shadow-sm border border-neutral-200 inline-flex'>
+        <div className='flex flex-wrap gap-2 mb-8 bg-white p-1 rounded-xl shadow-sm border border-neutral-200 inline-flex'>
           <button onClick={() => setAba('equipes')} className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${aba === 'equipes' ? 'bg-[#82181A] text-white shadow-sm' : 'text-neutral-500 hover:bg-neutral-100'}`}>Equipes</button>
           <button onClick={() => setAba('usuarios')} className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${aba === 'usuarios' ? 'bg-[#82181A] text-white shadow-sm' : 'text-neutral-500 hover:bg-neutral-100'}`}>Usuários</button>
+          <button onClick={() => setAba('respostas')} className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${aba === 'respostas' ? 'bg-[#82181A] text-white shadow-sm' : 'text-neutral-500 hover:bg-neutral-100'}`}>Respostas</button>
         </div>
 
         {aba === 'equipes' && (
@@ -886,6 +888,8 @@ export default function FirestoreAdminPage() {
             </div>
           </div>
         )}
+
+        {aba === 'respostas' && <RespostasTab />}
 
       </div>
     </div>

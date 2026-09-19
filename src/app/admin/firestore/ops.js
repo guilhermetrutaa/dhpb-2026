@@ -10,8 +10,13 @@ import {
   updateDoc,
   setDoc,
   deleteDoc,
+  deleteField,
+  increment,
+  orderBy,
+  runTransaction,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
+import { calcularPontosTarefa } from '@/app/tarefas/recortes-flavio-tavares/config'
 
 export function normalizarEspacos(raw) {
   return String(raw || '').trim().replace(/\s+/g, ' ')
@@ -608,4 +613,289 @@ export async function cascataExcluirFirestore(user, edicaoIds) {
 
   batch.delete(doc(db, 'users', uid))
   await batch.commit()
+}
+
+export function pesoCreditado(resposta) {
+  if (!resposta || resposta.status !== 'entregue') return 0
+  return Number(resposta.peso) || 0
+}
+
+export function calcularDeltaDi(delta, pesoFase) {
+  return Math.round(Number(delta) * (Number(pesoFase) || 0) * 100) / 100
+}
+
+export function isRespostaTarefa(respostaId, resposta) {
+  const id = String(respostaId || '')
+  if (id === 'tarefa' || id.startsWith('tarefa_')) return true
+  return resposta?.tipo === 'tarefa'
+}
+
+export function tarefaUrlEhRecortes(tarefaUrl) {
+  const url = String(tarefaUrl || '').toLowerCase()
+  return url.includes('recortes') || url.includes('migalhas')
+}
+
+function aplicarDeltaPontuacao(transaction, { pontuacaoRef, equipeUpdate, faseId, delta, deltaDi }) {
+  if (delta === 0 && deltaDi === 0) return
+  transaction.set(pontuacaoRef, {
+    ni: increment(delta),
+    di: increment(deltaDi),
+  }, { merge: true })
+  equipeUpdate.df = increment(deltaDi)
+  equipeUpdate[`pontuacoes.${faseId}.ni`] = increment(delta)
+  equipeUpdate[`pontuacoes.${faseId}.di`] = increment(deltaDi)
+}
+
+export async function buscarEquipesPorNome(termo) {
+  const t = String(termo || '').trim()
+  if (!t) return []
+  const resultados = []
+  const vistos = new Set()
+  const termoNorm = normalizarNomeEquipe(t)
+  if (termoNorm) {
+    const snapNorm = await getDocs(query(
+      collection(db, 'equipes'),
+      where('nomeNormalized', '>=', termoNorm),
+      where('nomeNormalized', '<=', termoNorm + '\uf8ff'),
+      limit(15)
+    ))
+    snapNorm.forEach((d) => {
+      vistos.add(d.id)
+      resultados.push({ id: d.id, ...d.data() })
+    })
+  }
+  if (resultados.length === 0) {
+    const snap = await getDocs(query(
+      collection(db, 'equipes'),
+      where('nomeLower', '==', t.toLowerCase()),
+      limit(15)
+    ))
+    snap.forEach((d) => {
+      if (vistos.has(d.id)) return
+      resultados.push({ id: d.id, ...d.data() })
+    })
+  }
+  return resultados
+}
+
+export async function listarFasesEdicao(edicaoId) {
+  if (!edicaoId) return []
+  const snap = await getDocs(query(
+    collection(db, 'edicoes', edicaoId, 'fases'),
+    orderBy('dataInicio', 'asc'),
+    limit(10)
+  ))
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
+export async function listarRespostasEquipe(equipeId) {
+  if (!equipeId) return []
+  const snap = await getDocs(query(
+    collection(db, 'equipes', equipeId, 'respostas'),
+    limit(80)
+  ))
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
+export function mesclarRespostas(equipe, subcol) {
+  const byId = {}
+  const mapa = equipe?.respostas && typeof equipe.respostas === 'object' ? equipe.respostas : {}
+  Object.entries(mapa).forEach(([id, data]) => {
+    if (!id || !data || typeof data !== 'object') return
+    byId[id] = { id, ...data }
+  })
+  ;(subcol || []).forEach((r) => {
+    if (!r?.id) return
+    byId[r.id] = { ...byId[r.id], ...r }
+  })
+  return byId
+}
+
+export async function carregarQuestaoAdmin(edicaoId, faseId, questaoId) {
+  const snap = await getDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes', questaoId))
+  if (!snap.exists()) return null
+  return { id: snap.id, ...snap.data() }
+}
+
+export async function editarRespostaQuestao({
+  equipeId,
+  edicaoId,
+  faseId,
+  questaoId,
+  alternativa,
+  atualizadoPor,
+}) {
+  const letra = String(alternativa || '').trim()
+  if (!equipeId || !edicaoId || !faseId || !questaoId || !letra) {
+    throw new Error('Dados incompletos para editar a questão.')
+  }
+
+  const [qSnap, fSnap] = await Promise.all([
+    getDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId, 'questoes', questaoId)),
+    getDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId)),
+  ])
+  if (!qSnap.exists()) throw new Error('Questão não encontrada.')
+  const questao = qSnap.data()
+  const alt = (questao.alternativas || []).find((a) => a.letra === letra)
+  if (!alt) throw new Error('Alternativa inválida.')
+  const pesoAlt = Number(alt.peso) || 0
+  const pesoFase = fSnap.exists() ? (Number(fSnap.data().peso) || 0) : 0
+
+  const respostaRef = doc(db, 'equipes', equipeId, 'respostas', questaoId)
+  const equipeRef = doc(db, 'equipes', equipeId)
+  const pontuacaoRef = doc(db, 'equipes', equipeId, 'pontuacoes', faseId)
+
+  await runTransaction(db, async (transaction) => {
+    const rSnap = await transaction.get(respostaRef)
+    const eSnap = await transaction.get(equipeRef)
+    if (!eSnap.exists()) throw new Error('Equipe não encontrada.')
+
+    const atual = rSnap.exists()
+      ? rSnap.data()
+      : (eSnap.data().respostas?.[questaoId] || null)
+    if (!atual) throw new Error('Resposta não encontrada. Só é possível editar o que já existe.')
+
+    const status = atual.status || 'rascunho'
+    const oldCredited = pesoCreditado({ ...atual, status })
+    const newCredited = status === 'entregue' ? pesoAlt : 0
+    const delta = newCredited - oldCredited
+    const deltaDi = calcularDeltaDi(delta, pesoFase)
+
+    const respostaObj = {
+      alternativa: letra,
+      status,
+      peso: pesoAlt,
+      faseId,
+      numero: atual.numero || questao.numero || 0,
+      atualizadoEm: new Date().toISOString(),
+      atualizadoPor: atualizadoPor || 'admin',
+    }
+
+    transaction.set(respostaRef, respostaObj, { merge: true })
+    const equipeUpdate = { [`respostas.${questaoId}`]: respostaObj }
+    aplicarDeltaPontuacao(transaction, { pontuacaoRef, equipeUpdate, faseId, delta, deltaDi })
+    transaction.update(equipeRef, equipeUpdate)
+  })
+
+  return { peso: pesoAlt, status: 'ok' }
+}
+
+export async function editarRespostaTarefa({
+  equipeId,
+  edicaoId,
+  faseId,
+  associacoes,
+  pesoManual,
+  atualizadoPor,
+}) {
+  if (!equipeId || !edicaoId || !faseId) {
+    throw new Error('Dados incompletos para editar a tarefa.')
+  }
+
+  const fSnap = await getDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId))
+  if (!fSnap.exists()) throw new Error('Fase não encontrada.')
+  const fase = fSnap.data()
+  const pesoFase = Number(fase.peso) || 0
+  const teto = Number(fase.tarefa?.pontuacao) || 20
+  const mapa = associacoes && typeof associacoes === 'object' ? associacoes : {}
+
+  let pesoTarefa
+  if (tarefaUrlEhRecortes(fase.tarefaUrl)) {
+    pesoTarefa = calcularPontosTarefa(mapa, teto)
+  } else {
+    pesoTarefa = Number(pesoManual)
+    if (Number.isNaN(pesoTarefa)) throw new Error('Informe o peso da tarefa.')
+  }
+
+  const respostaId = `tarefa_${faseId}`
+  const respostaRef = doc(db, 'equipes', equipeId, 'respostas', respostaId)
+  const equipeRef = doc(db, 'equipes', equipeId)
+  const pontuacaoRef = doc(db, 'equipes', equipeId, 'pontuacoes', faseId)
+
+  await runTransaction(db, async (transaction) => {
+    const rSnap = await transaction.get(respostaRef)
+    const eSnap = await transaction.get(equipeRef)
+    if (!eSnap.exists()) throw new Error('Equipe não encontrada.')
+
+    const mapaEq = eSnap.data().respostas || {}
+    const atual = rSnap.exists()
+      ? rSnap.data()
+      : (mapaEq[respostaId] || mapaEq.tarefa || null)
+    if (!atual) throw new Error('Resposta da tarefa não encontrada. Só é possível editar o que já existe.')
+
+    const status = atual.status || 'rascunho'
+    const oldCredited = pesoCreditado({ ...atual, status })
+    const newCredited = status === 'entregue' ? pesoTarefa : 0
+    const delta = newCredited - oldCredited
+    const deltaDi = calcularDeltaDi(delta, pesoFase)
+
+    const respostaObj = {
+      tipo: 'tarefa',
+      status,
+      peso: pesoTarefa,
+      faseId,
+      associacoes: mapa,
+      atualizadoEm: new Date().toISOString(),
+      atualizadoPor: atualizadoPor || 'admin',
+    }
+
+    transaction.set(respostaRef, respostaObj, { merge: true })
+    const equipeUpdate = { [`respostas.${respostaId}`]: respostaObj }
+    const legado = mapaEq.tarefa
+    if (!legado || legado.faseId === faseId || !legado.faseId) {
+      equipeUpdate['respostas.tarefa'] = respostaObj
+    }
+    aplicarDeltaPontuacao(transaction, { pontuacaoRef, equipeUpdate, faseId, delta, deltaDi })
+    transaction.update(equipeRef, equipeUpdate)
+  })
+
+  return { peso: pesoTarefa, status: 'ok' }
+}
+
+export async function excluirRespostaEquipe({
+  equipeId,
+  edicaoId,
+  faseId,
+  respostaId,
+}) {
+  if (!equipeId || !edicaoId || !faseId || !respostaId) {
+    throw new Error('Dados incompletos para excluir a resposta.')
+  }
+
+  const fSnap = await getDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId))
+  const pesoFase = fSnap.exists() ? (Number(fSnap.data().peso) || 0) : 0
+
+  const respostaRef = doc(db, 'equipes', equipeId, 'respostas', respostaId)
+  const equipeRef = doc(db, 'equipes', equipeId)
+  const pontuacaoRef = doc(db, 'equipes', equipeId, 'pontuacoes', faseId)
+
+  await runTransaction(db, async (transaction) => {
+    const rSnap = await transaction.get(respostaRef)
+    const eSnap = await transaction.get(equipeRef)
+    if (!eSnap.exists()) throw new Error('Equipe não encontrada.')
+
+    const mapaEq = eSnap.data().respostas || {}
+    const atual = rSnap.exists() ? rSnap.data() : (mapaEq[respostaId] || null)
+    const legadoTarefa = isRespostaTarefa(respostaId, atual) ? mapaEq.tarefa : null
+    const fonte = atual || (legadoTarefa && (legadoTarefa.faseId === faseId || !legadoTarefa.faseId) ? legadoTarefa : null)
+    if (!fonte && !rSnap.exists() && !mapaEq[respostaId]) {
+      throw new Error('Resposta não encontrada.')
+    }
+
+    const credited = pesoCreditado(fonte)
+    const delta = -credited
+    const deltaDi = calcularDeltaDi(delta, pesoFase)
+
+    if (rSnap.exists()) transaction.delete(respostaRef)
+
+    const equipeUpdate = { [`respostas.${respostaId}`]: deleteField() }
+    if (isRespostaTarefa(respostaId, fonte)) {
+      equipeUpdate[`respostas.tarefa_${faseId}`] = deleteField()
+      if (!legadoTarefa || legadoTarefa.faseId === faseId || !legadoTarefa.faseId) {
+        equipeUpdate['respostas.tarefa'] = deleteField()
+      }
+    }
+    aplicarDeltaPontuacao(transaction, { pontuacaoRef, equipeUpdate, faseId, delta, deltaDi })
+    transaction.update(equipeRef, equipeUpdate)
+  })
 }

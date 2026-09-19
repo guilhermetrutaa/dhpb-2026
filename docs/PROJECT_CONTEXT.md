@@ -45,7 +45,7 @@ O **DHPB (Desafio em História da Paraíba)** é uma plataforma web para uma oli
 | **Ranking, Medalhas e Certificados** | `docs/BUSINESS_RULES.md` | `src/app/admin/ranking/page.jsx`, `src/app/admin/medalhas/page.jsx`, `src/app/certificado/page.jsx`, `src/app/certificado-medalha/page.jsx` |
 | **Chat e Suporte** | `docs/INTEGRATIONS.md` e `docs/DATABASE.md` | `src/components/support/*`, `src/hooks/useSupportChat.js`, `src/app/api/support/*`, `src/app/admin/suporte/page.jsx` |
 | **Upload de Mídias e Imagens** | `docs/INTEGRATIONS.md` e `docs/CODE_CONVENTIONS.md` | `src/lib/cloudinary.js`, `src/app/enviar-documento/page.jsx`, `src/app/admin/documentos/page.jsx` |
-| **Admin / dados / questionários** | `docs/DATABASE.md` e `docs/AUTHENTICATION.md` | `src/app/admin/dashboard/page.jsx`, `src/app/admin/firestore/page.jsx`, `src/app/admin/firestore/ops.js`, `src/app/admin/questionarios/page.jsx`, `src/app/api/admin/auth/*`, `src/lib/admin/main-auth-rest.js` |
+| **Admin / dados / questionários** | `docs/DATABASE.md` e `docs/AUTHENTICATION.md` | `src/app/admin/dashboard/page.jsx`, `src/app/admin/firestore/page.jsx`, `src/app/admin/firestore/ops.js`, `src/app/admin/firestore/respostas-tab.jsx`, `src/app/admin/questionarios/page.jsx`, `src/app/api/admin/auth/*`, `src/lib/admin/main-auth-rest.js` |
 | **Páginas institucionais** | `docs/CODE_CONVENTIONS.md` | `src/app/page.jsx`, `src/app/sobre/page.jsx`, `src/app/regulamento/page.jsx`, `src/app/calendario/page.jsx`, `src/app/biblioteca/page.jsx`, `src/app/contato/page.jsx`, `src/app/provas-antigas/**` |
 
 ### 3.3. Arquivos Críticos (NÃO ALTERAR SEM ANÁLISE RIGOROSA)

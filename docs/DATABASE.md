@@ -116,6 +116,8 @@ Documento: `equipes/{equipeId}`
 | `atualizadoEm` | string/timestamp | Momento da gravação |
 | `atualizadoPor` | string | Nome ou e-mail do integrante que gravou |
 
+Aba Respostas de `/admin/firestore` (spec 027): o admin busca a equipe pelo nome, lê `equipes/{equipeId}/respostas` (`limit(80)`) agrupado pelas fases da edição e pode editar/excluir. Override de `entregue` só nesse painel; dual-write (subcoleção + `equipes.respostas` + `pontuacoes` + `df`) obrigatório. Excluir remove o documento e o campo do mapa — a equipe pode reenviar.
+
 Documento de tarefa interativa: `equipes/{equipeId}/respostas/tarefa_{faseId}` (espelho legado também em `equipes.respostas.tarefa` e `equipes.respostas.tarefa_{faseId}`).
 
 | Campo | Tipo | Descrição |

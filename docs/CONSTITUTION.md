@@ -30,7 +30,7 @@
 ### 5. Atomicidade e Segurança nas Respostas
 * **Princípio:** A integridade dos resultados da olimpíada não pode ser comprometida por concorrência.
 * **Regra:** Atualizações de pontuação da equipe (`ni`, `di`, `df`) e entrega de respostas devem utilizar `runTransaction` ou `increment()` do Firestore.
-* **Regra:** Uma vez com status `entregue`, uma questão nunca pode ser sobrescrita.
+* **Regra:** Uma vez com status `entregue`, uma questão nunca pode ser sobrescrita no path do participante. Override admin só na aba Respostas de `/admin/firestore` (spec 027), com `runTransaction` e recálculo de `ni`/`di`/`df`.
 
 ### 6. Padrão Client-Side e Compatibilidade Next.js 16
 * **Princípio:** A aplicação roda como SPA com Next.js 16 e Turbopack.

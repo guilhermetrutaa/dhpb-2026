@@ -39,7 +39,7 @@ Este documento consolida as regras de negócio identificadas no código-fonte, s
 * **Regras de Questões:**
   * Cada questão possui alternativas com pesos distintos.
   * **Rascunho:** Pode ser salvo com trava temporal de 60 segundos (`rascunhoBloqueado`).
-  * **Entrega Definitiva:** Ao clicar em "Entregar questão", a resposta é travada permanentemente. Não é permitido alterar a alternativa após a entrega.
+  * **Entrega Definitiva:** Ao clicar em "Entregar questão", a resposta é travada permanentemente. Não é permitido alterar a alternativa após a entrega. Exceção admin (spec 027): a aba Respostas de `/admin/firestore` pode editar ou excluir `entregue`, recalculando `ni`/`di`/`df`; exclusão reabre a questão/tarefa para a equipe.
   * **Anti-Concorrência:** Transação atômica (`runTransaction`) impede que dois alunos entreguem a mesma questão quase simultaneamente e dupliquem a pontuação.
 
 ### 1.4. Sistema de Pontuação e Ranqueamento (Fórmula $Df$)
