@@ -6,7 +6,7 @@ Este documento estabelece as convenções de código, padrões de componentes, e
 
 ## 1. Nomenclatura e Organização
 
-* **Rotas e Diretórios:** `kebab-case` para pastas em `src/app` (ex: `criar-equipe`, `montagem-equipe`, `sala-de-equipe`, `resumo-fase`, `provas-antigas`, `tarefas/migalhas-flavio-tavares`).
+* **Rotas e Diretórios:** `kebab-case` para pastas em `src/app` (ex: `criar-equipe`, `montagem-equipe`, `sala-de-equipe`, `resumo-fase`, `provas-antigas`, `tarefas/migalhas-flavio-tavares`, `tarefas/viagem-no-tempo`).
 * **Componentes React:** `PascalCase` para nomes de componentes e arquivos de componentes (ex: `SupportWidget.jsx`, `ModalQuestionarioIndividual.jsx`, `ChatWindow.jsx`).
 * **Hooks Customizados:** `camelCase` com prefixo `use` (ex: `useAuth`, `useSupportChat`).
 * **Funções Utilitárias e Helpers:** `camelCase` (ex: `optimizeCloudinaryUrl`, `normalizarNomeBusca`, `derivarTipo`).

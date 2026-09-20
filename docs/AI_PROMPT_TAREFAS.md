@@ -26,7 +26,7 @@ O painel `/admin/questoes` **não cria a atividade**. Ele só grava no documento
 
 - `tarefa.titulo` (string)
 - `tarefa.pontuacao` (número = máximo da tarefa)
-- `tarefaUrl` (path interno, ex: `/tarefas/cruzadinha-fase-1`)
+- `tarefaUrl` (path interno, ex: `/tarefas/viagem-no-tempo`)
 
 A atividade é uma **página Next.js** em `src/app/tarefas/<slug>/page.jsx`.
 

@@ -126,7 +126,8 @@ Documento de tarefa interativa: `equipes/{equipeId}/respostas/tarefa_{faseId}` (
 | `status` | string | `'rascunho'` ou `'entregue'` |
 | `peso` | number | Pontos da tarefa nesta entrega (`pontosTarefa`, acertos até `fase.tarefa.pontuacao`) |
 | `faseId` | string | ID da fase |
-| `associacoes` | object | Mapa `{ "1": "O", "2": "T", ... }` número → letra |
+| `associacoes` | object | Mapa `{ "1": "O", "2": "T", ... }` número → letra (tarefa recortes) |
+| `imagens` | object (opcional) | Spec 030: mapa `{ "1": { ano, lat, lng, status: 'rascunho' }, ... }` da tarefa Viagem no Tempo |
 | `recorte13Bonificado` | boolean (opcional) | Spec 028: crédito admin de +1 no recorte 13; impede segundo clique |
 | `atualizadoEm` | string (ISO) | Momento da gravação |
 | `atualizadoPor` | string | Nome ou e-mail do integrante que gravou |
