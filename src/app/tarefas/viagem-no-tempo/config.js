@@ -2,6 +2,12 @@ export const PDF_DRIVE_URL = ''
 
 export const MARCADOR_SRC = '/marcador.svg'
 
+export const FUNDO_SRC = '/tarefas/migalhas-flavio-tavares/recortes/fundo.svg'
+
+export const ANO_MIN = 1500
+export const ANO_MAX = 2026
+export const ANO_INICIAL = 1763
+
 export const fotoSrc = (id) => `/tarefas/viagem-no-tempo/${id}.webp`
 
 export const INSTRUCAO = `Nesta tarefa, a equipe analisa 10 fotografias históricas da Paraíba.

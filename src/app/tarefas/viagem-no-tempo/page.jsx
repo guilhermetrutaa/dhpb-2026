@@ -10,7 +10,11 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { db } from '@/lib/firebase'
 import {
+  ANO_INICIAL,
+  ANO_MAX,
+  ANO_MIN,
   FOTOS,
+  FUNDO_SRC,
   INSTRUCAO,
   PDF_DRIVE_URL,
   calcularPontosTarefa,
@@ -260,7 +264,7 @@ function TarefaContent() {
   const [localPreview, setLocalPreview] = useState(false)
   const [questoes, setQuestoes] = useState([])
   const [rodadaAtual, setRodadaAtual] = useState(0)
-  const [anoSelecionado, setAnoSelecionado] = useState(1950)
+  const [anoSelecionado, setAnoSelecionado] = useState(ANO_INICIAL)
   const [localSelecionado, setLocalSelecionado] = useState(null)
   const [imagemOk, setImagemOk] = useState(true)
   const [isImageFullscreen, setIsImageFullscreen] = useState(false)
@@ -282,6 +286,7 @@ function TarefaContent() {
   const titulo = fase?.tarefa?.titulo || 'Tarefa'
   const fotoAtual = FOTOS[rodadaAtual]
   const rascunhosCompletos = todasImagensEmRascunho(imagens)
+  const pontosPreviewLocal = calcularPontosTarefa(imagens, fase?.tarefa?.pontuacao || 20)
 
   const hrefQuestao = (q, idx) => {
     if (!q?.id || !faseId || !edicaoId) return ''
@@ -297,7 +302,7 @@ function TarefaContent() {
 
   const loadRound = (index, nextImagens = imagens) => {
     const salva = nextImagens[String(FOTOS[index].id)]
-    setAnoSelecionado(salva?.ano || 1950)
+    setAnoSelecionado(salva?.ano || ANO_INICIAL)
     setLocalSelecionado(salva?.lat != null && salva?.lng != null ? { lat: salva.lat, lng: salva.lng } : null)
     setImageZoom(1)
     setImagePosition({ x: 0, y: 0 })
@@ -756,7 +761,10 @@ function TarefaContent() {
                 </div>
               </div>
 
-              <div className={`mb-6 border border-neutral-200 bg-white p-4 md:p-6 ${isPainelFullscreen ? 'mx-auto max-w-7xl' : ''}`}>
+              <div
+                className={`mb-6 border border-neutral-200 bg-cover bg-center p-4 md:p-6 ${isPainelFullscreen ? 'mx-auto max-w-7xl' : ''}`}
+                style={{ backgroundImage: `url(${FUNDO_SRC})` }}
+              >
                 <div className="mb-4 flex justify-end">
                   <button
                     type="button"
@@ -810,9 +818,9 @@ function TarefaContent() {
                       <h2 className="mb-3 text-xl font-bold text-[#82181A]">Ano selecionado</h2>
                       <input
                         type="range"
-                        min="1500"
-                        max="2025"
-                        value={anoSelecionado || 1950}
+                        min={ANO_MIN}
+                        max={ANO_MAX}
+                        value={anoSelecionado || ANO_INICIAL}
                         onChange={(event) => setAnoSelecionado(parseInt(event.target.value, 10))}
                         className="w-full accent-[#82181A]"
                         disabled={locked}
@@ -875,6 +883,12 @@ function TarefaContent() {
 
         <Footer />
       </div>
+
+      {isLocalDevHost() && status === 'rascunho' && (
+        <div className="fixed top-3 left-1/2 z-[70] flex h-16 w-16 -translate-x-1/2 items-center justify-center border-2 border-[#82181A] bg-white text-sm font-bold text-[#82181A]">
+          {pontosPreviewLocal.toFixed(2).replace('.', ',')}
+        </div>
+      )}
 
       {isImageFullscreen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
