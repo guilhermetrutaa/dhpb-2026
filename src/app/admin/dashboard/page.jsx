@@ -3,11 +3,17 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Poppins } from 'next/font/google'
 import { useRouter } from 'next/navigation'
-import { collection, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, orderBy, query, getDocs, getDocsFromServer, getCountFromServer, limit, startAfter, documentId, writeBatch, setDoc, where, runTransaction } from 'firebase/firestore'
+import { collection, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, orderBy, query, getDocs, getDocsFromServer, getCountFromServer, limit, startAfter, documentId, writeBatch, setDoc, where, runTransaction, increment } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { db, auth } from '@/lib/firebase'
 import Image from 'next/image'
 import { calcularEquipe, gerarPreviewRecalc, payloadGravacao } from '@/lib/recalcularPontuacao'
+import {
+  gerarPreviewRecorte13,
+  itemBonificacao,
+  montarRespostaBonificada,
+  respostaTarefaDaFase,
+} from '@/lib/bonificarRecorte13'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -190,6 +196,9 @@ function TabEquipes() {
   const [mostraConfirmarRecalc, setMostraConfirmarRecalc] = useState(false)
   const [previewRecalc, setPreviewRecalc] = useState(null)
   const recalcContextoRef = useRef(null)
+  const [mostraConfirmarRecorte13, setMostraConfirmarRecorte13] = useState(false)
+  const [previewRecorte13, setPreviewRecorte13] = useState(null)
+  const recorte13ContextoRef = useRef(null)
 
   useEffect(() => {
     const carregar = async () => {
@@ -410,6 +419,18 @@ function TabEquipes() {
     return { fases, questoesById, equipes: equipesEdicao }
   }
 
+  const carregarContextoRecorte13 = async (edId) => {
+    const fSnap = await getDocsFromServer(
+      query(collection(db, 'edicoes', edId, 'fases'), orderBy('dataInicio', 'asc'))
+    )
+    const fases = fSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    const eSnap = await getDocsFromServer(query(collection(db, 'equipes'), where('edicaoId', '==', edId)))
+    const equipesEdicao = eSnap.docs
+      .filter((d) => d.id !== EQUIPE_EXCLUIDA_RESUMO_ID)
+      .map((d) => ({ id: d.id, ...d.data() }))
+    return { fases, equipes: equipesEdicao }
+  }
+
   const handleSimularRecalcPesos = async () => {
     if (!edicaoRecalcId) {
       alert('Selecione a edição.')
@@ -523,6 +544,125 @@ function TabEquipes() {
       recalcContextoRef.current = null
     } catch (err) {
       alert('Erro no recálculo: ' + err.message)
+    } finally {
+      setCarregando(false)
+    }
+  }
+
+  const handleSimularRecorte13 = async () => {
+    if (!edicaoRecalcId) {
+      alert('Selecione a edição.')
+      return
+    }
+    if (!window.confirm(
+      'Simular crédito de +1 no recorte 13 para equipes completas que já entregaram a tarefa e erraram esse recorte.\n\n' +
+      'Quem já acertou não ganha ponto extra.\n\nNenhuma gravação será feita.'
+    )) return
+    setCarregando(true)
+    setMostraConfirmarRecorte13(false)
+    setPreviewRecorte13(null)
+    try {
+      const ctx = await carregarContextoRecorte13(edicaoRecalcId)
+      const preview = gerarPreviewRecorte13(ctx.equipes, ctx.fases)
+      if (preview.erro === 'sem_fase_recortes') {
+        alert('Nenhuma fase desta edição tem a tarefa de recortes / Flávio Tavares.')
+        return
+      }
+      recorte13ContextoRef.current = { fase: preview.fase }
+      setPreviewRecorte13(preview)
+      if (preview.alteradas.length === 0) {
+        alert(`SIMULAÇÃO: nenhuma equipe precisa do crédito do recorte 13.\n\nEquipes lidas: ${preview.itens.length}.`)
+        return
+      }
+      const linhas = preview.alteradas.slice().sort((a, b) =>
+        String(a.nome).localeCompare(String(b.nome), 'pt-BR')
+      ).map((item) =>
+        `${item.nome}: tarefa ${item.pesoAtual} → ${item.pesoNovo} | Df ${item.dfAntigo.toFixed(2)} → ${item.dfNovo.toFixed(2)}`
+      )
+      const avisoCota = preview.writesEstimados > 5000
+        ? `\nATENÇÃO: ~${preview.writesEstimados} escritas (cota Spark 20k/dia). Grave em horário calmo.`
+        : ''
+      const lista = [
+        `Crédito recorte 13 — ${preview.alteradas.length} equipe(s)`,
+        `Equipes lidas: ${preview.itens.length}`,
+        `Writes estimados: ${preview.writesEstimados}`,
+        '',
+        ...linhas,
+      ].join('\n')
+      setMostraConfirmarRecorte13(true)
+      await copiarTexto(
+        lista,
+        `SIMULAÇÃO: ${preview.alteradas.length} equipe(s) recebem +1 no recorte 13 (~${preview.writesEstimados} escritas).` +
+        `\nEquipes lidas: ${preview.itens.length}.` +
+        `\n\nLista completa copiada (${preview.alteradas.length} linhas). Cole num bloco de notas para conferir.` +
+        avisoCota +
+        '\n\nNenhuma gravação foi feita. Confira e depois confirme.'
+      )
+    } catch (err) {
+      alert('Erro na simulação: ' + err.message)
+    } finally {
+      setCarregando(false)
+    }
+  }
+
+  const handleConfirmarRecorte13 = async () => {
+    if (!previewRecorte13?.alteradas?.length || !recorte13ContextoRef.current?.fase) {
+      alert('Simule o crédito do recorte 13 antes de confirmar.')
+      return
+    }
+    if (!window.confirm(
+      `Isto vai GRAVAR +1 no recorte 13 de ${previewRecorte13.alteradas.length} equipe(s) (~${previewRecorte13.writesEstimados} escritas).\n\n` +
+      'Quem já acertou não será alterado. Tem certeza absoluta?'
+    )) return
+    setCarregando(true)
+    const { fase } = recorte13ContextoRef.current
+    let gravadas = 0
+    let puladas = 0
+    try {
+      for (const item of previewRecorte13.alteradas) {
+        const mudou = await runTransaction(db, async (transaction) => {
+          const equipeRef = doc(db, 'equipes', item.id)
+          const respostaRef = doc(db, 'equipes', item.id, 'respostas', item.respostaId)
+          const pontuacaoRef = doc(db, 'equipes', item.id, 'pontuacoes', item.faseId)
+          const snap = await transaction.get(equipeRef)
+          if (!snap.exists()) return false
+          const live = { id: item.id, ...snap.data() }
+          const liveItem = itemBonificacao(live, fase)
+          if (!liveItem.mudou) return false
+          const atual = respostaTarefaDaFase(live, liveItem.faseId)
+          if (!atual) return false
+          const respostaObj = montarRespostaBonificada(atual, liveItem.pesoNovo, liveItem.faseId)
+          transaction.set(respostaRef, {
+            peso: liveItem.pesoNovo,
+            recorte13Bonificado: true,
+            atualizadoEm: respostaObj.atualizadoEm,
+            atualizadoPor: 'admin',
+          }, { merge: true })
+          const equipeUpdate = {
+            [`respostas.${liveItem.respostaId}`]: respostaObj,
+            df: increment(liveItem.deltaDi),
+            [`pontuacoes.${liveItem.faseId}.ni`]: increment(liveItem.delta),
+            [`pontuacoes.${liveItem.faseId}.di`]: increment(liveItem.deltaDi),
+          }
+          if (liveItem.atualizarLegadoTarefa) {
+            equipeUpdate['respostas.tarefa'] = respostaObj
+          }
+          transaction.set(pontuacaoRef, {
+            ni: increment(liveItem.delta),
+            di: increment(liveItem.deltaDi),
+          }, { merge: true })
+          transaction.update(equipeRef, equipeUpdate)
+          return true
+        })
+        if (mudou) gravadas++
+        else puladas++
+      }
+      alert(`CRÉDITO RECORTE 13 CONCLUÍDO.\n\nEquipes gravadas: ${gravadas}\nSem mudança na transação: ${puladas}`)
+      setMostraConfirmarRecorte13(false)
+      setPreviewRecorte13(null)
+      recorte13ContextoRef.current = null
+    } catch (err) {
+      alert('Erro no crédito do recorte 13: ' + err.message)
     } finally {
       setCarregando(false)
     }
@@ -774,9 +914,12 @@ function TabEquipes() {
                   setMostraConfirmarRecalc(false)
                   setPreviewRecalc(null)
                   recalcContextoRef.current = null
+                  setMostraConfirmarRecorte13(false)
+                  setPreviewRecorte13(null)
+                  recorte13ContextoRef.current = null
                 }}
                 className='text-xs border border-amber-300 rounded-md px-2 py-1 bg-white text-neutral-700 font-semibold outline-none focus:border-[#82181A]'
-                title='Edição usada no recálculo de Ni/Di/Df'
+                title='Edição usada no recálculo de Ni/Di/Df e no crédito do recorte 13'
               >
                 {edicoes.length === 0 && <option value=''>Nenhuma edição</option>}
                 {edicoes.map((ed) => (
@@ -797,6 +940,22 @@ function TabEquipes() {
                   className='bg-orange-100 text-orange-700 px-3 py-1 rounded-md hover:bg-orange-200 transition-colors cursor-pointer font-bold border border-orange-300'
                 >
                   CONFIRMAR RECÁLCULO REAL
+                </button>
+              )}
+              <button
+                onClick={handleSimularRecorte13}
+                disabled={!edicaoRecalcId}
+                className='bg-sky-100 text-sky-800 px-3 py-1 rounded-md hover:bg-sky-200 transition-colors cursor-pointer font-bold disabled:opacity-50'
+                title='Credita +1 do recorte 13 só em completas que entregaram e erraram. Quem acertou não ganha de novo.'
+              >
+                Simular crédito recorte 13
+              </button>
+              {mostraConfirmarRecorte13 && (
+                <button
+                  onClick={handleConfirmarRecorte13}
+                  className='bg-orange-100 text-orange-700 px-3 py-1 rounded-md hover:bg-orange-200 transition-colors cursor-pointer font-bold border border-orange-300'
+                >
+                  CONFIRMAR CRÉDITO RECORTE 13
                 </button>
               )}
             </div>
