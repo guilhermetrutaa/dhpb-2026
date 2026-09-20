@@ -58,9 +58,9 @@ export default function TravelMap({ markerPosition, setMarker, readOnly = false,
 
     const customIcon = L.icon({
       iconUrl: MARCADOR_SRC,
-      iconSize: [38, 38],
-      iconAnchor: [19, 38],
-      popupAnchor: [0, -38],
+      iconSize: [48, 48],
+      iconAnchor: [18, 45],
+      popupAnchor: [0, -40],
     })
 
     if (markerRef.current) {

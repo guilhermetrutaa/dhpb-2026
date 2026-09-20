@@ -1,6 +1,6 @@
 export const PDF_DRIVE_URL = ''
 
-export const MARCADOR_SRC = '/tarefas/viagem-no-tempo/marcador.svg'
+export const MARCADOR_SRC = '/marcador.svg'
 
 export const fotoSrc = (id) => `/tarefas/viagem-no-tempo/${id}.webp`
 
