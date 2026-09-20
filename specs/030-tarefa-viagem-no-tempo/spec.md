@@ -8,7 +8,7 @@
 
 ## Problema / valor
 
-A equipe analisa 10 fotografias históricas, estima o ano e marca o local no mapa. Rascunho por foto; uma entrega imutável. Pontua até 20 (1 localização + 1 ano por foto, com aproximação). Localização = km ao ponto da foto (até 5 km = 1,00), não município. O cartão no resumo da fase reflete rascunho e entregue.
+A equipe analisa 10 fotografias históricas, estima o ano e marca o local no mapa. Rascunho por foto; uma entrega imutável. Pontua até 20 (1 localização + 1 ano por foto, com aproximação). Localização = km ao ponto da foto (≤5 km = 1,00; ≤10 = 0,75; ≤20 = 0,50; ≤40 = 0,25), não município. O cartão no resumo da fase reflete rascunho e entregue.
 
 ## Atores
 
@@ -26,7 +26,7 @@ Não altera `questao`, `criar-equipe`, `montagem-equipe`, `admin/ranking`, `admi
 | Regra | No código hoje | Depois desta spec |
 |---|---|---|
 | Página da tarefa fase 2 | Só demo em `/provas-antigas/viagem-no-tempo` | `/tarefas/viagem-no-tempo` com query `equipeId`, `faseId`, `edicaoId` |
-| Pontuação | Demo local, GPS exato | Km ao `lat`/`lng` da foto (≤5 km = 1,00) + faixas de ano; teto `fase.tarefa.pontuacao` |
+| Pontuação | Demo local, GPS exato | Km ao `lat`/`lng` da foto (≤5 = 1,00; ≤10 = 0,75; ≤20 = 0,50; ≤40 = 0,25) + faixas de ano; teto `fase.tarefa.pontuacao` |
 | Entrega | Por imagem na demo | Uma entrega da tarefa; rascunho por foto; `entregue` imutável |
 | Status no resumo | Já lê `tarefa_{faseId}` | Sem mudança no resumo; a página grava esse id |
 

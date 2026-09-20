@@ -6,7 +6,7 @@ export const fotoSrc = (id) => `/tarefas/viagem-no-tempo/${id}.webp`
 
 export const INSTRUCAO = `Nesta tarefa, a equipe analisa 10 fotografias históricas da Paraíba.
 
-Para cada imagem, estime o ano no controle deslizante e clique no mapa para marcar o local onde acredita que a fotografia foi registrada. A pontuação de localização usa a distância em km até o ponto da foto: até 5 km vale 1,00 ponto; mais longe, a nota cai por aproximação.
+Para cada imagem, estime o ano no controle deslizante e clique no mapa para marcar o local onde acredita que a fotografia foi registrada. A pontuação de localização usa a distância em km até o ponto da foto: até 5 km vale 1,00; até 10 km 0,75; até 20 km 0,50; até 40 km 0,25.
 
 Salve o rascunho de cada imagem (ano + local) antes de passar para a seguinte. Mesmo saindo da página, o rascunho permanece e pode ser alterado.
 
@@ -20,12 +20,12 @@ export const BANDAS_ANO = [
   { max: 50, pontos: 0.25 },
 ]
 
-/** Km do pin ao lat/lng da foto. Até 5 km = local exato (1,00). */
+/** Km do pin ao lat/lng da foto. Até 5 km = 1,00; 10 = 0,75; 20 = 0,50; 40 = 0,25. */
 export const BANDAS_LOCAL_KM = [
   { max: 5, pontos: 1 },
-  { max: 30, pontos: 0.75 },
-  { max: 80, pontos: 0.5 },
-  { max: 150, pontos: 0.25 },
+  { max: 10, pontos: 0.75 },
+  { max: 20, pontos: 0.5 },
+  { max: 40, pontos: 0.25 },
 ]
 
 /** Ordem das imagens 1–10. lat/lng = ponto do local no mapa. Gabarito fechado. */
