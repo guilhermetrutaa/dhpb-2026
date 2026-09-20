@@ -563,11 +563,11 @@ function TarefaContent() {
                 rel="noopener noreferrer"
                 className="cursor-pointer rounded-full border-[3px] border-[#82181A] px-6 py-2 text-sm font-medium text-[#82181A] transition-colors hover:bg-[#82181A] hover:text-white"
               >
-                Baixar PDF da tarefa
+                Baixar Gabarito da tarefa
               </a>
             ) : (
               <span className="rounded-full border-[3px] border-neutral-300 px-6 py-2 text-sm font-medium text-neutral-400">
-                Baixar PDF da tarefa
+                Baixar Gabarito da tarefa
               </span>
             )}
           </div>
