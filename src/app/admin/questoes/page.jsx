@@ -863,7 +863,7 @@ function QuestoesForm() {
               )}
             </div>
             <form onSubmit={handleCriarQuestao} className='space-y-4'>
-              <input type="number" min="1" max="10" placeholder="Número (1-10)" value={numero} onChange={(e) => setNumero(e.target.value)} required
+              <input type="number" min="1" placeholder="Número (ex.: 10, 11…)" value={numero} onChange={(e) => setNumero(e.target.value)} required
                 className="w-full md:w-48 rounded-lg border border-neutral-300 p-3 text-sm outline-none focus:border-[#82181A]" />
 
               <div>
@@ -910,7 +910,7 @@ function QuestoesForm() {
           </div>
 
           <div className='bg-white rounded-xl shadow-md p-6'>
-            <h2 className='text-lg font-bold text-[#82181A] mb-4'>Questões ({questoes.length}/10)</h2>
+            <h2 className='text-lg font-bold text-[#82181A] mb-4'>Questões ({questoes.length})</h2>
             {questoes.length === 0 ? (
               <p className='text-neutral-500 text-sm'>Nenhuma questão cadastrada.</p>
             ) : (

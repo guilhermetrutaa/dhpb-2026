@@ -72,7 +72,7 @@ Documento individual com o conteúdo completo de cada questão:
 
 | Campo | Tipo | Descrição |
 |---|---|---|
-| `numero` | number | Número ordinal da questão na prova |
+| `numero` | number | Número ordinal da questão na prova da edição (contínuo entre fases; não reinicia em 1) |
 | `instrucao` | string (HTML) | Enunciado e instruções da questão |
 | `comentario` | string (HTML) | Gabarito comentado para fase de correção |
 | `alternativas` | array | Lista de alternativas: `[{ letra: "A", texto: string, peso: number }]` |

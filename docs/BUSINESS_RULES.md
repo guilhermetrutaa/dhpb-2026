@@ -37,6 +37,7 @@ Este documento consolida as regras de negócio identificadas no código-fonte, s
   * Acesso liberado apenas se a fase estiver com status `aberta` ou `correcao`.
   * A equipe deve estar aprovada/liberada para aquela fase (`aprovadoAte`).
 * **Regras de Questões:**
+  * O `numero` é da prova inteira e não reinicia em 1 a cada fase (fase 1: 1–9 com a tarefa; fase 2: 10–17; e assim por diante). O admin digita o número à mão; não há teto 1–10.
   * Cada questão possui alternativas com pesos distintos.
   * **Rascunho:** Pode ser salvo com trava temporal de 60 segundos (`rascunhoBloqueado`).
   * **Entrega Definitiva:** Ao clicar em "Entregar questão", a resposta é travada permanentemente. Não é permitido alterar a alternativa após a entrega. Exceção admin (spec 027): a aba Respostas de `/admin/firestore` pode editar ou excluir `entregue`, recalculando `ni`/`di`/`df`; exclusão reabre a questão/tarefa para a equipe.
