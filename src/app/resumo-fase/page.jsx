@@ -94,7 +94,9 @@ function ResumoFaseContent() {
     return respostas[key]?.status || 'pendente'
   }
 
-  const tarefaStatus = respostas[`tarefa_${faseId}`]?.status || respostas.tarefa?.status || 'pendente'
+  const tarefaDaFase = respostas[`tarefa_${faseId}`]
+    ?? (String(respostas.tarefa?.faseId || '') === String(faseId || '') ? respostas.tarefa : null)
+  const tarefaStatus = tarefaDaFase?.status || 'pendente'
 
   const temTarefa = !!fase?.tarefa?.titulo
 
