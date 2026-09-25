@@ -10,9 +10,15 @@ export const ANO_INICIAL = 1763
 
 export const fotoSrc = (id) => `/tarefas/viagem-no-tempo/${id}.webp`
 
-export const INSTRUCAO = `Nesta tarefa, a equipe analisa 10 fotografias históricas da Paraíba.
+export const INSTRUCAO_ANTES = `Um grupo de amigos encontrou uma máquina bem estranha em um ferro-velho. Embora se considerassem maduros e responsáveis, a curiosidade falou mais alto e eles resolveram mexer no objeto. De repente, em uma fração de segundos, o aparelho disparou uma espécie de choque que atingiu todos de uma vez. Quando se recuperaram, perceberam que estavam em um lugar completamente diferente e que não pertencia à época deles. O impensável tinha acontecido: eles tinham viajado no tempo!
 
-Para cada imagem, estime o ano no controle deslizante e clique no mapa para marcar o local onde acredita que a fotografia foi registrada. A pontuação de localização usa a distância em km até o ponto da foto: até 5 km vale 1,00; até 10 km 0,75; até 20 km 0,50; até 40 km 0,25.
+Assim que o susto passou e eles entenderam a situação, decidiram aproveitar a oportunidade para explorar a história e os cenários da Paraíba em diferentes períodos. Usando a própria máquina, o grupo começou a viajar aleatoriamente pelo tempo e pelo espaço. Para garantir que ninguém esqueceria aquela aventura, um dos amigos pegou sua câmera fotográfica e começou a registrar cada detalhe e acontecimento dessa jornada incrível.`
+
+export const INSTRUCAO_DEPOIS = `No entanto, na pressa dos passeios temporais, eles esqueceram de anotar as datas e os locais exatos das fotografias. Agora, as imagens estão misturadas e eles estão perdidos no tempo! A missão da sua equipe é analisar cada registro, decifrar as pistas visuais e descobrir quando e onde essas imagens foram realizadas. A memória dos nossos viajantes depende de vocês!
+
+Ao analisar uma imagem, o historiador procura decifrar vestígios visuais, trabalhando em duas perspectivas que dão sentido à história: a cronologia e a geografia. Determinar a época (datação) e o território (espacialidade) de uma imagem é um método para retirar o documento do isolamento e inseri-lo em um contexto social e cultural.
+
+Para cada imagem, estime o ano no controle deslizante e clique no mapa para marcar o local onde acredita que a imagem foi registrada. A pontuação de localização usa a distância em km até o ponto a que a imagem se refere, quanto mais perto do local correto, maior a pontuação da equipe. A pontuação de temporalidade usa uma margem de datação aproximada até o ano que a imagem se refere, quanto mais preciso for do ano indicado, maior será a pontuação da equipe.
 
 Salve o rascunho de cada imagem (ano + local) antes de passar para a seguinte. Mesmo saindo da página, o rascunho permanece e pode ser alterado.
 

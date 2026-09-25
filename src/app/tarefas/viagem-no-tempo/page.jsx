@@ -15,7 +15,8 @@ import {
   ANO_MIN,
   FOTOS,
   FUNDO_SRC,
-  INSTRUCAO,
+  INSTRUCAO_ANTES,
+  INSTRUCAO_DEPOIS,
   PDF_DRIVE_URL,
   calcularPontosTarefa,
   fotoSrc,
@@ -695,7 +696,13 @@ function TarefaContent() {
           </div>
 
           <div className="mx-auto max-w-3xl whitespace-pre-line px-5 pt-10 text-justify text-[1rem] font-medium leading-relaxed text-[#2F2F2F] md:pt-14">
-            {INSTRUCAO}
+            {INSTRUCAO_ANTES}
+            <img
+              src="/Personagens.GIF"
+              alt="Theo, Ellena e Margo"
+              className="mx-auto my-8 block w-full max-w-xl"
+            />
+            {INSTRUCAO_DEPOIS}
           </div>
 
           <div className="mx-auto mt-10 max-w-7xl px-4">
