@@ -128,6 +128,8 @@ Documento de tarefa interativa: `equipes/{equipeId}/respostas/tarefa_{faseId}` (
 | `faseId` | string | ID da fase |
 | `associacoes` | object | Mapa `{ "1": "O", "2": "T", ... }` número → letra (tarefa recortes) |
 | `imagens` | object (opcional) | Spec 030: mapa `{ "1": { ano, lat, lng, status: 'rascunho' }, ... }` da tarefa Viagem no Tempo |
+| `prateleiras` | object (opcional) | Spec 031: `{ "1": [id, …], "2": [id, …], "3": [id, …] }` da tarefa Charadas (capacidades 7 / 7 / 6) |
+| `enigmas` | object (opcional) | Spec 031: `{ "e01": { opcao: "A" \| "B" }, ... }` — opção do detalhamento; não pontua até o PDF oficial |
 | `recorte13Bonificado` | boolean (opcional) | Spec 028: crédito admin de +1 no recorte 13; impede segundo clique |
 | `atualizadoEm` | string (ISO) | Momento da gravação |
 | `atualizadoPor` | string | Nome ou e-mail do integrante que gravou |

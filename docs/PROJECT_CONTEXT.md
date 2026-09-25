@@ -65,6 +65,16 @@ O **DHPB (Desafio em História da Paraíba)** é uma plataforma web para uma oli
 * Templates: `specs/_templates/` → copiar para `specs/<nnn-slug>/`.
 * Rules: `.cursor/rules/dhpb-sdd.mdc` e `.cursor/rules/dhpb-constitution.mdc`.
 
+### 3.6. Skills always-on (todo prompt)
+Skills em `.agents/skills/` com rules Cursor `alwaysApply: true` — entram em **todo e qualquer prompt**, sem precisar digitar `/caveman` ou `/ponytail`:
+
+| Skill | Rule | Papel | Off |
+|---|---|---|---|
+| **caveman** | `.cursor/rules/caveman.mdc` | Prosa curta (menos tokens). Níveis: lite/full/ultra/wenyan-* | `stop caveman` / `normal mode` |
+| **ponytail** | `.cursor/rules/ponytail.mdc` | Código mínimo (YAGNI / stdlib / native first) | `stop ponytail` / `normal mode` |
+
+Lock: `skills-lock.json`. Fonte: `npx skills add` (juliusbrussee/caveman, dietrichgebert/ponytail). Caveman = como fala; ponytail = o que escreve — combinam.
+
 ---
 
 ## 4. Regras que NUNCA Devem ser Quebradas
