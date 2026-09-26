@@ -2,6 +2,41 @@ export const PDF_DRIVE_URL = ''
 
 export const ICONE_SRC = '/tarefas/charadas/icone-enigma.jpeg'
 
+export const PRATELEIRA_SRC = '/tarefas/charadas/prateleira.svg'
+
+export const DVD_FECHADO_SRC = '/dvd-fechado.png'
+
+export const DVD_ABERTO_SRC = '/dvd-aberto.png'
+
+/** Tempos da abertura automática do DVD, em ms. Ajuste aqui, não no CSS. */
+export const DVD_ANIM = {
+  delayMs: 600,
+  staggerMs: 70,
+  duracaoMs: 1400,
+}
+
+/**
+ * Geometria medida nos PNGs com sharp e conferida visualmente contra as duas
+ * referências. O palco é o frame de `dvd-aberto.png` (1448x1086 = 4:3) e todos
+ * os valores são percentuais, então o tile continua responsivo.
+ *
+ * `eixoX` é a dobra real (centro da lombada, x=731.5px), não 50%: as duas
+ * costuras dos painéis ficam em 708px e 755px e espelham exatamente nele.
+ * A folha (tampa) tem a largura do eixo até a borda externa do painel, então
+ * girar 180° em torno de `eixoX` faz a tampa pousar sobre o painel esquerdo
+ * sem deslizar.
+ */
+export const DVD_GEO = {
+  eixoX: '50.518%',
+  folha: { largura: '47.617%', topo: '10.958%', altura: '79.466%' },
+  /** Recorte da caixa fechada (bbox 54..1029 x 117..1347 de 1086x1448). */
+  faceFrente: { size: '111.271% 117.628%', position: '49.091% 53.917%' },
+  /** Painel esquerdo aberto, do eixo até a borda externa (42..731.5 x 119..982). */
+  faceVerso: { size: '210.007% 125.840%', position: '5.537% 53.363%' },
+  /** Papel pautado dentro da folha, para o texto da charada. */
+  papel: { left: '8.85%', right: '6.02%', top: '5.45%', bottom: '2.32%' },
+}
+
 export const MIDIA_SRC = {
   super8: '/tarefas/charadas/midia-super8.jpg',
   vhs: '/tarefas/charadas/midia-vhs.jpg',

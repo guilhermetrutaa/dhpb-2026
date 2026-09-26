@@ -10,11 +10,16 @@ import { useAuth } from '@/context/AuthContext'
 import { db } from '@/lib/firebase'
 import {
   CAPACIDADES,
+  DVD_ABERTO_SRC,
+  DVD_ANIM,
+  DVD_FECHADO_SRC,
+  DVD_GEO,
   ENIGMAS,
   ICONE_SRC,
   INSTRUCAO,
   MIDIA_SRC,
   PDF_DRIVE_URL,
+  PRATELEIRA_SRC,
   alocacaoCompleta,
   calcularPontosTarefa,
   idsAlocados,
@@ -185,6 +190,13 @@ function retirar(prateleiras, id) {
   return next
 }
 
+/** Faixa útil de cada nível do SVG da estante (% do frame 1122x1402 do Figma). */
+const NIVEIS = {
+  1: 'top-[8.5%] h-[13%]',
+  2: 'top-[32%] h-[17%]',
+  3: 'top-[54%] h-[20%]',
+}
+
 function mensagemCapacidade(bloco) {
   const teto = CAPACIDADES[bloco]
   return `Não pode haver mais de ${teto} enigmas nesta prateleira.`
@@ -253,17 +265,69 @@ async function persistirResposta({
   return { novoPeso, respostaObj }
 }
 
-function IconeEnigma({ id, ativo, alocado, animando, onClick }) {
+/**
+ * Caixa de DVD que abre sozinha: a base mostra a bandeja com o CD e a tampa
+ * gira 180° em torno da lombada real (DVD_GEO.eixoX). Frente = capa fechada,
+ * verso = painel interno com o papel pautado e o texto da charada.
+ */
+function IconeEnigma({ id, index, comando, ativo, alocado, onClick }) {
+  const { eixoX, folha, faceFrente, faceVerso, papel } = DVD_GEO
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label={`Enigma ${id}`}
-      className={`relative aspect-[3/4] w-full overflow-hidden border-2 transition-transform duration-300 ${
-        ativo ? 'border-[#82181A] scale-110' : 'border-[#2B1810]'
-      } ${alocado ? 'opacity-35' : ''} ${animando ? 'animate-bounce' : ''} cursor-pointer`}
+      aria-label={`Enigma ${id}: ${comando}`}
+      className={`dvd-tile relative block w-full cursor-pointer transition-opacity duration-300 ${alocado ? 'opacity-35' : ''}`}
+      style={{
+        '--dvd-eixo': eixoX,
+        '--dvd-dur': `${DVD_ANIM.duracaoMs}ms`,
+        '--dvd-delay': `${DVD_ANIM.delayMs + index * DVD_ANIM.staggerMs}ms`,
+      }}
     >
-      <img src={ICONE_SRC} alt="" className="h-full w-full object-cover" />
+      <span className="dvd-palco block">
+        <img src={DVD_ABERTO_SRC} alt="" className="dvd-base" draggable={false} />
+        <span
+          className="dvd-capa"
+          style={{ left: eixoX, top: folha.topo, width: folha.largura, height: folha.altura }}
+        >
+          <span
+            className="dvd-face"
+            style={{
+              backgroundImage: `url(${DVD_FECHADO_SRC})`,
+              backgroundSize: faceFrente.size,
+              backgroundPosition: faceFrente.position,
+            }}
+          />
+          <span
+            className="dvd-face dvd-face-verso"
+            style={{
+              backgroundImage: `url(${DVD_ABERTO_SRC})`,
+              backgroundSize: faceVerso.size,
+              backgroundPosition: faceVerso.position,
+            }}
+          >
+            <span
+              className="absolute line-clamp-[7] overflow-hidden text-left font-medium leading-[1.35] text-[#3B2A1E] [overflow-wrap:anywhere]"
+              style={{
+                left: papel.left,
+                right: papel.right,
+                top: papel.top,
+                bottom: papel.bottom,
+                paddingLeft: '15%',
+                paddingRight: '6%',
+                paddingTop: '6%',
+                /* proporcional ao tile: o texto acompanha a escala do desenho */
+                fontSize: '4.4cqw',
+              }}
+            >
+              {comando}
+            </span>
+          </span>
+        </span>
+        {ativo && (
+          <span className="pointer-events-none absolute inset-0 ring-[3px] ring-inset ring-[#82181A]" />
+        )}
+      </span>
     </button>
   )
 }
@@ -293,7 +357,6 @@ function TarefaContent() {
   const [questoes, setQuestoes] = useState([])
   const [selecionadoId, setSelecionadoId] = useState(null)
   const [detalheId, setDetalheId] = useState(null)
-  const [animandoId, setAnimandoId] = useState(null)
 
   const resumoHref = `/resumo-fase?faseId=${faseId || ''}&edicaoId=${edicaoId || ''}&equipeId=${equipeId || ''}`
   const locked = status === 'entregue' || fase?.status === 'correcao'
@@ -419,11 +482,9 @@ function TarefaContent() {
 
   const abrirEnigma = (id) => {
     setSelecionadoId(id)
-    setAnimandoId(id)
     setDetalheId(id)
     setAlertaCapacidade('')
     setBlocoAlerta(null)
-    window.setTimeout(() => setAnimandoId(null), 600)
   }
 
   const escolherOpcao = (letra) => {
@@ -613,14 +674,15 @@ function TarefaContent() {
           </div>
 
           <div className="mx-auto mt-10 max-w-5xl px-4">
-            <div className="mx-auto grid max-w-2xl grid-cols-10 gap-1.5 border-2 border-[#3B2A1E] bg-[#E9E1D3] p-2 sm:gap-3 sm:p-4">
-              {ENIGMAS.map((enigma) => (
+            <div className="mx-auto grid max-w-5xl grid-cols-1 gap-1.5 border-2 border-[#3B2A1E] bg-[#E9E1D3] p-2 sm:grid-cols-2 sm:gap-3 sm:p-4 lg:grid-cols-3">
+              {ENIGMAS.map((enigma, index) => (
                 <IconeEnigma
                   key={enigma.id}
                   id={enigma.id}
+                  index={index}
+                  comando={enigma.comando}
                   ativo={selecionadoId === enigma.id}
                   alocado={alocados.has(enigma.id)}
-                  animando={animandoId === enigma.id}
                   onClick={() => abrirEnigma(enigma.id)}
                 />
               ))}
@@ -630,77 +692,74 @@ function TarefaContent() {
               <div className="mx-auto w-fit border-[3px] border-[#3B2A1E] bg-[#E9E1D3] px-10 py-1.5 text-lg font-semibold uppercase tracking-[0.25em] text-[#3B2A1E] shadow-[3px_3px_0_#3B2A1E]">
                 Paraíba
               </div>
-              <div className="mt-3 bg-[#3B2A1E] p-[3px] [clip-path:polygon(6%_0,94%_0,100%_100%,0_100%)]">
-                <div className="bg-[#8C6A4F] px-2 pt-3 [clip-path:polygon(6%_0,94%_0,100%_100%,0_100%)]">
-                  {[1, 2, 3].map((bloco) => {
-                    const fila = prateleiras[bloco]
-                    const teto = CAPACIDADES[bloco]
-                    const largura = { 1: 'w-[86%]', 2: 'w-[90%]', 3: 'w-[94%]' }[bloco]
-                    return (
-                      <button
-                        key={bloco}
-                        type="button"
-                        onClick={() => colocarNaPrateleira(bloco)}
-                        disabled={locked}
-                        className={`${largura} mx-auto mb-3 block cursor-pointer border-2 border-[#3B2A1E] bg-[#D9CCB8] text-left shadow-[inset_0_10px_14px_rgba(59,42,30,0.35)] transition-colors hover:bg-[#E2D6C3] disabled:cursor-default ${
-                          blocoAlerta === bloco ? 'outline outline-2 outline-red-600' : ''
-                        }`}
-                        aria-label={`Prateleira ${bloco}, até ${teto} enigmas`}
+              <div className="relative mt-3 aspect-[1122/1402] w-full">
+                <img src={PRATELEIRA_SRC} alt="" className="absolute inset-0 h-full w-full" />
+                {[1, 2, 3].map((bloco) => {
+                  const fila = prateleiras[bloco]
+                  const teto = CAPACIDADES[bloco]
+                  return (
+                    <button
+                      key={bloco}
+                      type="button"
+                      onClick={() => colocarNaPrateleira(bloco)}
+                      disabled={locked}
+                      className={`absolute left-[9%] right-[9%] ${NIVEIS[bloco]} cursor-pointer transition-colors hover:bg-[#3B2A1E]/10 disabled:cursor-default ${
+                        blocoAlerta === bloco ? 'outline outline-2 outline-red-600' : ''
+                      }`}
+                      aria-label={`Prateleira ${bloco}, até ${teto} enigmas`}
+                    >
+                      <span className="absolute left-0 top-0 -translate-y-[115%] bg-[#E9E1D3] px-1.5 text-[10px] font-medium uppercase tracking-wider text-[#3B2A1E]">
+                        Bloco {bloco} · {fila.length}/{teto}
+                      </span>
+                      <div
+                        className="grid h-full items-end gap-[1.5%]"
+                        style={{ gridTemplateColumns: `repeat(${teto}, minmax(0, 1fr))` }}
                       >
-                        <div
-                          className="grid justify-center gap-1.5 px-2 pb-2 pt-3 sm:gap-2 sm:px-3"
-                          style={{ gridTemplateColumns: `repeat(${teto}, minmax(0, 56px))` }}
-                        >
-                          {Array.from({ length: teto }, (_, i) => {
-                            const id = fila[i]
-                            if (!id) {
-                              return (
-                                <span
-                                  key={`vazio-${i}`}
-                                  className="aspect-[3/4] border-2 border-dashed border-[#8C6A4F]/70 bg-[#E9E1D3]/40"
-                                />
-                              )
-                            }
+                        {Array.from({ length: teto }, (_, i) => {
+                          const id = fila[i]
+                          if (!id) {
                             return (
-                              <span key={id} className="relative block aspect-[3/4]">
-                                <img
-                                  src={ICONE_SRC}
-                                  alt={`Enigma ${id}`}
-                                  className={`h-full w-full border-2 border-[#3B2A1E] object-cover ${selecionadoId === id ? 'ring-2 ring-[#82181A]' : ''}`}
-                                />
-                                {!locked && (
-                                  <span
-                                    role="button"
-                                    tabIndex={0}
-                                    onClick={(event) => {
+                              <span
+                                key={`vazio-${i}`}
+                                className="aspect-[3/4] border-2 border-dashed border-[#3B2A1E]/40 bg-[#E9E1D3]/25"
+                              />
+                            )
+                          }
+                          return (
+                            <span key={id} className="relative block aspect-[3/4]">
+                              <img
+                                src={ICONE_SRC}
+                                alt={`Enigma ${id}`}
+                                className={`h-full w-full border-2 border-[#3B2A1E] object-cover ${selecionadoId === id ? 'ring-2 ring-[#82181A]' : ''}`}
+                              />
+                              {!locked && (
+                                <span
+                                  role="button"
+                                  tabIndex={0}
+                                  onClick={(event) => {
+                                    event.stopPropagation()
+                                    removerDaPrateleira(id)
+                                  }}
+                                  onKeyDown={(event) => {
+                                    if (event.key === 'Enter' || event.key === ' ') {
+                                      event.preventDefault()
                                       event.stopPropagation()
                                       removerDaPrateleira(id)
-                                    }}
-                                    onKeyDown={(event) => {
-                                      if (event.key === 'Enter' || event.key === ' ') {
-                                        event.preventDefault()
-                                        event.stopPropagation()
-                                        removerDaPrateleira(id)
-                                      }
-                                    }}
-                                    className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center bg-[#82181A] text-[10px] leading-none text-white"
-                                    aria-label={`Tirar ${id} da prateleira`}
-                                  >
-                                    ×
-                                  </span>
-                                )}
-                              </span>
-                            )
-                          })}
-                        </div>
-                        <div className="border-t-2 border-[#3B2A1E] bg-[#5A4232] px-3 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[#E9E1D3]">
-                          Bloco {bloco} · {fila.length}/{teto}
-                        </div>
-                      </button>
-                    )
-                  })}
-                  <div className="h-6 border-t-2 border-[#3B2A1E] bg-[#5A4232]" />
-                </div>
+                                    }
+                                  }}
+                                  className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center bg-[#82181A] text-[10px] leading-none text-white"
+                                  aria-label={`Tirar ${id} da prateleira`}
+                                >
+                                  ×
+                                </span>
+                              )}
+                            </span>
+                          )
+                        })}
+                      </div>
+                    </button>
+                  )
+                })}
               </div>
               {alertaCapacidade && (
                 <p className="mt-3 text-center text-sm font-medium text-red-700">{alertaCapacidade}</p>
