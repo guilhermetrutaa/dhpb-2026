@@ -629,6 +629,23 @@ function TarefaContent() {
             >
               Voltar para o resumo da fase
             </Link>
+
+            <div className="mt-6 flex justify-center px-4">
+              {PDF_DRIVE_URL ? (
+                <a
+                  href={PDF_DRIVE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="cursor-pointer rounded-full border-[3px] border-[#82181A] px-6 py-2 text-sm font-medium text-[#82181A] transition-colors hover:bg-[#82181A] hover:text-white"
+                >
+                  Baixar Gabarito da tarefa
+                </a>
+              ) : (
+                <span className="rounded-full border-[3px] border-neutral-300 px-6 py-2 text-sm font-medium text-neutral-400">
+                  Baixar Gabarito da tarefa
+                </span>
+              )}
+            </div>
           </section>
           <Footer />
         </div>
@@ -885,6 +902,8 @@ function TarefaContent() {
                 Voltar para lista de questões
               </Link>
             </div>
+
+
           </div>
         </section>
 
