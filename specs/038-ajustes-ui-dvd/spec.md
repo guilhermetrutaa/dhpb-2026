@@ -277,3 +277,53 @@ modo fecha — a face da frente é sempre `quadrado-respondido.webp` nessa volta
       está em ~-178°, a 700ms é a identidade, e no fim a classe some e o
       transform é `none`.
 - [x] Todas as frentes voltam a `quadrado-respondido.webp`.
+
+## Sexta rodada
+
+### O disco gira
+
+No modo "Mostrar Filmes", o disco gira enquanto o DVD fica aberto. Como o modal
+desmonta ao fechar, a animação morre junto — não há estado para limpar.
+
+**O que não dá para fazer, e por quê.** O disco não é um arquivo: está embutido
+no PNG da caixa, e a foto tem perspectiva, então ele é elíptico (600×540, centro
+1057, 555, medido em `e16.png` com grade a cada 100px). Três tentativas, todas
+com emenda:
+
+1. Girar a imagem inteira num clip circular — a 90° o papel da esquerda entra no
+   meio do CD.
+2. Mascarar a cópia num círculo de 540 (o maior círculo que cabe no disco em
+   qualquer ângulo) — funciona, mas a 90° e 270° a borda da máscara deixa
+   aparecer um arco da arte estática por baixo.
+3. Cobrir também a arte estática — exige uma imagem da caixa **sem** o disco, com
+   o poço preenchido, e o poço está escondido atrás do disco na foto, então não
+   dá para recuperar.
+
+**O que ficou.** Um brilho especular: duas faixas `conic-gradient` (larga e
+estreita, defasadas) girando dentro de um clip elítico sobre o disco, com
+`mix-blend-mode: screen`. Num CD lustroso é isso que o olho lê como giro, e não
+tem emenda nem arte nova. Uma volta a cada 3,6s (`DISCO_ANIM.voltaMs`): um DVD
+real gira a 300-500rpm, mas a 60fps isso vira ruído.
+
+As duas faixas completam a volta no mesmo tempo — num disco real estão no mesmo
+corpo rígido. A profundidade vem da diferença de largura e ângulo, não da
+velocidade.
+
+O clip é **elíptico** para acompanhar a perspectiva. Num brilho gerado isso não
+importa (não há arte para girar), ao contrário do giro de verdade.
+
+Se um dia o disco vier como arquivo próprio, ou a caixa vier com o poço
+preenchido, dá para trocar por giro real: é só substituir as faixas por uma
+`<img>` com `transform: rotate()`. O resto (`janela`, o clip, o gating) não muda.
+
+### Aceitação (sexta rodada)
+
+- [x] Em Mostrar Filmes a janela existe, com duas camadas de brilho rodando
+      (`dvd-girar-disco`, 3,6s) e clip `50% / hidden`.
+- [x] A janela sai nos valores medidos: 52,28% / 26,24% do palco, 41,436% x
+      49,724% — medido no browser em 456x410 numa base de 1100x825, proporção
+      1,11 = 600/540.
+- [x] Sem emenda em 0°, 90°, 180° e 270°: a arte do disco fica idêntica e só o
+      brilho muda de lugar.
+- [x] Fora do modo a janela não existe.
+- [x] `prefers-reduced-motion` desliga o brilho.

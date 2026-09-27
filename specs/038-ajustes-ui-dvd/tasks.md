@@ -34,4 +34,8 @@
 - [x] Gesto vira arrasto mesmo bloqueado, para o `soltar` explicar em vez de abrir o modal
 - [x] `dvd-voltando` + `dvd-virar-volta` (volta animada, com cascata)
 - [x] `INSTRUCAO` reescrita em 3 passos, sem ORDENAR
+- [x] `DISCO_ANIM` e `DVD_GEO.disco.janela` (disco medido na arte)
+- [x] Duas faixas `conic-gradient` girando com `mix-blend-mode: screen`
+- [x] As três tentativas de giro real documentadas no config, com o motivo
+- [x] `girarDisco` só no modo Mostrar Filmes
 - [x] Spec 038 escrita

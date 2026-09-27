@@ -64,6 +64,14 @@ export const DVD_ANIM = {
   saidaPalcoMs: 260,
 }
 
+/**
+ * Uma volta do disco, em ms. Só no modo "Mostrar Filmes", que é onde a arte com
+ * disco aparece. Um DVD real gira a 300-500rpm, mas a 60fps isso vira ruído: 3,6s
+ * por volta é rápido o bastante para ler como giro e lento o bastante para o olho
+ * acompanhar. `linear`, sem easing — easing ficaria visível a cada volta.
+ */
+export const DISCO_ANIM = { voltaMs: 3600 }
+
 /** Soma dos tempos da saída. É o que o React espera antes de desmontar. */
 export const DVD_SAIDA_MS =
   DVD_ANIM.saidaCapaMs + DVD_ANIM.saidaCentroMs + DVD_ANIM.saidaParadaMs + DVD_ANIM.saidaPalcoMs
@@ -147,6 +155,36 @@ export const DVD_GEO = {
   papel: {
     esquerda: { left: '21.465%', top: '19.005%', width: '63.376%', height: '65.817%' },
     direita: { left: '58.495%', top: '25.506%', width: '29.352%', height: '52.762%' },
+  },
+
+  /**
+   * Disco girando, no modo "Mostrar Filmes".
+   *
+   * **Por que isto é um brilho e não a arte girando.** O disco está embutido no
+   * PNG da caixa — não existe arquivo separado dele. E ele não é circular: a
+   * foto tem perspectiva, então o disco mede 600x540 (centro 1057, 555, medido
+   * em `e16.png` com grade a cada 100px). Três tentativas, todas com emenda:
+   *
+   * 1. Girar a imagem inteira dentro de um clip circular: a 90° o papel da
+   *    esquerda entra no meio do CD.
+   * 2. Mascarar a cópia num círculo de 540 (o maior círculo que cabe no disco em
+   *    qualquer ângulo): funciona, mas a 90° e 270° a borda da máscara deixa
+   *    aparecer um arco da arte estática por baixo.
+   * 3. Cobrir a arte estática também: precisa de uma imagem da caixa sem o disco,
+   *    com o poço preenchido — que está escondido atrás do disco na foto, então
+   *    não dá para recuperar.
+   *
+   * O que fica é o brilho especular: um `conic-gradient` girando dentro do disco.
+   * Num CDlustroso é isso que o olho lê como giro, e não tem emenda nem arte
+   * nova. Se um dia o disco vier como arquivo próprio (ou a caixa vier com o
+   * poço preenchido), aí dá para trocar por giro de verdade — é só trocar este
+   * bloco por uma `<img>` com `transform: rotate()`.
+   *
+   * `janela` é o disco em % do `.dvd-base`, e o clip é elíptico para acompanhar
+   * a perspectiva da foto.
+   */
+  disco: {
+    janela: { left: '52.278%', top: '26.244%', width: '41.436%', height: '49.724%' },
   },
 }
 

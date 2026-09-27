@@ -30,6 +30,7 @@ import {
   alternativasDe,
      calcularPontosTarefa,
      CAPA_NO_TILE,
+     DISCO_ANIM,
      idsAlocados,
      prateleirasVazias,
      textoEscolhido,
@@ -399,6 +400,10 @@ function TileEnigma({ id, index, comando, ativo, alocado, virado, marcado, capa,
  * medido em `dvd-fechado.png`, e as 20 capas têm a mesma moldura (medido: mesma
  * faixa de pixels), então o mesmo recorte serve para as duas.
  *
+ * `girarDisco` só faz sentido com a arte de disco (`DVD_COM_CD`): ela é quem tem
+ * um CD. A arte de dois Papers não tem, e a janela circular mostraria um pedaço
+ * do papel girando.
+ *
  * Os dois papéis são zonas diferentes: o da esquerda é o verso da tampa (viaja
  * com a rotação) e o da direita é a bandeja (fica parado). Por isso o texto da
  * esquerda entra dentro de `.dvd-capa` e o da direita em `.dvd-base`.
@@ -411,8 +416,8 @@ function TileEnigma({ id, index, comando, ativo, alocado, virado, marcado, capa,
  * botão usa `DVD_GEO.papel` no espaço do seu próprio pai, e o navegador aplica
  * a transformação. `escolha` nulo (ou sem valor) some com os botões.
  */
-function DvdCaixa({ textoEsquerda, textoDireita, aberto = DVD_ABERTO_SRC, fechado = DVD_FECHADO_SRC, escolha }) {
-  const { eixoX, folha, faceFrente, faceVerso, texto, papel } = DVD_GEO
+function DvdCaixa({ textoEsquerda, textoDireita, aberto = DVD_ABERTO_SRC, fechado = DVD_FECHADO_SRC, escolha, girarDisco = false }) {
+  const { eixoX, folha, faceFrente, faceVerso, texto, papel, disco } = DVD_GEO
   const esperar = `${DVD_ANIM.delayMs + DVD_ANIM.duracaoMs}ms`
   const botao = (lado, rect) => {
     if (!escolha) return null
@@ -442,6 +447,24 @@ function DvdCaixa({ textoEsquerda, textoDireita, aberto = DVD_ABERTO_SRC, fechad
       <span className="dvd-palco block">
         <span className="dvd-base">
           <img src={aberto} alt="" className="h-full w-full object-cover" draggable={false} />
+          {girarDisco && (
+            /*
+             * Janela parada sobre o disco, com duas faixas de brilho girando
+             * dentro. Não é a arte do disco girando — ela está embutida no PNG
+             * da caixa e é elíptica, e girar os pixels traz a moldura junto. Ver
+             * o longo motivo em `DVD_GEO.disco`.
+             */
+            <span className="dvd-disco" style={disco.janela}>
+              <span
+                className="dvd-disco-brilho dvd-disco-brilho-largo"
+                style={{ '--dvd-disco-volta': `${DISCO_ANIM.voltaMs}ms` }}
+              />
+              <span
+                className="dvd-disco-brilho dvd-disco-brilho-estreito"
+                style={{ '--dvd-disco-volta': `${DISCO_ANIM.voltaMs}ms` }}
+              />
+            </span>
+          )}
           {textoDireita && (
             <span className={`dvd-texto ${bryndan.variable} absolute`} style={texto.direita}>
               {textoDireita}
@@ -1382,6 +1405,7 @@ function TarefaContent() {
               <DvdCaixa
                 aberto={dvdAbertoDoDetalhe}
                 fechado={mostrarFilmes ? CAPA_SRC[ENIGMAS.findIndex((e) => e.id === detalhe.id)] : DVD_FECHADO_SRC}
+                girarDisco={mostrarFilmes}
                 textoEsquerda={textoMostrado.esquerda}
                 textoDireita={textoMostrado.direita}
                 escolha={

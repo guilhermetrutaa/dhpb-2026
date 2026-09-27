@@ -163,6 +163,9 @@ body {
     opacity: 1;
     visibility: visible;
   }
+  .dvd-disco-brilho {
+    animation: none;
+  }
   .dvd-saindo,
   .dvd-saindo .dvd-capa,
   .dvd-saindo .charada-faixa,
@@ -247,6 +250,61 @@ body {
        translate é somado depois de a escala já ter puxado a caixa para perto
        do centro, e ela passa direto por ele. */
     transform: scale(0.24) translateX(calc(-1 * var(--dvd-desvio-fechado)));
+  }
+}
+
+/* Disco girando, no modo "Mostrar Filmes".
+   A janela é o clip e não gira: dentro dela é um `conic-gradient` girando, que é
+   o brilho especular de um CD. Não dá para girar a arte do disco — ele está
+   embutido no PNG da caixa e é elíptico pela perspectiva da foto. O motivo
+   inteiro, com as três tentativas que deram emenda, está em `DVD_GEO.disco`. */
+.dvd-disco {
+  position: absolute;
+  border-radius: 50%;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* `inset` negativo para o cônico cobrir a janela toda sem canto duro. */
+.dvd-disco-brilho {
+  position: absolute;
+  inset: -12%;
+  mix-blend-mode: screen;
+  animation: dvd-girar-disco var(--dvd-disco-volta) linear infinite;
+}
+
+/* Duas faixas, larga e estreita, defasadas em `from`. Num CD de verdade elas
+   estão no mesmo corpo rígido, então completam a volta no mesmo tempo; o que dá
+   a sensação de profundidade é a diferença de largura e de ângulo, não a
+   velocidade. */
+.dvd-disco-brilho-largo {
+  background: conic-gradient(
+    from 0deg,
+    rgba(255, 255, 255, 0) 0deg,
+    rgba(255, 255, 255, 0.14) 70deg,
+    rgba(255, 255, 255, 0.03) 120deg,
+    rgba(255, 255, 255, 0) 200deg,
+    rgba(255, 255, 255, 0) 360deg
+  );
+}
+
+.dvd-disco-brilho-estreito {
+  background: conic-gradient(
+    from 196deg,
+    rgba(255, 255, 255, 0) 0deg,
+    rgba(255, 255, 255, 0.34) 26deg,
+    rgba(255, 255, 255, 0.08) 52deg,
+    rgba(255, 255, 255, 0) 86deg,
+    rgba(255, 255, 255, 0) 360deg
+  );
+}
+
+@keyframes dvd-girar-disco {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }
 
