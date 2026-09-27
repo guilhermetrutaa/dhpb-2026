@@ -1,12 +1,8 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Inter, Merriweather } from 'next/font/google'
 import DemoFooter from '@/components/old-tasks/DemoFooter'
 import DemoHeader from '@/components/old-tasks/DemoHeader'
-
-const inter = Inter({ subsets: ['latin'] })
-const merriweather = Merriweather({ subsets: ['latin'], weight: ['400', '700'] })
 
 const opcoesModal = [
   { id: 'A', texto: 'Um rio, próximo a região da Baia da Traição (nome dado pelo colonizador) demonstra como o processo de povoamento indígenas foi realizado naquela região e a área foi palco de disputas.' },
@@ -134,7 +130,7 @@ export default function RecorteIconografico() {
   }
 
   return (
-    <div className={inter.className}>
+    <div className="font-sans">
       <div className="min-h-screen bg-white text-black flex flex-col">
         <DemoHeader />
 
@@ -144,7 +140,7 @@ export default function RecorteIconografico() {
               <div>
                 <p className="text-[#82181A] font-semibold">3º DHPB · Fase 2</p>
                 <h1 className="text-3xl md:text-5xl font-bold text-[#82181A] mt-2">Recorte Iconográfico</h1>
-                <p className={`${merriweather.className} text-[#5B5B5B] text-lg md:text-xl mt-3 max-w-3xl`}>
+                <p className="font-serif text-[#5B5B5B] text-lg md:text-xl mt-3 max-w-3xl">
                   Praefecturae de Paraiba, et Rio Grande · Frans Post, 1647.
                 </p>
               </div>
