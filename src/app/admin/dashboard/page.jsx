@@ -14,6 +14,12 @@ import {
   montarRespostaBonificada,
   respostaTarefaDaFase,
 } from '@/lib/bonificarRecorte13'
+import {
+  flagsDoItem,
+  gerarPreviewViagemTempo,
+  itemBonificacaoViagemTempo,
+  montarRespostaBonificadaViagemTempo,
+} from '@/lib/bonificarViagemTempo'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -199,6 +205,9 @@ function TabEquipes() {
   const [mostraConfirmarRecorte13, setMostraConfirmarRecorte13] = useState(false)
   const [previewRecorte13, setPreviewRecorte13] = useState(null)
   const recorte13ContextoRef = useRef(null)
+  const [mostraConfirmarViagem, setMostraConfirmarViagem] = useState(false)
+  const [previewViagem, setPreviewViagem] = useState(null)
+  const viagemContextoRef = useRef(null)
 
   useEffect(() => {
     const carregar = async () => {
@@ -668,6 +677,124 @@ function TabEquipes() {
     }
   }
 
+  const handleSimularViagemTempo = async () => {
+    if (!edicaoRecalcId) {
+      alert('Selecione a edição.')
+      return
+    }
+    if (!window.confirm(
+      'Simular crédito de +1,00 para quem fez 0,00 na DATA da imagem 2 e/ou 0,00 no LOCAL da imagem 7 da Viagem no Tempo.\n\n' +
+      'Só equipes completas (4+) que já entregaram a tarefa. O outro componente da imagem não interfere.\n\n' +
+      'Nenhuma gravação será feita.'
+    )) return
+    setCarregando(true)
+    setMostraConfirmarViagem(false)
+    setPreviewViagem(null)
+    try {
+      const ctx = await carregarContextoRecorte13(edicaoRecalcId)
+      const preview = gerarPreviewViagemTempo(ctx.equipes, ctx.fases)
+      if (preview.erro === 'sem_fase_viagem') {
+        alert('Nenhuma fase desta edição tem a tarefa Viagem no Tempo.')
+        return
+      }
+      viagemContextoRef.current = { fase: preview.fase }
+      setPreviewViagem(preview)
+      if (preview.alteradas.length === 0) {
+        alert(`SIMULAÇÃO: nenhuma equipe precisa do crédito da Viagem no Tempo.\n\nEquipes lidas: ${preview.itens.length}.`)
+        return
+      }
+      const linhas = preview.alteradas.slice().sort((a, b) =>
+        String(a.nome).localeCompare(String(b.nome), 'pt-BR')
+      ).map((item) => {
+        const marcas = [item.img2 ? 'img2 data +1,00' : '', item.img7 ? 'img7 local +1,00' : '']
+          .filter(Boolean).join(' + ')
+        return `${item.nome}: ${marcas} | tarefa ${item.pesoAtual.toFixed(2)} → ${item.pesoNovo.toFixed(2)} | Df ${item.dfAntigo.toFixed(2)} → ${item.dfNovo.toFixed(2)}`
+      })
+      const avisoCota = preview.writesEstimados > 5000
+        ? `\nATENÇÃO: ~${preview.writesEstimados} escritas (cota Spark 20k/dia). Grave em horário calmo.`
+        : ''
+      const lista = [
+        `Crédito Viagem no Tempo (img 2 data / img 7 local) — ${preview.alteradas.length} equipe(s)`,
+        `Equipes lidas: ${preview.itens.length}`,
+        `Writes estimados: ${preview.writesEstimados}`,
+        '',
+        ...linhas,
+      ].join('\n')
+      setMostraConfirmarViagem(true)
+      await copiarTexto(
+        lista,
+        `SIMULAÇÃO: ${preview.alteradas.length} equipe(s) recebem crédito na Viagem no Tempo (~${preview.writesEstimados} escritas).` +
+        `\nEquipes lidas: ${preview.itens.length}.` +
+        `\n\nLista completa copiada (${preview.alteradas.length} linhas). Cole num bloco de notas para conferir.` +
+        avisoCota +
+        '\n\nNenhuma gravação foi feita. Confira e depois confirme.'
+      )
+    } catch (err) {
+      alert('Erro na simulação: ' + err.message)
+    } finally {
+      setCarregando(false)
+    }
+  }
+
+  const handleConfirmarViagemTempo = async () => {
+    if (!previewViagem?.alteradas?.length || !viagemContextoRef.current?.fase) {
+      alert('Simule o crédito da Viagem no Tempo antes de confirmar.')
+      return
+    }
+    if (!window.confirm(
+      `Isto vai GRAVAR +1,00 por item afetado em ${previewViagem.alteradas.length} equipe(s) (~${previewViagem.writesEstimados} escritas).\n\n` +
+      'As imagens e o gabarito não são alterados. Tem certeza absoluta?'
+    )) return
+    setCarregando(true)
+    const { fase } = viagemContextoRef.current
+    let gravadas = 0
+    let puladas = 0
+    try {
+      for (const item of previewViagem.alteradas) {
+        const mudou = await runTransaction(db, async (transaction) => {
+          const equipeRef = doc(db, 'equipes', item.id)
+          const respostaRef = doc(db, 'equipes', item.id, 'respostas', item.respostaId)
+          const pontuacaoRef = doc(db, 'equipes', item.id, 'pontuacoes', item.faseId)
+          const snap = await transaction.get(equipeRef)
+          if (!snap.exists()) return false
+          const live = { id: item.id, ...snap.data() }
+          const liveItem = itemBonificacaoViagemTempo(live, fase)
+          if (!liveItem.mudou) return false
+          const atual = respostaTarefaDaFase(live, liveItem.faseId)
+          if (!atual) return false
+          const flags = flagsDoItem(liveItem)
+          const respostaObj = montarRespostaBonificadaViagemTempo(atual, liveItem.pesoNovo, liveItem.faseId, flags)
+          transaction.set(respostaRef, { ...flags, peso: liveItem.pesoNovo, atualizadoEm: respostaObj.atualizadoEm, atualizadoPor: 'admin' }, { merge: true })
+          const equipeUpdate = {
+            [`respostas.${liveItem.respostaId}`]: respostaObj,
+            df: increment(liveItem.deltaDi),
+            [`pontuacoes.${liveItem.faseId}.ni`]: increment(liveItem.delta),
+            [`pontuacoes.${liveItem.faseId}.di`]: increment(liveItem.deltaDi),
+          }
+          if (liveItem.atualizarLegadoTarefa) {
+            equipeUpdate['respostas.tarefa'] = respostaObj
+          }
+          transaction.set(pontuacaoRef, {
+            ni: increment(liveItem.delta),
+            di: increment(liveItem.deltaDi),
+          }, { merge: true })
+          transaction.update(equipeRef, equipeUpdate)
+          return true
+        })
+        if (mudou) gravadas++
+        else puladas++
+      }
+      alert(`CRÉDITO VIAGEM NO TEMPO CONCLUÍDO.\n\nEquipes gravadas: ${gravadas}\nSem mudança na transação: ${puladas}`)
+      setMostraConfirmarViagem(false)
+      setPreviewViagem(null)
+      viagemContextoRef.current = null
+    } catch (err) {
+      alert('Erro no crédito da Viagem no Tempo: ' + err.message)
+    } finally {
+      setCarregando(false)
+    }
+  }
+
   const handleRecalcularCompletas = async () => {
     if (!window.confirm('Custo de ~650 leituras e gravações. O sistema fará a contagem exata e atualizará todas as equipes com a tag de completa. Tem certeza?')) return
     setCarregando(true)
@@ -917,9 +1044,12 @@ function TabEquipes() {
                   setMostraConfirmarRecorte13(false)
                   setPreviewRecorte13(null)
                   recorte13ContextoRef.current = null
+                  setMostraConfirmarViagem(false)
+                  setPreviewViagem(null)
+                  viagemContextoRef.current = null
                 }}
                 className='text-xs border border-amber-300 rounded-md px-2 py-1 bg-white text-neutral-700 font-semibold outline-none focus:border-[#82181A]'
-                title='Edição usada no recálculo de Ni/Di/Df e no crédito do recorte 13'
+                title='Edição usada no recálculo de Ni/Di/Df, no crédito do recorte 13 e no crédito da Viagem no Tempo'
               >
                 {edicoes.length === 0 && <option value=''>Nenhuma edição</option>}
                 {edicoes.map((ed) => (
@@ -956,6 +1086,22 @@ function TabEquipes() {
                   className='bg-orange-100 text-orange-700 px-3 py-1 rounded-md hover:bg-orange-200 transition-colors cursor-pointer font-bold border border-orange-300'
                 >
                   CONFIRMAR CRÉDITO RECORTE 13
+                </button>
+              )}
+              <button
+                onClick={handleSimularViagemTempo}
+                disabled={!edicaoRecalcId}
+                className='bg-teal-100 text-teal-800 px-3 py-1 rounded-md hover:bg-teal-200 transition-colors cursor-pointer font-bold disabled:opacity-50'
+                title='Gabarito errado: credita +1,00 para quem fez 0,00 na data da imagem 2 e/ou 0,00 no local da imagem 7 da Viagem no Tempo. Só completas que entregaram.'
+              >
+                Simular crédito viagem no tempo
+              </button>
+              {mostraConfirmarViagem && (
+                <button
+                  onClick={handleConfirmarViagemTempo}
+                  className='bg-orange-100 text-orange-700 px-3 py-1 rounded-md hover:bg-orange-200 transition-colors cursor-pointer font-bold border border-orange-300'
+                >
+                  CONFIRMAR CRÉDITO VIAGEM NO TEMPO
                 </button>
               )}
             </div>

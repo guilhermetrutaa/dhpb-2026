@@ -134,6 +134,8 @@ Documento de tarefa interativa: `equipes/{equipeId}/respostas/tarefa_{faseId}` (
 | `pontosResolucao` | number | Spec 037: etapa 1 — soma dos valores escolhidos (0 a 20) |
 | `pontosEstante` | number | Spec 037: etapa 2 — slots na posição certa (0 a 20). A nota é a média simples das duas etapas |
 | `recorte13Bonificado` | boolean (opcional) | Spec 028: crédito admin de +1 no recorte 13; impede segundo clique |
+| `imagem2AnoBonificado` | boolean (opcional) | Spec 039: crédito admin de +1,00 por erro de gabarito na data da imagem 2 da Viagem no Tempo; impede segundo clique |
+| `imagem7LocalBonificado` | boolean (opcional) | Spec 039: crédito admin de +1,00 por erro de gabarito no local da imagem 7 da Viagem no Tempo; impede segundo clique |
 | `atualizadoEm` | string (ISO) | Momento da gravação |
 | `atualizadoPor` | string | Nome ou e-mail do integrante que gravou |
 
