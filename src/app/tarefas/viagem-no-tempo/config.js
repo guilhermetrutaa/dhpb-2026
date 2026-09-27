@@ -1,4 +1,4 @@
-export const PDF_DRIVE_URL = 'https://drive.google.com/file/d/1MGPS6Qeob3AlJUVPop-ETcA2CQhdej3z/view?usp=drivesdk'
+export const PDF_DRIVE_URL = 'https://drive.google.com/file/d/19kHvs1LUc-GZCprTmNK7dvtxFPvJ_eKu/view?usp=sharing'
 
 export const MARCADOR_SRC = '/marcador.svg'
 
