@@ -68,7 +68,8 @@ export const DVD_ANIM = {
 export const DVD_SAIDA_MS =
   DVD_ANIM.saidaCapaMs + DVD_ANIM.saidaCentroMs + DVD_ANIM.saidaParadaMs + DVD_ANIM.saidaPalcoMs
 
-/** Virada dos tiles no botão ORDENAR: duração e cascata por índice. */
+/** Virada dos tiles no botão Mostrar Filmes: duração e cascata por índice. Vale
+ *  para os dois sentidos, inclusive a volta animada para o quadrado vermelho. */
 export const FLIP_ANIM = {
   duracaoMs: 620,
   staggerMs: 35,
@@ -158,11 +159,9 @@ Cada prateleira é um bloco: a de cima recebe 7 caixas (bloco 1), a do meio 7 (b
 
 Passo 1 — abra cada quadrado. A caixa de DVD mostra a pergunta e duas alternativas, uma em cada papel. Não existe alternativa errada: uma vale 1 ponto e a outra vale 2. As 10 caixas vermelhas já vêm respondidas, valem 0 ponto e servem de referência — o papel da alternativa certa fica marcado, e dá para abrir e ler, mas não para escolher.
 
-Passo 2 — escolhido o caminho dos 10 enigmas abertos, clique em ORDENAR: o botão só libera a estante, para você poder arrastar as caixas até ela. Ele não muda o desenho dos quadrados.
+Passo 2 — escolhido o caminho dos 10 enigmas abertos, a estante se abre: arraste as caixas até ela para montar a linha do tempo. A ordem na prateleira (esquerda para a direita) é a ordem do tempo dentro do bloco. Antes de completar os 10, a estante não aceita nenhuma caixa.
 
-Passo 3 — arraste as caixas até a estante para montar a linha do tempo. A ordem na prateleira (esquerda para a direita) é a ordem do tempo dentro do bloco.
-
-Passo 4 — “Mostrar Filmes” vira os quadrados e mostra a capa de cada filme. Abrindo um deles, o DVD aparece com o disco e o papel traz só a alternativa que a equipe escolheu, para conferir. O botão vira “Fechar Filmes”; fechando, os quadrados voltam ao desenho normal e dá para trocar qualquer alternativa e mostrar de novo.
+Passo 3 — “Mostrar Filmes” vira os quadrados e mostra a capa de cada filme. Abrindo um deles, o DVD aparece com o disco e o papel traz só a alternativa que a equipe escolheu, para conferir. O botão vira “Fechar Filmes”; fechando, os quadrados voltam ao desenho vermelho e dá para trocar qualquer alternativa e mostrar de novo.
 
 Salve o rascunho quando quiser. Mesmo saindo da página, o rascunho permanece e pode ser alterado.
 

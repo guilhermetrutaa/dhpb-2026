@@ -166,7 +166,8 @@ body {
   .dvd-saindo,
   .dvd-saindo .dvd-capa,
   .dvd-saindo .charada-faixa,
-  .dvd-virado .dvd-vira {
+  .dvd-virado .dvd-vira,
+  .dvd-voltando .dvd-vira {
     animation: none;
   }
   .dvd-saindo .dvd-capa {
@@ -282,6 +283,25 @@ body {
   }
   to {
     transform: rotateY(-180deg);
+  }
+}
+
+/* Volta da capa para o quadrado vermelho, em "Fechar Filmes".
+   Sem isto, tirar `.dvd-virado` apenas remove a animação: o `transform`
+   computed volta a `none` e os 20 quadrados saltam de uma vez, sem girar.
+   Keyframes próprios, pelo mesmo motivo de `dvd-fechar`: inverter o
+   `dvd-virar` com `reverse` manteria o `currentTime` da animação anterior e o
+   cover pularia direto para o fim. */
+.dvd-voltando .dvd-vira {
+  animation: dvd-virar-volta var(--dvd-vira-dur) cubic-bezier(0.5, 0, 0.2, 1) var(--dvd-vira-delay) both;
+}
+
+@keyframes dvd-virar-volta {
+  from {
+    transform: rotateY(-180deg);
+  }
+  to {
+    transform: rotateY(0deg);
   }
 }
 

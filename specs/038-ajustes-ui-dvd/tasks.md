@@ -29,4 +29,9 @@
 - [x] `CAPA_NO_TILE` com o zoom medido, e `overflow: hidden` na face
 - [x] Prop `fechado` no `DvdCaixa`, com a capa do filme em Mostrar Filmes
 - [x] `escolha` nula em Mostrar Filmes (sem quadrado vermelho)
+- [x] Botão ORDENAR removido; `ordenado` removido
+- [x] Portão da estante = `todosMarcados`, com aviso em vermelho
+- [x] Gesto vira arrasto mesmo bloqueado, para o `soltar` explicar em vez de abrir o modal
+- [x] `dvd-voltando` + `dvd-virar-volta` (volta animada, com cascata)
+- [x] `INSTRUCAO` reescrita em 3 passos, sem ORDENAR
 - [x] Spec 038 escrita

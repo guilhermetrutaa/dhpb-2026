@@ -233,3 +233,47 @@ dois botões de seleção voltam.
       `dvd-fechado.png`.
 - [x] Em Mostrar Filmes não existe nenhum `.dvd-escolha`; fora dele, voltam os
       dois.
+
+## Quinta rodada
+
+### ORDENAR saiu; a estante se abre sozinha
+
+O botão ORDENAR não existe mais. O portão da estante passou a ser o próprio
+`todosMarcados` — o mesmo que libera o "Mostrar Filmes" —, ou seja, os 10 enigmas
+abertos respondidos. O estado `ordenado` saiu junto.
+
+A guarda continua em `moverParaPrateleira`, então os dois caminhos (arrasto e
+clique num slot) dão o mesmo aviso.
+
+O bloqueio precisou de um ajuste no gesto: com `permitido: false`, `moverArrasto`
+retornava antes do limiar de 5px, o gesto nunca virava arrasto e `soltarArrasto`
+caía no "não arrastou" — que **abre o modal no meio de uma tentativa de
+arrastar**, e sem aviso nenhum. Agora o gesto vira arrasto sempre; quem barra é
+`soltarArrasto`, que ainda chama `moverParaPrateleira` e mostra
+"Responda os 10 enigmas abertos para liberar a estante." em vermelho.
+
+### A volta dos quadrados é animada
+
+Tirar `.dvd-virado` só remove a animação: o `transform` computed volta a `none` e
+os 20 quadrados saltavam de uma vez. Agora há `dvd-voltando`, com keyframes
+próprios `dvd-virar-volta` (de `rotateY(-180deg)` a `rotateY(0deg)`) — os mesmos
+tempos e a mesma cascata de `dvd-virar`, pelo mesmo motivo de `dvd-fechar`: com
+`reverse` o `currentTime` anterior faria o cover pular direto para o fim.
+
+O estado `voltando` fica ligado por `duracaoMs + 19 x staggerMs` e se apaga
+sozinho, para o quadrado terminar sem transform. Também entra no bloco de
+`prefers-reduced-motion`.
+
+Como o portão exige os 10 respondidos, os 20 quadrados estão vermelhos quando o
+modo fecha — a face da frente é sempre `quadrado-respondido.webp` nessa volta.
+
+### Aceitação (quinta rodada)
+
+- [x] Só existe o botão "Mostrar Filmes"; "Ordenar" não aparece na tela.
+- [x] Com 0/10 e com 9/10, arrastar para a estante não coloca nada e mostra o
+      aviso em `bg-red-100`.
+- [x] Com 10/10, o mesmo arrasto coloca.
+- [x] Clicar em "Fechar Filmes" roda `dvd-virar-volta`: a 200ms o transform ainda
+      está em ~-178°, a 700ms é a identidade, e no fim a classe some e o
+      transform é `none`.
+- [x] Todas as frentes voltam a `quadrado-respondido.webp`.

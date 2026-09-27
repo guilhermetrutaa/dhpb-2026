@@ -328,8 +328,9 @@ function FaixaPergunta({ texto, ref }) {
  * `animation-delay`, nenhum DVD. A tampa do DVD só existe dentro do modal
  * (componente `DvdCaixa`), que é o gatilho da abertura.
  *
- * `virado` (botão ORDENAR) gira o quadrado no próprio eixo e mostra a capa do
- * filme. Alocado, o lugar fica vazio: só o vão tracejado, sem o "?" translúcido.
+ * `virado` (botão Mostrar Filmes) gira o quadrado no próprio eixo e mostra a capa
+ * do filme. No sentido inverso, `dvd-voltando` anima a volta para o quadrado
+ * vermelho. Alocado, o lugar fica vazio: só o vão tracejado, sem o "?" translúcido.
  *
  * `marcado` é o quadrado vermelho: enigma já respondido no PDF **ou** com
  * caminho escolhido pela equipe.
@@ -508,8 +509,14 @@ function TarefaContent() {
   const [detalheId, setDetalheId] = useState(null)
   const [alvoBloco, setAlvoBloco] = useState(null)
   const [alvoSlot, setAlvoSlot] = useState(null)
-  const [ordenado, setOrdenado] = useState(false)
   const [mostrarFilmes, setMostrarFilmes] = useState(false)
+  /**
+   * A volta dos quadrados para o desenho vermelho é animada, e por isso precisa
+   * de um estado próprio: sem ele, tirar `.dvd-virado` só removeria a animação e
+   * os 20 quadrados saltariam de uma vez. Vive ligado pelo tempo da animação
+   * (virada + o maior stagger) e some sozinho.
+   */
+  const [voltando, setVoltando] = useState(false)
   const [viradas, setViradas] = useState(0)
   const [fechando, setFechando] = useState(false)
   /** DVD aberto a partir da estante: abre para ler, sem escolher. */
@@ -549,7 +556,8 @@ function TarefaContent() {
    * respondeu e parece bug.
    */
   const marcados = new Set(ENIGMAS.filter((e) => e.respondido || enigmas[e.id]?.valor).map((e) => e.id))
-  /** ORDENAR e Mostrar Filmes só abrem com alternativa escolhida nos 10 abertos. */
+  /** Mostrar Filmes só abre com alternativa escolhida nos 10 enigmas abertos. O
+   *  mesmo `todosMarcados` é o portão da estante: não há botão para destravar. */
   const todosMarcados = marcas === ENIGMAS_ABERTOS.length
   /**
    * A arte do DVD aberto no modal. A de disco (que já traz a capa do filme no
@@ -619,7 +627,7 @@ function TarefaContent() {
     if (!isLocalDevHost()) return
     setLocalPreview(true)
     setCarregando(false)
-    setFase((atual) => atual || { tarefa: { titulo: 'Charadas da locadora', pontuacao: 20 }, peso: 0, status: 'aberta' })
+    setFase((atual) => atual || { tarefa: { titulo: 'Galeria Cultural', pontuacao: 20 }, peso: 0, status: 'aberta' })
     const salvo = lerProgressoLocal(faseId)
     if (salvo) aplicarSalvo(salvo)
   }, [faseId])
@@ -776,7 +784,7 @@ function TarefaContent() {
   const iniciarArrasto = (event, id) => {
     if (event.button != null && event.button !== 0) return
     // O gesto é sempre registrado: soltar sem arrastar é o clique que abre o
-    // DVD. `permitido` é o que trava o arrasto antes do ORDENAR.
+    // DVD. `permitido` é o que trava o arrasto antes dos 10 enigmas respondidos.
     gestoRef.current = {
       id,
       x0: event.clientX,
@@ -784,7 +792,7 @@ function TarefaContent() {
       x: event.clientX,
       y: event.clientY,
       ativo: false,
-      permitido: ordenado,
+      permitido: todosMarcados,
     }
     // pointer capture: a estante fica longe do tile, sem ele o pointerup
     // chegaria no elemento sob o cursor, não no tile.
@@ -801,11 +809,16 @@ function TarefaContent() {
     gesto.x = event.clientX
     gesto.y = event.clientY
     if (!gesto.ativo) {
-      if (!gesto.permitido) return
       if (Math.hypot(gesto.x - gesto.x0, gesto.y - gesto.y0) < 5) return
+      // A estante fechada não impede o gesto de virar arrasto: precisa virar,
+      // senão o `soltar` cairia no "não arrastou" e abriria o modal no meio de
+      // uma tentativa de arrastar. Quem barra é `soltarArrasto`, que ainda
+      // explica o motivo.
       gesto.ativo = true
+      if (!gesto.permitido) return
       setFantasma({ id, x: gesto.x, y: gesto.y })
     }
+    if (!gesto.permitido) return
     event.preventDefault()
     moverFantasma(gesto.x, gesto.y)
     const slot = slotEm(gesto.x, gesto.y)
@@ -831,7 +844,11 @@ function TarefaContent() {
     setFantasma(null)
     setAlvoBloco(null)
     setAlvoSlot(null)
-    if (slot) moverParaPrateleira(slot.bloco, slot.indice, gesto.id)
+    if (!slot) return
+    // Arrasto de verdade sobre um slot, com a estante ainda fechada: explica o
+    // motivo em vez de não fazer nada. `moverParaPrateleira` repete a guarda
+    // para o caminho do clique, então os dois casos dão o mesmo aviso.
+    moverParaPrateleira(slot.bloco, slot.indice, gesto.id)
   }
 
   const cancelarArrasto = () => {
@@ -884,10 +901,11 @@ function TarefaContent() {
    */
   const moverParaPrateleira = (bloco, indice = Infinity, id = selecionadoId) => {
     if (locked) return
-    // A estante só libera depois do ORDENAR. O botão não mexe no desenho dos
-    // quadrados: é um portão, nada mais.
-    if (!ordenado) {
-      setMensagem('Use o botão ORDENAR para liberar a estante antes de montar.')
+    // A estante só abre depois dos 10 enigmas abertos respondidos. Não há botão
+    // para destravar: o portão é o próprio `todosMarcados`, o mesmo que libera
+    // o "Mostrar Filmes".
+    if (!todosMarcados) {
+      setMensagem(`Responda os ${ENIGMAS_ABERTOS.length} enigmas abertos para liberar a estante.`)
       return
     }
     if (!id) {
@@ -1073,8 +1091,13 @@ function TarefaContent() {
 
           <div className="mx-auto mt-10 max-w-5xl px-4">
             {/* `key` = contador de viradas: remontar a grade reinicia a animação
-                do flip, que uma segunda ida no botão não faria sozinha. */}
-            <div key={viradas} className={`mx-auto grid max-w-5xl grid-cols-5 gap-1.5 border-2 border-[#3B2A1E] bg-[#E9E1D3] p-2 sm:grid-cols-10 sm:gap-3 sm:p-4 ${mostrarFilmes ? 'dvd-virado' : ''}`}>
+                do flip, que uma segunda ida no botão não faria sozinha. Vale
+                para os dois sentidos — `dvd-virado` para virar, `dvd-voltando`
+                para a volta animada. */}
+            <div
+              key={viradas}
+              className={`mx-auto grid max-w-5xl grid-cols-5 gap-1.5 border-2 border-[#3B2A1E] bg-[#E9E1D3] p-2 sm:grid-cols-10 sm:gap-3 sm:p-4 ${mostrarFilmes ? 'dvd-virado' : ''} ${voltando ? 'dvd-voltando' : ''}`}
+            >
               {ENIGMAS.map((enigma, index) => (
                 <TileEnigma
                   key={enigma.id}
@@ -1099,43 +1122,36 @@ function TarefaContent() {
             </div>
 
             <div className="mt-6 flex flex-col items-center gap-2">
-              <div className="flex flex-wrap items-center justify-center gap-3">
-                {/*
-                  ORDENAR é só um portão: libera a estante e não muda o desenho
-                  de nada. Quem vira os quadrados é o Mostrar Filmes, ao lado.
-                */}
-                <button
-                  type="button"
-                  disabled={!todosMarcados}
-                  onClick={() => {
-                    setOrdenado(true)
-                    setMensagem('Estante liberada. Arraste as caixas até os blocos.')
-                  }}
-                  className="min-w-[200px] cursor-pointer border-[3px] border-[#0F4D00] bg-[#197400] px-7 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-white transition-colors hover:bg-[#156300] disabled:cursor-not-allowed disabled:border-[#8A7007] disabled:bg-[#C5A00A] disabled:opacity-60"
-                >
-                  Ordenar
-                </button>
-                <button
-                  type="button"
-                  disabled={!todosMarcados}
-                  aria-pressed={mostrarFilmes}
-                  onClick={() => {
-                    setViradas((n) => n + 1)
-                    setMostrarFilmes((v) => !v)
-                  }}
-                  className="min-w-[200px] cursor-pointer border-[3px] border-[#3B2A1E] bg-[#E9E1D3] px-7 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-[#3B2A1E] transition-colors hover:bg-[#DDD2BF] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {mostrarFilmes ? 'Fechar Filmes' : 'Mostrar Filmes'}
-                </button>
-              </div>
+              <button
+                type="button"
+                disabled={!todosMarcados}
+                aria-pressed={mostrarFilmes}
+                onClick={() => {
+                  setViradas((n) => n + 1)
+                  if (mostrarFilmes) {
+                    setMostrarFilmes(false)
+                    // A volta é animada, então o estado fica ligado durante a
+                    // virada + o maior stagger; depois some e o quadrado fica
+                    // no desenho vermelho, sem transform.
+                    setVoltando(true)
+                    window.setTimeout(
+                      () => setVoltando(false),
+                      FLIP_ANIM.duracaoMs + (ENIGMAS.length - 1) * FLIP_ANIM.staggerMs,
+                    )
+                  } else {
+                    setMostrarFilmes(true)
+                  }
+                }}
+                className="min-w-[240px] cursor-pointer border-[3px] border-[#3B2A1E] bg-[#E9E1D3] px-8 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-[#3B2A1E] transition-colors hover:bg-[#DDD2BF] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {mostrarFilmes ? 'Fechar Filmes' : 'Mostrar Filmes'}
+              </button>
               <p className="text-center text-xs font-medium text-neutral-500">
                 {!todosMarcados
-                  ? `Primeiro escolha um caminho nos ${ENIGMAS_ABERTOS.length} enigmas abertos (${marcas}/${ENIGMAS_ABERTOS.length}). O quadrado fica vermelho assim que você escolhe.`
+                  ? `Primeiro escolha um caminho nos ${ENIGMAS_ABERTOS.length} enigmas abertos (${marcas}/${ENIGMAS_ABERTOS.length}). O quadrado fica vermelho assim que você escolhe, e a estante só abre com os ${ENIGMAS_ABERTOS.length} respondidos.`
                   : mostrarFilmes
                     ? 'Abrindo um quadrado, o DVD aparece com o disco e o papel traz só a alternativa escolhida. Para trocar, feche os filmes.'
-                    : ordenado
-                      ? 'Estante liberada: arraste as caixas até os blocos. Os quadrados continuam no desenho normal.'
-                      : 'Ordenar libera a estante para arrastar. Mostrar Filmes vira os quadrados e mostra a capa de cada filme.'}
+                    : `Estante liberada: arraste as caixas até os blocos. “Mostrar Filmes” vira os quadrados e mostra a capa de cada um.`}
               </p>
             </div>
 
@@ -1279,10 +1295,11 @@ function TarefaContent() {
 
           {mensagem && (
             <div className={`mx-auto mt-8 max-w-md rounded-lg p-4 text-center font-medium ${
-              mensagem.startsWith('Use o botão')
+              mensagem.startsWith('Responda os')
                 || mensagem.includes('Coloque')
                 || mensagem.includes('Clique')
                 || mensagem.includes('Não foi')
+                || mensagem.includes('Não pode')
                 || mensagem.includes('já entregue')
                 ? 'bg-red-100 text-red-800'
                 : 'bg-green-100 text-green-800'
