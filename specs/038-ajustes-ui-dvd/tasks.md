@@ -38,4 +38,11 @@
 - [x] Duas faixas `conic-gradient` girando com `mix-blend-mode: screen`
 - [x] As três tentativas de giro real documentadas no config, com o motivo
 - [x] `girarDisco` só no modo Mostrar Filmes
+- [x] `FUNDO_ESTANTE_SRC` + caixa do cenário (16:9 desktop, 3:4 celular)
+- [x] Estante dimensionada pela altura da caixa
+- [x] Brilho radial atrás da estante (contraste com a parede escura)
+- [x] Brilho e placa em `absolute` para não virarem colunas ao lado da estante
+- [x] Aviso de capacidade fora da cena
+- [x] Cena movida para fora do container da grade, para ser de ponta a ponta
+- [x] Sem `w-screen` (100vw abriria rolagem horizontal com a barra vertical)
 - [x] Spec 038 escrita

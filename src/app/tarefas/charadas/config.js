@@ -7,6 +7,17 @@ export const RESPONDIDO_SRC = '/quadrado-respondido.webp'
 export const PRATELEIRA_SRC = '/tarefas/charadas/prateleira.svg'
 
 /**
+ * Cenário da locadora atrás da estante: 1280x720 (16:9). O miolo do desenho é a
+ * parede vazia, então a estante cai no centro sem cobrir ninguém.
+ *
+ * No desktop a caixa tem a proporção da arte e o `object-cover` não corta nada.
+ * No celular a caixa é mais alta que a arte (4:3), aí o cover corta as pontas —
+ * que é onde estão o cliente e a atendente — e sobra a parede do meio, que é
+ * justamente o que serve de fundo para a estante.
+ */
+export const FUNDO_ESTANTE_SRC = '/desenho-fundo.jpeg'
+
+/**
  * Capas dos 20 enigmas, reveladas pelo botão "Mostrar Filmes". Os arquivos em
  * `public/tarefas/charadas/capas/` são 1086x1448 (3:4, a mesma proporção do
  * `icone-enigma.jpeg` e dos tiles).

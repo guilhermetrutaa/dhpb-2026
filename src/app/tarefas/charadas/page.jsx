@@ -24,7 +24,8 @@ import {
   ICONE_SRC,
   INSTRUCAO,
   PDF_DRIVE_URL,
-  PRATELEIRA_SRC,
+   PRATELEIRA_SRC,
+   FUNDO_ESTANTE_SRC,
   RESPONDIDO_SRC,
   alocacaoCompleta,
   alternativasDe,
@@ -1177,13 +1178,61 @@ function TarefaContent() {
                     : `Estante liberada: arraste as caixas até os blocos. “Mostrar Filmes” vira os quadrados e mostra a capa de cada um.`}
               </p>
             </div>
+          </div>
 
-            <div className="mx-auto mt-12 max-w-2xl">
-              <div className="mx-auto w-fit border-[3px] border-[#3B2A1E] bg-[#E9E1D3] px-10 py-1.5 text-lg font-semibold uppercase tracking-[0.25em] text-[#3B2A1E] shadow-[3px_3px_0_#3B2A1E]">
-                Paraíba
-              </div>
-              <div className="relative mt-3 aspect-[1122/1402] w-full">
-                <img src={PRATELEIRA_SRC} alt="" className="absolute inset-0 h-full w-full" />
+          {/*
+            Cenário da locadora com a estante no miolo, que é a parede vazia da
+            arte. O `prateleira.svg` é linha com `fill="none"` e sem `<rect>`,
+            então não tem nada de fundo para cobrir a cena.
+
+            Fica FORA do `div max-w-5xl px-4` da grade, de propósito: dentro dele a
+            caixa pararia em 992px e o desenho ficaria com branco dos dois lados.
+            Como filha direta da `section` — que é larga e não tem padding
+            horizontal — `w-full` já é a largura inteira da página, e o desenho
+            encosta nas duas bordas. Nada de `w-screen`: 100vw inclui a barra de
+            rolagem e abriria rolagem horizontal.
+
+            Com a caixa mais larga, a estante — dimensionada pela ALTURA — também
+            cresce, e os slots ficam maiores e mais fáceis de acertar no arrasto.
+
+            A caixa é 16:9 no desktop, que é a proporção da arte, então o
+            `object-cover` não corta nada e aparecem o cliente e a atendente.
+            No celular a caixa é mais alta (3:4) porque uma caixa 16:9 deixaria
+            a estante com 18px de slot, inutilizável; aí o cover corta as
+            pontas, que é onde estão as personagens, e sobra a parede do meio.
+
+            A estante é dimensionada pela ALTURA da caixa, e não pela largura,
+            para nunca estourar a cena; os slots crescem junto com a caixa.
+
+            O brilho radial atrás dela não é decoração: a arte da estante é
+            preta e a parede é terracota escura, então sem luz a estante some no
+            fundo. O gradiente é mais forte no celular, onde a parede cropada
+            ocupa quase toda a caixa.
+          */}
+          <div className="relative mt-12 aspect-[3/4] w-full overflow-hidden sm:aspect-[16/9]">
+
+              <img src={FUNDO_ESTANTE_SRC} alt="" className="absolute inset-0 h-full w-full object-cover" />
+              <div className="absolute inset-x-0 bottom-0 top-6 flex items-end justify-center sm:top-8">
+                {/*
+                  Brilho e placa saem do fluxo (`absolute`): como irmãos do
+                  flex, eles viravam colunas ao lado da estante e a empurravam
+                  para a direita. Só a estante fica no fluxo, e é ela que
+                  centraliza.
+                */}
+                <div className="pointer-events-none absolute inset-0 flex items-end justify-center">
+                  <div
+                    className="h-[86%] w-[62%] sm:w-[46%]"
+                    style={{
+                      background:
+                        'radial-gradient(ellipse 62% 52% at 50% 46%, rgba(255,240,214,0.42), rgba(255,236,205,0.22) 52%, rgba(255,236,205,0) 78%)',
+                    }}
+                  />
+                </div>
+                <div className="absolute inset-x-0 top-0 mx-auto w-fit border-[3px] border-[#3B2A1E] bg-[#E9E1D3] px-6 py-1 text-center text-sm font-semibold uppercase tracking-[0.22em] text-[#3B2A1E] shadow-[3px_3px_0_#3B2A1E] sm:px-10 sm:py-1.5 sm:text-lg">
+                  Paraíba
+                </div>
+                <div className="relative aspect-[1122/1402] h-[84%] sm:h-[88%]">
+                  <img src={PRATELEIRA_SRC} alt="" className="absolute inset-0 h-full w-full" />
                 {[1, 2, 3].map((bloco) => {
                   const fila = prateleiras[bloco]
                   const teto = CAPACIDADES[bloco]
@@ -1284,12 +1333,12 @@ function TarefaContent() {
                     </button>
                   )
                 })}
+                </div>
               </div>
-              {alertaCapacidade && (
-                <p className="mt-3 text-center text-sm font-medium text-red-700">{alertaCapacidade}</p>
-              )}
             </div>
-          </div>
+          {alertaCapacidade && (
+            <p className="mx-auto mt-3 max-w-md px-4 text-center text-sm font-medium text-red-700">{alertaCapacidade}</p>
+          )}
 
           <div className="mt-12 flex flex-col items-center justify-center gap-4 px-4">
             <button

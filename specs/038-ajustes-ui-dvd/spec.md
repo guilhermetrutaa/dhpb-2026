@@ -327,3 +327,87 @@ preenchido, dá para trocar por giro real: é só substituir as faixas por uma
       brilho muda de lugar.
 - [x] Fora do modo a janela não existe.
 - [x] `prefers-reduced-motion` desliga o brilho.
+
+## Sétima rodada
+
+### Cenário da locadora atrás da estante
+
+A área da estante passou a ter o cenário `public/desenho-fundo.jpeg` (1280×720,
+16:9) atrás. O miolo do desenho é a parede vazia, então a estante cai no centro
+sem cobrir ninguém, e o cliente e a atendente ficam dos lados.
+
+O `prateleira.svg` é linha com `fill="none"` e sem nenhum `<rect>`, então não tem
+fundo próprio para cobrir a cena — dá para usar o SVG como está.
+
+**A caixa é 16:9 no desktop e 3:4 no celular. Não é estética: com 16:9 no
+celular a estante fica com 18px de slot, inutilizável para arrastar. Com 3:4 o
+`object-cover` corta as pontas da arte — que é onde estão as personagens — e sobra
+a parede do meio, que é justamente o que serve de fundo. Medido: o slot do
+celular foi de 18×24 para 32×43.
+
+**A estante é dimensionada pela ALTURA da caixa** (`h-[88%]`), nunca pela
+largura, para não estourar a cena; os slots crescem junto com a caixa.
+
+**O brilho radial atrás dela é funcional, não decorativo.** A arte da estante é
+preta e a parede é terracota escura: sem luz a estante some no fundo, e os slots
+vazios tracejados ficam ilegíveis.
+
+O aviso de capacidade de bloco saiu para fora da cena, para ficar sobre o fundo
+claro da página e continuar legível.
+
+### Um bug que a captura pegou
+
+O brilho e a placa entraram como irmãos da estante no mesmo flex, então viraram
+**colunas ao lado** dela e a empurraram para a direita, com o brilho à esquerda.
+Saiu no screenshot, não no código. Os dois foram para `absolute` e a estante ficou
+sendo a única filha no fluxo — é ela que centraliza.
+
+### Aceitação (sétima rodada)
+
+- [x] O cenário aparece atrás da estante, sem 404 (`naturalWidth` 1280).
+- [x] A estante e a placa ficam centralizadas no miolo da arte.
+- [x] Slot utilizável no celular: 32×43 (era 18×24).
+- [x] A estante não estoura a caixa em 1600×1100, 1366×768 e 390×780.
+- [x] Arrastar para a estante e o portão dos 10 continuam funcionando; abrir o
+      enigma da estante também.
+
+## Oitava rodada — cenário de ponta a ponta
+
+O cenário deixou de ter `max-w` e passou a encostar nas duas bordas da página.
+
+**O que travava não era o `max-w` do cenário.** A cena estava dentro do
+`div mx-auto mt-10 max-w-5xl px-4` da grade, que corta em 992px dentro de uma
+página de 1600. Tirar o `max-w` do próprio cenário não mudou nada — foi medido:
+a caixa continuou em 992 e o slot em 39×53, igual. A correção é **mover a cena
+para fora daquele container**, para ela ser filha direta da `section`, que é
+larga e não tem padding horizontal. Aí `w-full` já é a largura da página.
+
+**Nada de `w-screen`.** A técnica usual de sangria é
+`w-screen left-1/2 -translate-x-1/2`, mas 100vw inclui a barra de rolagem
+vertical, e como a página é longa ela está sempre presente: apareceria rolagem
+horizontal. `w-full` dentro da `section` dá o mesmo resultado sem o efeito
+colateral. Medido: `scrollWidth === innerWidth` em 2560, 1600, 1366 e 390.
+
+A estante cresceu junto, porque é dimensionada pela ALTURA da caixa. Slots:
+
+| Tela | Cena | Estante | Slot |
+|---|---|---|---|
+| 2560 | 2560×1440 | 992×1239 | 106×141 |
+| 1600 | 1600×900 | 611×764 | 65×87 |
+| 1366 | 1366×768 | 519×648 | 55×74 |
+| 390 | 390×520 | 333×417 | 36×47 |
+
+Antes o slot era 39×53 no desktop e 18×24 no celular. Em nenhum tamanho a
+estante estoura a cena.
+
+O aviso de capacidade de bloco ficou fora da cena, sobre o fundo claro, e ganhou
+`px-4` para não encostar na borda.
+
+### Aceitação (oitava rodada)
+
+- [x] O cenário encosta nas duas bordas: `left = 0` e `right = innerWidth` em
+      2560, 1600, 1366 e 390.
+- [x] Sem rolagem horizontal em nenhum desses tamanhos.
+- [x] A estante não estoura a cena em nenhum deles.
+- [x] Arrastar para a estante, o portão dos 10 e abrir o enigma da estante
+      continuam funcionando depois de mover o nó no DOM.
