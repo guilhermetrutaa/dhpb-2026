@@ -45,26 +45,42 @@ body {
 .animate-support-in { animation: support-in 0.25s ease-out both; }
 .animate-support-bounce { animation: support-bounce 1.2s ease-in-out infinite; }
 
-/* Tarefa charadas - caixa de DVD que abre sozinha.
-   Geometria (eixo da lombada, folha, recortes) vem de tarefas/charadas/config.js
-   via custom properties, sempre em percentual. Tempos vêm de DVD_ANIM. */
-.dvd-tile {
+/* Tarefa charadas - caixa de DVD que abre em 3D dentro do modal.
+   Geometria (eixo da lombada, folha, recortes, papel) vem de
+   tarefas/charadas/config.js via custom properties, sempre em percentual.
+   Tempos vêm de DVD_ANIM. O palco só é montado dentro do modal, então
+   montar o modal é o gatilho da animação: não há delay por tile, nem cascata. */
+
+/* Faixa da pergunta, acima do DVD: moldura escura, painel dourado e texto
+   vinho em negrito centralizado. */
+.charada-faixa {
+  border: 6px solid #2b1608;
+  background: linear-gradient(160deg, #f7dda2 0%, #ecc679 52%, #ddb25c 100%);
+  box-shadow: 0 6px 0 rgb(43 22 8 / 0.35);
+  color: #5e1a0e;
+  font-weight: 700;
+  text-align: center;
+  text-shadow: 0 1px 0 rgb(255 243 208 / 0.6);
+}
+
+.dvd-cena {
   container-type: inline-size;
 }
 
 .dvd-palco {
   position: relative;
   aspect-ratio: 1448 / 1086;
-  /* perspectiva proporcional ao tile, para o volume não mudar entre breakpoints */
+  /* perspectiva proporcional ao palco, para o volume não mudar entre breakpoints */
   perspective: 170cqw;
 }
 
 .dvd-base {
+  display: block;
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  /* só o painel direito: bandeja + CD */
+  /* só o painel direito: bandeja + CD + o papel da alternativa de lá */
   clip-path: inset(0 0 0 var(--dvd-eixo));
 }
 
@@ -92,9 +108,179 @@ body {
   to { transform: rotateY(-180deg); }
 }
 
+/* Metades A/B sobre o DVD: só aparecem e só aceitam clique quando a tampa
+   terminou de abrir. `visibility` (herdada pelos botões) resolve o clique
+   fantasma durante a rotação; a opacidade faz o fade. Não use `step-end`
+   aqui: o Chrome descarta o keyframe de `visibility` nesse timing. */
+.dvd-escolha {
+  opacity: 0;
+  visibility: hidden;
+  animation: dvd-revelar 0.35s ease-out var(--dvd-espera) both;
+}
+
+@keyframes dvd-revelar {
+  from { opacity: 0; visibility: hidden; }
+  to { opacity: 1; visibility: visible; }
+}
+
+/* Texto da alternativa, escrito no papel colado dentro do DVD.
+   As caixas vêm de `DVD_GEO.texto`. A 2,2cqw a letra de mão Bryndan Write cabe
+   o texto mais longo do enunciado (257 caracteres, enigma e03) nas 4 telas
+   testadas. A altura necessária cresce com o QUADRADO do tamanho da fonte:
+   se aumentar a fonte, meça de novo. Não use `line-clamp` aqui: ele emite
+   `display: -webkit-box` e o absoluto posicionado perde a resolução de
+   width/height (dá 0x0). A caixa já tem `top` e `height` fixos, então
+   `overflow: hidden` sozinho corta o excedente. */
+.dvd-texto {
+  font-family: var(--font-bryndan), cursive;
+  font-size: 2.1cqw;
+  line-height: 1.2;
+  color: #2b2118;
+  /* centraliza o texto na folha: a altura da caixa e fixa e o texto varia */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 639px) {
+  /* No celular o papel tem ~93px: manter a mesma proporção é o que garante o
+     texto inteiro. Fica pequeno, mas legível, em vez de cortado. */
+  .dvd-texto {
+    line-height: 1.15;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .dvd-capa {
     animation: none;
+    transform: rotateY(-180deg);
+  }
+  .dvd-escolha {
+    animation: none;
+    opacity: 1;
+    visibility: visible;
+  }
+  .dvd-saindo,
+  .dvd-saindo .dvd-capa,
+  .dvd-saindo .charada-faixa,
+  .dvd-virado .dvd-vira {
+    animation: none;
+  }
+  .dvd-saindo .dvd-capa {
+    transform: rotateY(0deg);
+  }
+  .dvd-saindo .charada-faixa {
+    opacity: 1;
+  }
+}
+
+/* Saída do DVD em três tempos: a tampa fecha, a caixa fechada atravessa até o
+   meio da tela e para lá opaca, e só então encolhe e some.
+   `--dvd-desvio-fechado` (eixoX + folha/2 − 50%) é calculada no JSX a partir de
+   DVD_GEO, então a lombada e a folha continuam sendo a única fonte da
+   geometria. Os tempos vêm de DVD_ANIM.
+   Keyframes próprios (`dvd-fechar`, não `dvd-abrir` com `reverse`): trocar só a
+   duração/direção mantém o `currentTime` da animação anterior e o cover pula
+   direto para o fim. Nome novo = animação nova.
+   Duas animações no mesmo elemento: a que vem por último na lista tem
+   prioridade, e o `from` de `dvd-sai` é o `to` de `dvd-centro`, então a
+   emenda não salta. */
+.dvd-saindo {
+  animation:
+    dvd-centro var(--dvd-saida-centro) cubic-bezier(0.4, 0, 0.2, 1) var(--dvd-saida-capa) both,
+    /* `forwards`, nunca `both`: com `both` o backwards fill de `dvd-sai`
+       publicaria o `from` — que já vem centralizado — durante os 960ms de
+       atraso, e a caixa pularia direto para o meio sem atravessar. */
+    dvd-sai var(--dvd-saida-palco) ease-in
+      calc(var(--dvd-saida-capa) + var(--dvd-saida-centro) + var(--dvd-saida-parada)) forwards;
+}
+
+.dvd-saindo .dvd-capa {
+  animation: dvd-fechar var(--dvd-saida-capa) cubic-bezier(0.65, 0, 0.35, 1) 0s both;
+}
+
+/* A faixa sai de cena antes do deslize, senão ela acompanha a caixa para a
+   esquerda e denuncia o movimento. */
+.dvd-saindo .charada-faixa {
+  animation: dvd-apagar 0.3s ease-in both;
+}
+
+@keyframes dvd-apagar {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes dvd-fechar {
+  from {
+    transform: rotateY(-180deg);
+  }
+  to {
+    transform: rotateY(0deg);
+  }
+}
+
+/* Tempo 2: só a travessia, com a caixa ainda opaca e do mesmo tamanho. */
+@keyframes dvd-centro {
+  from {
+    transform: scale(1) translateX(0);
+  }
+  to {
+    transform: scale(1) translateX(calc(-1 * var(--dvd-desvio-fechado)));
+  }
+}
+
+/* Tempo 3: já no meio, encolhe e some. */
+@keyframes dvd-sai {
+  from {
+    opacity: 1;
+    transform: scale(1) translateX(calc(-1 * var(--dvd-desvio-fechado)));
+  }
+  to {
+    opacity: 0;
+    /* scale() ANTES de translateX(): assim o deslocamento acontece no espaço
+       pré-escala e a caixa pousa exatamente no meio. Na ordem inversa o
+       translate é somado depois de a escala já ter puxado a caixa para perto
+       do centro, e ela passa direto por ele. */
+    transform: scale(0.24) translateX(calc(-1 * var(--dvd-desvio-fechado)));
+  }
+}
+
+/* Virada dos tiles no botão ORDENAR: o quadrado gira no próprio eixo e a capa
+   do filme aparece nas costas. Mesmo princípio da tampa do DVD. */
+.dvd-vira {
+  position: relative;
+  display: block;
+  height: 100%;
+  width: 100%;
+  transform-style: preserve-3d;
+}
+
+.dvd-vira-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  /* A capa do filme entra ampliada para a caixa de DVD preencher o quadrado
+     (ver `CAPA_NO_TILE` no config). Sem isto a ampliação vaza para fora. */
+  overflow: hidden;
+}
+
+.dvd-vira-costas {
+  transform: rotateY(180deg);
+}
+
+.dvd-virado .dvd-vira {
+  animation: dvd-virar var(--dvd-vira-dur) cubic-bezier(0.5, 0, 0.2, 1) var(--dvd-vira-delay) both;
+}
+
+@keyframes dvd-virar {
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
     transform: rotateY(-180deg);
   }
 }

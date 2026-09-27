@@ -129,7 +129,10 @@ Documento de tarefa interativa: `equipes/{equipeId}/respostas/tarefa_{faseId}` (
 | `associacoes` | object | Mapa `{ "1": "O", "2": "T", ... }` número → letra (tarefa recortes) |
 | `imagens` | object (opcional) | Spec 030: mapa `{ "1": { ano, lat, lng, status: 'rascunho' }, ... }` da tarefa Viagem no Tempo |
 | `prateleiras` | object (opcional) | Spec 031: `{ "1": [id, …], "2": [id, …], "3": [id, …] }` da tarefa Charadas (capacidades 7 / 7 / 6) |
-| `enigmas` | object (opcional) | Spec 031: `{ "e01": { opcao: "A" \| "B" }, ... }` — opção do detalhamento; não pontua até o PDF oficial |
+| `enigmas` | object (opcional) | Spec 037: `{ "e01": { valor: 1 \| 2 }, … }` — caminho escolhido. **Não existe gabarito**: as duas alternativas são legítimas e valem 1 ou 2 pontos. Só os 10 enigmas abertos pontuam (máx. 20) |
+| `sorteio` | string | Spec 037: semente da ordem das alternativas no DVD. Vem do rascunho; sem ele deriva do `equipeId`. Garante que cada equipe veja o par 1/2 em lados diferentes |
+| `pontosResolucao` | number | Spec 037: etapa 1 — soma dos valores escolhidos (0 a 20) |
+| `pontosEstante` | number | Spec 037: etapa 2 — slots na posição certa (0 a 20). A nota é a média simples das duas etapas |
 | `recorte13Bonificado` | boolean (opcional) | Spec 028: crédito admin de +1 no recorte 13; impede segundo clique |
 | `atualizadoEm` | string (ISO) | Momento da gravação |
 | `atualizadoPor` | string | Nome ou e-mail do integrante que gravou |

@@ -1,34 +1,51 @@
 'use client'
 
-import React, { Suspense, useEffect, useState } from 'react'
+import React, { Suspense, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Poppins } from 'next/font/google'
+import localFont from 'next/font/local'
 import { doc, getDoc, increment, runTransaction } from 'firebase/firestore'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { db } from '@/lib/firebase'
 import {
   CAPACIDADES,
+  CAPA_SRC,
+  DVD_COM_CD,
   DVD_ABERTO_SRC,
   DVD_ANIM,
   DVD_FECHADO_SRC,
   DVD_GEO,
+  DVD_SAIDA_MS,
   ENIGMAS,
+  ENIGMAS_ABERTOS,
+  FLIP_ANIM,
   ICONE_SRC,
   INSTRUCAO,
-  MIDIA_SRC,
   PDF_DRIVE_URL,
   PRATELEIRA_SRC,
+  RESPONDIDO_SRC,
   alocacaoCompleta,
-  calcularPontosTarefa,
-  idsAlocados,
-  prateleirasVazias,
-} from './config'
+  alternativasDe,
+     calcularPontosTarefa,
+     CAPA_NO_TILE,
+     idsAlocados,
+     prateleirasVazias,
+     textoEscolhido,
+     VALOR_CORRETO,
+   } from './config'
 
 const poppins = Poppins({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
+})
+
+/** Letra de mão das alternativas, no papel colado dentro do DVD. */
+const bryndan = localFont({
+  src: '../../../../public/BryndanWriteBook.ttf',
+  display: 'swap',
+  variable: '--font-bryndan',
 })
 
 function isLocalDevHost() {
@@ -59,6 +76,16 @@ function gravarProgressoLocal(faseId, payload) {
   } catch {
     /* ignore quota */
   }
+}
+
+/**
+ * Semente do sorteio das alternativas. Vem do rascunho salvo; sem ele, deriva do
+ * id da equipe. Não usa `Math.random`: o valor precisa ser o mesmo no servidor e
+ * no cliente (hydration) e não pode mudar entre recargas, senão o par de 1 e 2
+ * pontos mudaria de lado sozinho. `ordemAlternativas` é que espalha o hash.
+ */
+function sementeDaEquipe(equipeId, faseId) {
+  return equipeId || faseId || 'preview'
 }
 
 function Header({ userData, equipeId, logout }) {
@@ -208,7 +235,8 @@ async function persistirResposta({
   status,
   prateleiras,
   enigmas,
-  pontosTarefa,
+  sorteio,
+  pontos,
   respostaPesoAnterior,
   atualizadoPor,
   pesoFase,
@@ -218,6 +246,7 @@ async function persistirResposta({
   const equipeRef = doc(db, 'equipes', equipeId)
   const pontuacaoRef = doc(db, 'equipes', equipeId, 'pontuacoes', faseId)
 
+  const pontosTarefa = pontos.nota
   const novoPeso = status === 'entregue' ? pontosTarefa : 0
   const delta = novoPeso - respostaPesoAnterior
   const deltaDi = Math.round(delta * pesoFase * 100) / 100
@@ -229,6 +258,10 @@ async function persistirResposta({
     tipo: 'tarefa',
     prateleiras,
     enigmas,
+    sorteio,
+    /** As duas etapas, para conferência no admin. A nota é a média delas. */
+    pontosResolucao: pontos.resolucao,
+    pontosEstante: pontos.estante,
     atualizadoEm: new Date().toISOString(),
     atualizadoPor,
   }
@@ -266,26 +299,155 @@ async function persistirResposta({
 }
 
 /**
- * Caixa de DVD que abre sozinha: a base mostra a bandeja com o CD e a tampa
- * gira 180° em torno da lombada real (DVD_GEO.eixoX). Frente = capa fechada,
- * verso = painel interno com o papel pautado e o texto da charada.
+ * Faixa da pergunta, acima do DVD.
+ *
+ * A fonte desce por tamanho de texto em vez de cortar: o enunciado mais longo
+ * do PDF tem 287 caracteres. Medido: 1024px de faixa aceita 4 linhas a 1,6rem;
+ * 328px (celular) precisa de 1rem ou menos.
+ *
+ * Sem `max-h` e sem `line-clamp` de propósito. `line-clamp` não prendia nesta
+ * caixa (mostrava a 5ª linha pela metade, sem elipse) e um `max-h` fixo era
+ * espremido pelo flex da coluna, cortando por baixo. A altura é a que der: quem
+ * encolhe o DVD é o palco, que se dimensiona a partir dela (ver `alturaFaixa`).
+ *
+ * A largura vem de `larguraFaixa`, independente da largura do palco, para a
+ * medição da altura não alimentar a largura do palco e vice-versa.
  */
-function IconeEnigma({ id, index, comando, ativo, alocado, onClick }) {
-  const { eixoX, folha, faceFrente, faceVerso, papel } = DVD_GEO
+function FaixaPergunta({ texto, ref }) {
+  const degrau =
+    texto.length > 230 ? 'text-[0.95rem] sm:text-[1.15rem]' : texto.length > 160 ? 'text-[1.05rem] sm:text-[1.35rem]' : 'text-[1.25rem] sm:text-[1.6rem]'
+  return (
+    <p ref={ref} className={`charada-faixa w-full px-4 py-3 leading-[1.35] sm:px-8 sm:py-4 ${degrau}`}>
+      {texto}
+    </p>
+  )
+}
+
+/**
+ * Tile da grade. Estático por contrato — nenhuma animação, nenhum
+ * `animation-delay`, nenhum DVD. A tampa do DVD só existe dentro do modal
+ * (componente `DvdCaixa`), que é o gatilho da abertura.
+ *
+ * `virado` (botão ORDENAR) gira o quadrado no próprio eixo e mostra a capa do
+ * filme. Alocado, o lugar fica vazio: só o vão tracejado, sem o "?" translúcido.
+ *
+ * `marcado` é o quadrado vermelho: enigma já respondido no PDF **ou** com
+ * caminho escolhido pela equipe.
+ *
+ * Arrastar move o quadrado para a estante; soltar sem mover é o clique que
+ * abre o DVD. O clique de teclado vem pelo `onClick` (`detail === 0`), já que
+ * Enter/Espaço num button não geram `pointerup`.
+ */
+function TileEnigma({ id, index, comando, ativo, alocado, virado, marcado, capa, onClick, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onLostPointerCapture }) {
   return (
     <button
       type="button"
-      onClick={onClick}
-      aria-label={`Enigma ${id}: ${comando}`}
-      className={`dvd-tile relative block w-full cursor-pointer transition-opacity duration-300 ${alocado ? 'opacity-35' : ''}`}
+      onClick={(event) => {
+        if (event.detail === 0) onClick()
+      }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
+      onLostPointerCapture={onLostPointerCapture}
+      aria-label={`Enigma ${id}${marcado ? ' (respondido)' : ''}: ${comando}`}
+      className={`relative block aspect-[240/312] w-full border-2 border-[#3B2A1E] touch-none transition-colors ${
+        virado ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
+      } ${alocado ? 'border-dashed border-[#3B2A1E]/35 bg-[#E9E1D3]/45' : ''}`}
+    >
+      {!alocado && (
+        <span
+          className="dvd-vira"
+          style={{
+            '--dvd-vira-dur': `${FLIP_ANIM.duracaoMs}ms`,
+            '--dvd-vira-delay': `${index * FLIP_ANIM.staggerMs}ms`,
+          }}
+        >
+          <span className="dvd-vira-face">
+            <img src={marcado ? RESPONDIDO_SRC : ICONE_SRC} alt="" className="block h-full w-full object-cover" draggable={false} />
+          </span>
+          <span className="dvd-vira-face dvd-vira-costas">
+            {/* Ampliada para a caixa de DVD preencher o quadrado, como a face
+                fechada preenche no modal. Medido em `CAPA_NO_TILE`. */}
+            <img src={capa} alt="" className="block h-full w-full object-cover" style={{ transform: CAPA_NO_TILE }} draggable={false} />
+          </span>
+        </span>
+      )}
+      {ativo && (
+        <span className="pointer-events-none absolute inset-0 ring-[3px] ring-inset ring-[#82181A]" />
+      )}
+    </button>
+  )
+}
+
+/**
+ * Caixa de DVD que abre dentro do modal: a base mostra a bandeja com o CD e a
+ * tampa gira 180° em torno da lombada real (DVD_GEO.eixoX). Frente = capa
+ * fechada, verso = painel interno com o papel pautado.
+ *
+ * O palco é montado junto com o modal, então a animação CSS roda uma vez por
+ * abertura e só nele. `var(--dvd-delay)` segura o keyframe `from` (tampa
+ * fechada) durante a pausa inicial. Nada de estado: fechar o modal desmonta
+ * esta subárvore e a próxima abertura recomeça em `rotateY(0deg)`.
+ *
+ * A pergunta fica na faixa acima do palco, não aqui.
+ *
+ * `fechado` é a arte da tampa fechada. Por padrão é a caixa genérica da
+ * locadora; no modo "Mostrar Filmes" entra a capa do filme daquele enigma, para
+ * que a tampa que gira seja a do próprio filme. O recorte de `faceFrente` foi
+ * medido em `dvd-fechado.png`, e as 20 capas têm a mesma moldura (medido: mesma
+ * faixa de pixels), então o mesmo recorte serve para as duas.
+ *
+ * Os dois papéis são zonas diferentes: o da esquerda é o verso da tampa (viaja
+ * com a rotação) e o da direita é a bandeja (fica parado). Por isso o texto da
+ * esquerda entra dentro de `.dvd-capa` e o da direita em `.dvd-base`.
+ * `aberto` permite que cada enigma respondido use o seu próprio desenho.
+ *
+ * `escolha` (opcional) é o que faz cada papel ser clicável e acender. Ele mora
+ * **dentro** de cada papel, e não numa camada por cima do palco, porque os dois
+ * papéis estão em sistemas de coordenadas diferentes: para desenhar a marca da
+ * esquerda em % do palco seria preciso compor a rotação da tampa na mão. Cada
+ * botão usa `DVD_GEO.papel` no espaço do seu próprio pai, e o navegador aplica
+ * a transformação. `escolha` nulo (ou sem valor) some com os botões.
+ */
+function DvdCaixa({ textoEsquerda, textoDireita, aberto = DVD_ABERTO_SRC, fechado = DVD_FECHADO_SRC, escolha }) {
+  const { eixoX, folha, faceFrente, faceVerso, texto, papel } = DVD_GEO
+  const esperar = `${DVD_ANIM.delayMs + DVD_ANIM.duracaoMs}ms`
+  const botao = (lado, rect) => {
+    if (!escolha) return null
+    const marcado = escolha.valor === lado.valor
+    return (
+      <button
+        key={lado.nome}
+        type="button"
+        disabled={escolha.travado}
+        onClick={() => escolha.onPick(lado.indice)}
+        aria-pressed={marcado}
+        aria-label={`Caminho do papel da ${lado.nome}`}
+        className={`dvd-escolha absolute ${marcado ? 'bg-[#82181A]/20' : ''}`}
+        style={{ ...rect, '--dvd-espera': esperar }}
+      />
+    )
+  }
+  return (
+    <div
+      className="dvd-cena"
       style={{
         '--dvd-eixo': eixoX,
         '--dvd-dur': `${DVD_ANIM.duracaoMs}ms`,
-        '--dvd-delay': `${DVD_ANIM.delayMs + index * DVD_ANIM.staggerMs}ms`,
+        '--dvd-delay': `${DVD_ANIM.delayMs}ms`,
       }}
     >
       <span className="dvd-palco block">
-        <img src={DVD_ABERTO_SRC} alt="" className="dvd-base" draggable={false} />
+        <span className="dvd-base">
+          <img src={aberto} alt="" className="h-full w-full object-cover" draggable={false} />
+          {textoDireita && (
+            <span className={`dvd-texto ${bryndan.variable} absolute`} style={texto.direita}>
+              {textoDireita}
+            </span>
+          )}
+          {botao({ nome: 'direita', indice: 1, valor: escolha?.direita }, papel.direita)}
+        </span>
         <span
           className="dvd-capa"
           style={{ left: eixoX, top: folha.topo, width: folha.largura, height: folha.altura }}
@@ -293,7 +455,7 @@ function IconeEnigma({ id, index, comando, ativo, alocado, onClick }) {
           <span
             className="dvd-face"
             style={{
-              backgroundImage: `url(${DVD_FECHADO_SRC})`,
+              backgroundImage: `url(${fechado})`,
               backgroundSize: faceFrente.size,
               backgroundPosition: faceFrente.position,
             }}
@@ -301,34 +463,21 @@ function IconeEnigma({ id, index, comando, ativo, alocado, onClick }) {
           <span
             className="dvd-face dvd-face-verso"
             style={{
-              backgroundImage: `url(${DVD_ABERTO_SRC})`,
+              backgroundImage: `url(${aberto})`,
               backgroundSize: faceVerso.size,
               backgroundPosition: faceVerso.position,
             }}
           >
-            <span
-              className="absolute line-clamp-[7] overflow-hidden text-left font-medium leading-[1.35] text-[#3B2A1E] [overflow-wrap:anywhere]"
-              style={{
-                left: papel.left,
-                right: papel.right,
-                top: papel.top,
-                bottom: papel.bottom,
-                paddingLeft: '15%',
-                paddingRight: '6%',
-                paddingTop: '6%',
-                /* proporcional ao tile: o texto acompanha a escala do desenho */
-                fontSize: '4.4cqw',
-              }}
-            >
-              {comando}
-            </span>
+            {textoEsquerda && (
+              <span className={`dvd-texto ${bryndan.variable} absolute`} style={texto.esquerda}>
+                {textoEsquerda}
+              </span>
+            )}
+            {botao({ nome: 'esquerda', indice: 0, valor: escolha?.esquerda }, papel.esquerda)}
           </span>
         </span>
-        {ativo && (
-          <span className="pointer-events-none absolute inset-0 ring-[3px] ring-inset ring-[#82181A]" />
-        )}
       </span>
-    </button>
+    </div>
   )
 }
 
@@ -357,6 +506,24 @@ function TarefaContent() {
   const [questoes, setQuestoes] = useState([])
   const [selecionadoId, setSelecionadoId] = useState(null)
   const [detalheId, setDetalheId] = useState(null)
+  const [alvoBloco, setAlvoBloco] = useState(null)
+  const [alvoSlot, setAlvoSlot] = useState(null)
+  const [ordenado, setOrdenado] = useState(false)
+  const [mostrarFilmes, setMostrarFilmes] = useState(false)
+  const [viradas, setViradas] = useState(0)
+  const [fechando, setFechando] = useState(false)
+  /** DVD aberto a partir da estante: abre para ler, sem escolher. */
+  const [leitura, setLeitura] = useState(false)
+  const [sorteioSalvo, setSorteioSalvo] = useState('')
+  /* Posição do quadrado arrastado. Só muda no início e no fim do gesto — no
+     meio o ghost é movido por `style.transform` direto no DOM, senão a página
+     inteira re-renderiza a 60fps. O ponteiro cru vive em `gestoRef`. */
+  const [fantasma, setFantasma] = useState(null)
+  const gestoRef = useRef(null)
+  const fantasmaRef = useRef(null)
+  /** Altura real da faixa da pergunta, para o palco não encostar na viewport. */
+  const faixaRef = useRef(null)
+  const [alturaFaixa, setAlturaFaixa] = useState(0)
 
   const resumoHref = `/resumo-fase?faseId=${faseId || ''}&edicaoId=${edicaoId || ''}&equipeId=${equipeId || ''}`
   const locked = status === 'entregue' || fase?.status === 'correcao'
@@ -364,6 +531,69 @@ function TarefaContent() {
   const alocados = idsAlocados(prateleiras)
   const completa = alocacaoCompleta(prateleiras)
   const detalhe = ENIGMAS.find((item) => item.id === detalheId)
+  /**
+   * Ordem das duas alternativas no DVD. Cada equipe vê uma ordem diferente,
+   * então o par de 1 e 2 pontos não fica sempre do mesmo lado.
+   */
+  const sorteio = sorteioSalvo || sementeDaEquipe(equipeId, faseId)
+  const alternativas = detalhe ? alternativasDe(detalhe, sorteio) : []
+  const valorEscolhido = detalhe ? enigmas[detalhe.id]?.valor : null
+  const respondendo = detalhe ? Boolean(detalhe.respondido) : false
+  /** Respondido no PDF ou guardado na estante: os dois casos abrem só para ler. */
+  const somenteLeitura = respondendo || leitura
+  const marcas = ENIGMAS_ABERTOS.filter((item) => enigmas[item.id]?.valor).length
+  /**
+   * Quadrado vermelho, na grade e na estante: enigma respondido no PDF **ou**
+   * com caminho escolhido pela equipe. Um único conjunto para os dois lugares,
+   * senão a estante mostra a arte de "trancado" num enigma que a equipe já
+   * respondeu e parece bug.
+   */
+  const marcados = new Set(ENIGMAS.filter((e) => e.respondido || enigmas[e.id]?.valor).map((e) => e.id))
+  /** ORDENAR e Mostrar Filmes só abrem com alternativa escolhida nos 10 abertos. */
+  const todosMarcados = marcas === ENIGMAS_ABERTOS.length
+  /**
+   * A arte do DVD aberto no modal. A de disco (que já traz a capa do filme no
+   * próprio CD) é exclusiva do modo "Mostrar Filmes": no dia a dia vale a arte
+   * de dois papéis, senão a equipe não veria a alternativa que ainda pode
+   * trocar. E o `texto.esquerda` serve para as duas — o papel está no mesmo
+   * lugar nos dois conjuntos de arte.
+   */
+  const dvdAbertoDoDetalhe = (mostrarFilmes && DVD_COM_CD[detalheId]) || DVD_ABERTO_SRC
+  /**
+   * O que acende no papel. Em Mostrar Filmes e na estante (leitura) é a
+   * alternativa escolhida; num enigma respondido do PDF, que a equipe não
+   * escolheu, é a correta — a que vale 1. O mesmo que a equipe marcar, para não
+   * inventar um segundo visual de "respondido".
+   */
+  const valorMarcado = respondendo ? VALOR_CORRETO : valorEscolhido
+  /**
+   * Em Mostrar Filmes o papel traz **só** a alternativa escolhida, não as duas.
+   * Nas artes de disco o lado direito é o CD, então não existe segundo papel:
+   * o texto vai no da esquerda e o outro some. Num enigma respondido, o que
+   * aparece é a correta, já que a equipe nunca escolheu ali.
+   */
+  const textoMostrado = mostrarFilmes
+    ? {
+        esquerda: textoEscolhido(alternativas, valorMarcado),
+        direita: null,
+      }
+    : { esquerda: alternativas[0]?.texto, direita: alternativas[1]?.texto }
+  /**
+   * O palco é 4:3 e encolhe conforme a pergunta. A faixa tem a largura da
+   * viewport (nada a ver com o palco) e a altura que o texto precisar; o
+   * palco desconta essa altura da viewport, então pergunta grande encolhe o DVD
+   * em vez de empurrá-lo para fora da tela. `MOLDURA_MODAL` cobre o padding do
+   * overlay, o vão e a folga de segurança (20+20+16+32 no desktop).
+   */
+  const MOLDURA_MODAL = 88
+  const larguraFaixa = 'min(96vw, 1100px)'
+  const larguraPalco = `min(96vw, 1100px, calc((100vh - ${alturaFaixa + MOLDURA_MODAL}px) * 4 / 3), calc((100dvh - ${alturaFaixa + MOLDURA_MODAL}px) * 4 / 3))`
+  /**
+   * Centro da caixa fechada, em % da largura do palco: `eixoX + folha/2`. A
+   * tampa fechada pousa na direita do palco, então a saída precisa andar
+   * exatamente essa distância para a esquerda para chegar ao meio da tela.
+   */
+  const desvioFechado = `calc(${parseFloat(DVD_GEO.eixoX) + parseFloat(DVD_GEO.folha.largura) / 2 - 50}%)`
 
   const hrefQuestao = (q, idx) => {
     if (!q?.id || !faseId || !edicaoId) return ''
@@ -378,6 +608,7 @@ function TarefaContent() {
   const aplicarSalvo = (salvo) => {
     setPrateleiras(normalizarPrateleiras(salvo.prateleiras))
     setEnigmas(salvo.enigmas || {})
+    if (salvo.sorteio) setSorteioSalvo(salvo.sorteio)
     setStatus(salvo.status || 'pendente')
     setRespostaPesoAnterior(salvo.status === 'entregue' ? (salvo.peso || 0) : 0)
     setAtualizadoEm(salvo.atualizadoEm || '')
@@ -419,6 +650,19 @@ function TarefaContent() {
     if (isLocalDevHost()) return
     if (!loading && !authUser) router.push('/login')
   }, [loading, authUser, router])
+
+  /**
+   * Mede a faixa da pergunta. Só o `ResizeObserver` escreve o estado: ele dispara
+   * antes do paint, então o palco já entra no tamanho certo no primeiro quadro,
+   * sem `setState` síncrono no corpo do efeito.
+   */
+  useEffect(() => {
+    const el = faixaRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setAlturaFaixa(el.offsetHeight))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [detalheId])
 
   useEffect(() => {
     if (isLocalDevHost()) return
@@ -471,44 +715,194 @@ function TarefaContent() {
     carregar()
   }, [localPreview, authUser, equipeId, faseId, edicaoId, router, userData])
 
-  useEffect(() => {
-    if (!detalheId) return
-    const onKey = (event) => {
-      if (event.key === 'Escape') setDetalheId(null)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [detalheId])
-
-  const abrirEnigma = (id) => {
+  /**
+   * `leitura` marca o DVD aberto a partir da estante: dá para ler, não para
+   * escolher. Na grade o enigma sempre dá para responder; na estante ele já
+   * está guardado, e quem quiser trocar a resposta tira com o × e responde lá.
+   */
+  const abrirEnigma = (id, leitura = false) => {
     setSelecionadoId(id)
     setDetalheId(id)
+    setLeitura(leitura)
+    setFechando(false)
     setAlertaCapacidade('')
     setBlocoAlerta(null)
   }
 
-  const escolherOpcao = (letra) => {
-    if (locked || !detalheId) return
-    setEnigmas((atual) => ({
-      ...atual,
-      [detalheId]: { opcao: letra },
-    }))
+  /** Fecha a tampa, leva a caixa ao meio da tela e só então a faz sair. */
+  const fecharEnigma = () => {
+    if (fechando) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setDetalheId(null)
+      setLeitura(false)
+      return
+    }
+    setFechando(true)
+    window.setTimeout(() => {
+      setDetalheId(null)
+      setLeitura(false)
+      setFechando(false)
+    }, DVD_SAIDA_MS)
   }
 
-  const colocarNaPrateleira = (bloco) => {
+  useEffect(() => {
+    if (!detalheId) return
+    const onKey = (event) => {
+      if (event.key === 'Escape') fecharEnigma()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [detalheId, fechando])
+
+  /** Slot da estante sob o ponto, com bloco e índice, ou null. */
+  function slotEm(x, y) {
+    for (const slot of document.querySelectorAll('[data-slot]')) {
+      const r = slot.getBoundingClientRect()
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
+        const [bloco, indice] = slot.dataset.slot.split(':').map(Number)
+        return { bloco, indice }
+      }
+    }
+    return null
+  }
+
+  function moverFantasma(x, y) {
+    const el = fantasmaRef.current
+    if (el) {
+      el.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%) rotate(-6deg)`
+    }
+  }
+
+  const iniciarArrasto = (event, id) => {
+    if (event.button != null && event.button !== 0) return
+    // O gesto é sempre registrado: soltar sem arrastar é o clique que abre o
+    // DVD. `permitido` é o que trava o arrasto antes do ORDENAR.
+    gestoRef.current = {
+      id,
+      x0: event.clientX,
+      y0: event.clientY,
+      x: event.clientX,
+      y: event.clientY,
+      ativo: false,
+      permitido: ordenado,
+    }
+    // pointer capture: a estante fica longe do tile, sem ele o pointerup
+    // chegaria no elemento sob o cursor, não no tile.
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    } catch {
+      /* pointer já liberado */
+    }
+  }
+
+  const moverArrasto = (event, id) => {
+    const gesto = gestoRef.current
+    if (!gesto || gesto.id !== id) return
+    gesto.x = event.clientX
+    gesto.y = event.clientY
+    if (!gesto.ativo) {
+      if (!gesto.permitido) return
+      if (Math.hypot(gesto.x - gesto.x0, gesto.y - gesto.y0) < 5) return
+      gesto.ativo = true
+      setFantasma({ id, x: gesto.x, y: gesto.y })
+    }
+    event.preventDefault()
+    moverFantasma(gesto.x, gesto.y)
+    const slot = slotEm(gesto.x, gesto.y)
+    setAlvoBloco(slot?.bloco ?? null)
+    setAlvoSlot(slot ? `${slot.bloco}:${slot.indice}` : null)
+  }
+
+  const soltarArrasto = (event, id) => {
+    const gesto = gestoRef.current
+    if (!gesto || gesto.id !== id) return
+    gestoRef.current = null
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    } catch {
+      /* capture já perdido */
+    }
+    if (!gesto.ativo) {
+      // não arrastou: é o clique que abre o DVD
+      abrirEnigma(id)
+      return
+    }
+    const slot = slotEm(gesto.x, gesto.y)
+    setFantasma(null)
+    setAlvoBloco(null)
+    setAlvoSlot(null)
+    if (slot) moverParaPrateleira(slot.bloco, slot.indice, gesto.id)
+  }
+
+  const cancelarArrasto = () => {
+    gestoRef.current = null
+    setFantasma(null)
+    setAlvoBloco(null)
+    setAlvoSlot(null)
+  }
+
+  /* Rolagem automática: no celular a grade e a estante não cabem juntas na
+     tela, e o `touch-action: none` do tile impede o browser de rolar.
+     A velocidade cresce com a proximidade da borda, senão passa do ponto. */
+  useEffect(() => {
+    if (!fantasma) return
+    let raf
+    const passo = () => {
+      const gesto = gestoRef.current
+      if (gesto?.ativo) {
+        const margem = 110
+        const folga = Math.max(0, Math.min(margem, Math.min(gesto.y, window.innerHeight - gesto.y)))
+        const resto = margem - folga
+        if (resto > 0) {
+          window.scrollBy(0, gesto.y < window.innerHeight / 2 ? -resto / 10 : resto / 10)
+        }
+      }
+      raf = requestAnimationFrame(passo)
+    }
+    raf = requestAnimationFrame(passo)
+    return () => cancelAnimationFrame(raf)
+  }, [fantasma])
+
+  /**
+   * Escolhe o caminho pelo índice da metade (0 = papel da esquerda, 1 = da
+   * direita). Grava o VALOR (1 ou 2), não a letra: qual texto cai em cada lado é
+   * sorteado por equipe, então "A"/"B" não significam nada entre equipes.
+   */
+  const escolherAlternativa = (indice) => {
+      if (locked || !detalheId || somenteLeitura) return
+    const alvo = alternativas[indice]
+    if (!alvo) return
+    setEnigmas((atual) => ({ ...atual, [detalheId]: { valor: alvo.valor } }))
+  }
+
+  /**
+   * `id` vem do arrasto; sem ele usa a seleção por clique (caminho reserva).
+   * `indice` é a posição visual do slot solto, então soltar sobre um slot já
+   * ocupado reordena em vez de duplicar. Depois de `retirar` o item da fila,
+   * `splice(indice, 0, id)` devolve exatamente a posição visual solta — tanto
+   * para mover para a frente quanto para trás.
+   */
+  const moverParaPrateleira = (bloco, indice = Infinity, id = selecionadoId) => {
     if (locked) return
-    if (!selecionadoId) {
+    // A estante só libera depois do ORDENAR. O botão não mexe no desenho dos
+    // quadrados: é um portão, nada mais.
+    if (!ordenado) {
+      setMensagem('Use o botão ORDENAR para liberar a estante antes de montar.')
+      return
+    }
+    if (!id) {
       setMensagem('Clique primeiro em um enigma.')
       return
     }
-    const limpo = retirar(prateleiras, selecionadoId)
+    const limpo = retirar(prateleiras, id)
     const fila = limpo[bloco]
     if (fila.length >= CAPACIDADES[bloco]) {
       setAlertaCapacidade(mensagemCapacidade(bloco))
       setBlocoAlerta(bloco)
       return
     }
-    setPrateleiras({ ...limpo, [bloco]: [...fila, selecionadoId] })
+    fila.splice(Math.max(0, Math.min(indice, fila.length)), 0, id)
+    setPrateleiras({ ...limpo, [bloco]: fila })
     setAlertaCapacidade('')
     setBlocoAlerta(null)
     setSelecionadoId(null)
@@ -533,7 +927,7 @@ function TarefaContent() {
       return
     }
 
-    const pontosTarefa = calcularPontosTarefa(prateleiras, fase?.tarefa?.pontuacao || 20)
+    const pontos = calcularPontosTarefa({ enigmas, prateleiras }, fase?.tarefa?.pontuacao || 20)
     setSalvando(true)
     setMensagem('')
 
@@ -542,14 +936,17 @@ function TarefaContent() {
       const payload = {
         prateleiras,
         enigmas,
+        sorteio,
         status: novoStatus,
-        peso: pontosTarefa,
+        peso: pontos.nota,
+        pontosResolucao: pontos.resolucao,
+        pontosEstante: pontos.estante,
         atualizadoEm: agora,
         atualizadoPor: 'prévia local',
       }
       gravarProgressoLocal(faseId, payload)
       setStatus(novoStatus)
-      setRespostaPesoAnterior(novoStatus === 'entregue' ? pontosTarefa : 0)
+      setRespostaPesoAnterior(novoStatus === 'entregue' ? pontos.nota : 0)
       setAtualizadoEm(agora)
       setAtualizadoPor('prévia local')
       setMensagem(novoStatus === 'entregue' ? 'Tarefa entregue (só nesta prévia).' : 'Rascunho salvo (só nesta prévia).')
@@ -564,7 +961,8 @@ function TarefaContent() {
         status: novoStatus,
         prateleiras,
         enigmas,
-        pontosTarefa,
+        sorteio,
+        pontos,
         respostaPesoAnterior,
         atualizadoPor: userData?.nome || authUser.email,
         pesoFase: fase?.peso || 0,
@@ -674,18 +1072,71 @@ function TarefaContent() {
           </div>
 
           <div className="mx-auto mt-10 max-w-5xl px-4">
-            <div className="mx-auto grid max-w-5xl grid-cols-1 gap-1.5 border-2 border-[#3B2A1E] bg-[#E9E1D3] p-2 sm:grid-cols-2 sm:gap-3 sm:p-4 lg:grid-cols-3">
+            {/* `key` = contador de viradas: remontar a grade reinicia a animação
+                do flip, que uma segunda ida no botão não faria sozinha. */}
+            <div key={viradas} className={`mx-auto grid max-w-5xl grid-cols-5 gap-1.5 border-2 border-[#3B2A1E] bg-[#E9E1D3] p-2 sm:grid-cols-10 sm:gap-3 sm:p-4 ${mostrarFilmes ? 'dvd-virado' : ''}`}>
               {ENIGMAS.map((enigma, index) => (
-                <IconeEnigma
+                <TileEnigma
                   key={enigma.id}
                   id={enigma.id}
                   index={index}
                   comando={enigma.comando}
                   ativo={selecionadoId === enigma.id}
                   alocado={alocados.has(enigma.id)}
+                  virado={mostrarFilmes}
+                  marcado={marcados.has(enigma.id)}
+                  capa={CAPA_SRC[index]}
                   onClick={() => abrirEnigma(enigma.id)}
+                  onPointerDown={(event) => iniciarArrasto(event, enigma.id)}
+                  onPointerMove={(event) => moverArrasto(event, enigma.id)}
+                  onPointerUp={(event) => soltarArrasto(event, enigma.id)}
+                  onPointerCancel={cancelarArrasto}
+                  onLostPointerCapture={() => {
+                    if (gestoRef.current?.ativo) cancelarArrasto()
+                  }}
                 />
               ))}
+            </div>
+
+            <div className="mt-6 flex flex-col items-center gap-2">
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                {/*
+                  ORDENAR é só um portão: libera a estante e não muda o desenho
+                  de nada. Quem vira os quadrados é o Mostrar Filmes, ao lado.
+                */}
+                <button
+                  type="button"
+                  disabled={!todosMarcados}
+                  onClick={() => {
+                    setOrdenado(true)
+                    setMensagem('Estante liberada. Arraste as caixas até os blocos.')
+                  }}
+                  className="min-w-[200px] cursor-pointer border-[3px] border-[#0F4D00] bg-[#197400] px-7 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-white transition-colors hover:bg-[#156300] disabled:cursor-not-allowed disabled:border-[#8A7007] disabled:bg-[#C5A00A] disabled:opacity-60"
+                >
+                  Ordenar
+                </button>
+                <button
+                  type="button"
+                  disabled={!todosMarcados}
+                  aria-pressed={mostrarFilmes}
+                  onClick={() => {
+                    setViradas((n) => n + 1)
+                    setMostrarFilmes((v) => !v)
+                  }}
+                  className="min-w-[200px] cursor-pointer border-[3px] border-[#3B2A1E] bg-[#E9E1D3] px-7 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-[#3B2A1E] transition-colors hover:bg-[#DDD2BF] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {mostrarFilmes ? 'Fechar Filmes' : 'Mostrar Filmes'}
+                </button>
+              </div>
+              <p className="text-center text-xs font-medium text-neutral-500">
+                {!todosMarcados
+                  ? `Primeiro escolha um caminho nos ${ENIGMAS_ABERTOS.length} enigmas abertos (${marcas}/${ENIGMAS_ABERTOS.length}). O quadrado fica vermelho assim que você escolhe.`
+                  : mostrarFilmes
+                    ? 'Abrindo um quadrado, o DVD aparece com o disco e o papel traz só a alternativa escolhida. Para trocar, feche os filmes.'
+                    : ordenado
+                      ? 'Estante liberada: arraste as caixas até os blocos. Os quadrados continuam no desenho normal.'
+                      : 'Ordenar libera a estante para arrastar. Mostrar Filmes vira os quadrados e mostra a capa de cada filme.'}
+              </p>
             </div>
 
             <div className="mx-auto mt-12 max-w-2xl">
@@ -701,10 +1152,14 @@ function TarefaContent() {
                     <button
                       key={bloco}
                       type="button"
-                      onClick={() => colocarNaPrateleira(bloco)}
+                      onClick={() => moverParaPrateleira(bloco)}
                       disabled={locked}
                       className={`absolute left-[9%] right-[9%] ${NIVEIS[bloco]} cursor-pointer transition-colors hover:bg-[#3B2A1E]/10 disabled:cursor-default ${
-                        blocoAlerta === bloco ? 'outline outline-2 outline-red-600' : ''
+                        alvoBloco === bloco
+                          ? 'bg-[#82181A]/15 outline outline-[3px] outline-[#82181A]'
+                          : blocoAlerta === bloco
+                            ? 'outline outline-2 outline-red-600'
+                            : ''
                       }`}
                       aria-label={`Prateleira ${bloco}, até ${teto} enigmas`}
                     >
@@ -717,20 +1172,50 @@ function TarefaContent() {
                       >
                         {Array.from({ length: teto }, (_, i) => {
                           const id = fila[i]
+                          const alvo = alvoSlot === `${bloco}:${i}`
                           if (!id) {
                             return (
                               <span
                                 key={`vazio-${i}`}
-                                className="aspect-[3/4] border-2 border-dashed border-[#3B2A1E]/40 bg-[#E9E1D3]/25"
+                                data-slot={`${bloco}:${i}`}
+                                className={`aspect-[3/4] border-2 border-dashed transition-colors ${
+                                  alvo ? 'border-[#82181A] bg-[#82181A]/20' : 'border-[#3B2A1E]/40 bg-[#E9E1D3]/25'
+                                }`}
                               />
                             )
                           }
                           return (
-                            <span key={id} className="relative block aspect-[3/4]">
+                            <span
+                              key={id}
+                              data-slot={`${bloco}:${i}`}
+                              role="button"
+                              tabIndex={0}
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                abrirEnigma(id, true)
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                  event.preventDefault()
+                                  event.stopPropagation()
+                                  abrirEnigma(id, true)
+                                }
+                              }}
+                              aria-label={`Abrir o enigma ${id} na prateleira ${bloco}`}
+                              className="relative block aspect-[3/4] cursor-pointer"
+                            >
                               <img
-                                src={ICONE_SRC}
+                                src={
+                                  mostrarFilmes
+                                    ? CAPA_SRC[ENIGMAS.findIndex((e) => e.id === id)]
+                                    : marcados.has(id)
+                                      ? RESPONDIDO_SRC
+                                      : ICONE_SRC
+                                }
                                 alt={`Enigma ${id}`}
-                                className={`h-full w-full border-2 border-[#3B2A1E] object-cover ${selecionadoId === id ? 'ring-2 ring-[#82181A]' : ''}`}
+                                className={`pointer-events-none h-full w-full border-2 object-cover ${
+                                  alvo ? 'border-[#82181A]' : 'border-[#3B2A1E]'
+                                } ${selecionadoId === id ? 'ring-2 ring-[#82181A]' : ''}`}
                               />
                               {!locked && (
                                 <span
@@ -794,7 +1279,11 @@ function TarefaContent() {
 
           {mensagem && (
             <div className={`mx-auto mt-8 max-w-md rounded-lg p-4 text-center font-medium ${
-              mensagem.includes('Coloque') || mensagem.includes('Clique') || mensagem.includes('Não foi') || mensagem.includes('já entregue')
+              mensagem.startsWith('Use o botão')
+                || mensagem.includes('Coloque')
+                || mensagem.includes('Clique')
+                || mensagem.includes('Não foi')
+                || mensagem.includes('já entregue')
                 ? 'bg-red-100 text-red-800'
                 : 'bg-green-100 text-green-800'
             }`}
@@ -822,57 +1311,77 @@ function TarefaContent() {
         <Footer />
       </div>
 
-      {detalhe && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) setDetalheId(null)
+      {fantasma && (
+        <span
+          ref={fantasmaRef}
+          aria-hidden
+          className="pointer-events-none fixed left-0 top-0 z-[70] block w-16 border-2 border-[#3B2A1E] opacity-90 shadow-[4px_4px_0_#3B2A1E]"
+          style={{
+            transform: `translate3d(${fantasma.x}px, ${fantasma.y}px, 0) translate(-50%, -50%) rotate(-6deg)`,
           }}
         >
-          <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto">
-            <div className="relative border-[3px] border-[#3B2A1E] bg-[#E9E1D3] px-10 py-4 text-center text-base font-medium text-[#3B2A1E] shadow-[4px_4px_0_#3B2A1E] md:text-lg">
-              {detalhe.comando}
-              <button
-                type="button"
-                onClick={() => setDetalheId(null)}
-                className="absolute right-2 top-1 cursor-pointer text-3xl leading-none text-[#82181A]"
-                aria-label="Fechar detalhamento"
-              >
-                ×
-              </button>
+          <img src={mostrarFilmes ? CAPA_SRC[ENIGMAS.findIndex((e) => e.id === fantasma.id)] : ICONE_SRC} alt="" className="block w-full" draggable={false} />
+        </span>
+      )}
+
+      {detalhe && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-black/70 p-3 backdrop-blur-sm sm:gap-4 sm:p-5"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Enigma ${detalhe.id}`}
+          onClick={(event) => {
+            if (event.target === event.currentTarget) fecharEnigma()
+          }}
+        >
+          <div
+            className={`flex flex-col items-center gap-3 ${fechando ? 'dvd-saindo' : ''}`}
+            style={{
+              '--dvd-saida-capa': `${DVD_ANIM.saidaCapaMs}ms`,
+              '--dvd-saida-centro': `${DVD_ANIM.saidaCentroMs}ms`,
+              '--dvd-saida-parada': `${DVD_ANIM.saidaParadaMs}ms`,
+              '--dvd-saida-palco': `${DVD_ANIM.saidaPalcoMs}ms`,
+              '--dvd-desvio-fechado': desvioFechado,
+            }}
+          >
+            <div style={{ width: larguraFaixa }}>
+              <FaixaPergunta ref={faixaRef} texto={detalhe.comando} />
             </div>
-            <div className="relative mt-5 border-[3px] border-[#3B2A1E] bg-[#D9CCB8] shadow-[4px_4px_0_#3B2A1E]">
-              <img src={MIDIA_SRC[detalhe.tipoMidia]} alt="" className="block aspect-video w-full object-cover" />
-              <div className="absolute inset-0 grid grid-cols-2">
-                {['A', 'B'].map((letra) => {
-                  const texto = letra === 'A' ? detalhe.opcaoA : detalhe.opcaoB
-                  const marcada = enigmas[detalhe.id]?.opcao === letra
-                  return (
-                    <button
-                      key={letra}
-                      type="button"
-                      disabled={locked}
-                      onClick={() => escolherOpcao(letra)}
-                      aria-pressed={marcada}
-                      className={`group flex cursor-pointer items-center justify-center p-3 transition-colors disabled:cursor-default ${
-                        marcada ? 'bg-[#82181A]/25 ring-4 ring-inset ring-[#82181A]' : 'hover:bg-[#3B2A1E]/10'
-                      }`}
-                    >
-                      <span
-                        className={`max-w-[90%] border-2 px-3 py-2 text-xs font-medium sm:text-sm ${
-                          marcada
-                            ? 'border-[#82181A] bg-[#82181A] text-white'
-                            : 'border-[#3B2A1E] bg-[#E9E1D3]/95 text-[#3B2A1E]'
-                        }`}
-                      >
-                        <span className="font-semibold">Opção {letra}.</span> {texto}
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
+            <div className="relative mt-1 shrink-0 sm:mt-2" style={{ width: larguraPalco }}>
+              {/*
+                A seleção mora dentro de cada papel, não numa camada sobre o
+                palco: os dois papéis estão em sistemas de coordenadas
+                diferentes, e cada botão usa o retângulo do seu próprio pai.
+
+                `escolha` nulo com `fechando` esconde os botões no mesmo quadro
+                em que a tampa começa a fechar. Sem isso a tinta ficava 1,2s
+                pendurada no palco — um retângulo vinho do lado do DVD em pleno
+                fundo escuro.
+
+                `textoMostrado` já vem resolvido: em Mostrar Filmes é só a
+                alternativa escolhida (e o lado direito é o disco, então não
+                existe segundo papel).
+              */}
+              <DvdCaixa
+                aberto={dvdAbertoDoDetalhe}
+                fechado={mostrarFilmes ? CAPA_SRC[ENIGMAS.findIndex((e) => e.id === detalhe.id)] : DVD_FECHADO_SRC}
+                textoEsquerda={textoMostrado.esquerda}
+                textoDireita={textoMostrado.direita}
+                escolha={
+                  /* Sem `escolha` em Mostrar Filmes: sem quadrado de seleção
+                     vermelho e sem clique. O modo é só para ver o que foi
+                     escolhido; para trocar, fecha os filmes. */
+                  fechando || mostrarFilmes
+                    ? null
+                    : {
+                        esquerda: alternativas[0]?.valor,
+                        direita: alternativas[1]?.valor,
+                        valor: valorMarcado,
+                        travado: locked || somenteLeitura,
+                        onPick: escolherAlternativa,
+                      }
+                }
+              />
             </div>
           </div>
         </div>

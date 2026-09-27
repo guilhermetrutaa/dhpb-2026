@@ -1,0 +1,32 @@
+# Tarefas — 038 Ajustes de UI do DVD
+
+- [x] Extrair `FaixaPergunta` com 3 degraus de fonte e sem `max-h`/`line-clamp`
+- [x] Medir a faixa com `ResizeObserver` em `alturaFaixa`
+- [x] Trocar `larguraModal` por `larguraFaixa` + `larguraPalco`
+- [x] Tirar os rótulos de ponto e o hover das metades; manter o clique
+- [x] Tirar a faixa vermelha de "já respondido"
+- [x] `marcado = enigma.respondido || enigmas[id].valor` no `TileEnigma`
+- [x] Atualizar a legenda do ORDENAR
+- [x] `npm run build` e `eslint`
+- [x] CDP: 8 perguntas x 4 viewports sem corte e dentro da viewport
+- [x] CDP: modal sem valor/hover/faixa, com tinta na escolha
+- [x] CDP: quadrado vermelho ao escolher
+- [x] Tinta da escolha some no primeiro quadro da saída
+- [x] Medir o papel na arte e converter para o espaço de cada face
+- [x] `DVD_GEO.papel` com a rede de segurança da containment texto-dentro-papel
+- [x] Mover a seleção para dentro de cada papel (`DvdCaixa` com prop `escolha`)
+- [x] Estado `leitura` + `somenteLeitura`, e `escolherAlternativa` guardado por ele
+- [x] Slot ocupado da estante abre o DVD, com `stopPropagation`
+- [x] `marcados` único, compartilhado entre grade e estante
+- [x] `VALOR_CORRETO` e a marca da correta nos respondidos, com a tinta da escolha
+- [x] Paridade nos respondidos: 5/5 garantido, e self-check em 200 sementes
+- [x] Separar `virados` em `ordenado` (portão) e `mostrarFilmes` (desenho)
+- [x] ORDENAR só libera a estante, sem mexer no desenho
+- [x] Botão "Mostrar Filmes"/"Fechar Filmes" ao lado, com portão dos 10
+- [x] `DVD_ABERTO_RESPONDIDO` → `DVD_COM_CD` (arte de disco, agora dos 20)
+- [x] `textoMostrado` e `valorMarcado` no modal
+- [x] `CAPA_EXT` corrigida para `png` (as 20 capas nunca carregaram)
+- [x] `CAPA_NO_TILE` com o zoom medido, e `overflow: hidden` na face
+- [x] Prop `fechado` no `DvdCaixa`, com a capa do filme em Mostrar Filmes
+- [x] `escolha` nula em Mostrar Filmes (sem quadrado vermelho)
+- [x] Spec 038 escrita
