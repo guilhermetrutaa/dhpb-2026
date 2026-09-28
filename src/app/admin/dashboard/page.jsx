@@ -84,6 +84,31 @@ function listarEquipesComecaramProva(docs, edicaoId, faseId) {
   return list
 }
 
+const NUMERO_QUESTAO_ITEM_C = 15
+const REGEX_FASE_2 = /^\s*(?:fase\s*)?2\s*(?:[ªa]?\s*fase)?\b/i
+
+function resolverFase2(fases, edicaoPreferidaId) {
+  const casa = (f) => REGEX_FASE_2.test(String(f?.nome || '')) || String(f?.faseId || '') === '2'
+  return fases.find((f) => f.edicaoId === edicaoPreferidaId && casa(f)) || fases.find(casa) || null
+}
+
+function listarEquipesItemC(docs, edicaoId, faseId, questaoId) {
+  const lista = []
+  for (const d of docs) {
+    if (d.id === EQUIPE_EXCLUIDA_RESUMO_ID) continue
+    const data = d.data()
+    if (data.edicaoId !== edicaoId) continue
+    if (!equipeTemQuatroMembros(data)) continue
+    if (!equipeComecouFase(data, faseId)) continue
+    const resposta = data?.respostas?.[questaoId]
+    if (!resposta || resposta.status !== 'entregue') continue
+    if (String(resposta.alternativa || '') !== 'C') continue
+    lista.push({ id: d.id, nome: data.nome || d.id })
+  }
+  lista.sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR'))
+  return lista
+}
+
 function listarMembros(data) {
   const m = data?.membros
   if (!m) return []
@@ -947,6 +972,53 @@ function TabEquipes() {
     }
   }
 
+  const faseItemC = resolverFase2(fasesCopia, faseCopia?.edicaoId)
+
+  const handleContarItemC = async () => {
+    if (!faseItemC) {
+      alert('Fase 2 não encontrada nas edições carregadas.')
+      return
+    }
+    setCopiando(true)
+    try {
+      const nomeFase = faseItemC.nome || 'Fase 2'
+      let questaoId = ''
+      const qSnap = await getDocsFromServer(query(
+        collection(db, 'edicoes', faseItemC.edicaoId, 'fases', faseItemC.faseId, 'questoes'),
+        orderBy('numero', 'asc'),
+        limit(50)
+      ))
+      const alvo = qSnap.docs.find((d) => d.data()?.numero === NUMERO_QUESTAO_ITEM_C)
+      if (alvo) {
+        questaoId = alvo.id
+      } else {
+        const faseDoc = (await getDocsFromServer(query(
+          collection(db, 'edicoes', faseItemC.edicaoId, 'fases'),
+          orderBy('dataInicio', 'asc')
+        ))).docs.find((d) => d.id === faseItemC.faseId)
+        const legado = (faseDoc?.data()?.questoes || []).find((q) => q?.numero === NUMERO_QUESTAO_ITEM_C)
+        if (legado?.id) questaoId = legado.id
+      }
+      if (!questaoId) {
+        alert(`Questão ${NUMERO_QUESTAO_ITEM_C} não encontrada em ${nomeFase}.`)
+        return
+      }
+
+      const docs = await garantirScanEquipes()
+      aplicarStatsDoScan(docs)
+      const lista = listarEquipesItemC(docs, faseItemC.edicaoId, faseItemC.faseId, questaoId)
+      const cabecalho = `Questão ${NUMERO_QUESTAO_ITEM_C} (${nomeFase}) — item C: ${lista.length} equipe(s).`
+      const msg = lista.length === 0
+        ? `Nenhuma equipe respondeu C na questão ${NUMERO_QUESTAO_ITEM_C} da ${nomeFase}.`
+        : `${cabecalho}\n\n${lista.map((eq) => eq.nome).join('\n')}`
+      await copiarTexto(msg, cabecalho)
+    } catch (err) {
+      alert('Erro ao contar o item C: ' + err.message)
+    } finally {
+      setCopiando(false)
+    }
+  }
+
   if (carregando) return <p className='text-neutral-400 text-sm text-center py-10'>Carregando...</p>
   if (equipes.length === 0) return <p className='text-neutral-400 text-sm text-center py-10'>Nenhuma equipe cadastrada.</p>
 
@@ -1010,6 +1082,14 @@ function TabEquipes() {
               title='Copia e-mails únicos dos professores orientadores de equipes completas que ainda não responderam a fase selecionada'
             >
               {copiando ? 'Copiando...' : 'Copiar e-mails sem prova'}
+            </button>
+            <button
+              onClick={handleContarItemC}
+              disabled={copiando || !faseItemC}
+              className='flex items-center gap-1 text-xs bg-white text-[#82181A] px-3 py-1.5 rounded-md hover:bg-[#82181A]/10 transition-colors cursor-pointer font-bold shadow-sm border border-[#82181A] disabled:opacity-50 disabled:cursor-not-allowed'
+              title={`Conta as equipes completas da Fase 2 que entregaram a alternativa C na questão ${NUMERO_QUESTAO_ITEM_C} e copia a contagem com os nomes`}
+            >
+              {copiando ? 'Copiando...' : `Contar item C (Fase 2 · Q${NUMERO_QUESTAO_ITEM_C})`}
             </button>
           </div>
         )}
