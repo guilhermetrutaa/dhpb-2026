@@ -1,4 +1,4 @@
-export const PDF_DRIVE_URL = ''
+export const PDF_DRIVE_URL = 'https://drive.google.com/file/d/1G_PZmapjnHe97GSpu7JEz8tOYB6q6lq1/view?usp=sharing'
 
 export const ICONE_SRC = '/tarefas/galeria-de-enigmas/icone-enigma.jpeg'
 /** Capa dos enigmas já respondidos no PDF: caixa vermelha, só leitura. */
@@ -197,6 +197,16 @@ export const DVD_GEO = {
 
 
 export const CAPACIDADES = { 1: 7, 2: 7, 3: 6 }
+
+export const INTRODUCAO = `Nas últimas décadas do século XX, a popularização do videocassete e a expansão das videolocadoras provocaram uma mudança na forma como a sociedade se relacionava com o cinema. Até então, o acesso às produções audiovisuais era centralizado e dependente das salas de exibição tradicionais. Sob uma perspectiva historiográfica, as locadoras funcionaram como agentes de descentralização e democratização cultural.
+
+No cenário da Paraíba, esse fenômeno adquiriu uma relevância social e geográfica ainda mais expressiva. Diante de um panorama histórico em que as salas de cinema tradicionais se concentravam nos núcleos urbanos de João Pessoa e Campina Grande, as locadoras possibilitaram a circulação de bens culturais pelo território paraibano. Elas consolidaram-se como espaços de sociabilidade comunitária e partilha cultural. Nelas, a figura do atendente atuava como um curador informal, e os rituais de escolha das fitas às sextas e sábados fomentavam debates estéticos e laços de vizinhança.
+
+Além de aproximar o público paraibano das produções hegemônicas, as videolocadoras desempenharam um papel crucial na difusão cinematográfica no estado. Ao catalogar e sugerir essas produções, esses estabelecimentos não apenas fortaleceram o sentimento de pertencimento da comunidade, mas também ajudaram a formar novos públicos e a cultivar o respeito histórico pela tradição audiovisual.
+
+Inspirada nesses locais de difusão audiovisual, a tarefa que sua equipe está recebendo procura trabalhar a capacidade de análise, a percepção crítica e o domínio cronológico da equipe sobre a trajetória do cinema na Paraíba.
+
+As equipes terão a missão de organizar uma estante histórica de três prateleiras utilizando caixas de filmes, onde cada caixa representa um enigma (pergunta) a ser desvendado.`
 
 export const INSTRUCAO = `Nesta tarefa, a equipe assume o balcão de uma videolocadora e organiza 20 caixas de filmes numa estante em ordem cronológica.
 

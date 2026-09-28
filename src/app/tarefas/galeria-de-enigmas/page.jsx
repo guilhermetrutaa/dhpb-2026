@@ -23,6 +23,7 @@ import {
   FLIP_ANIM,
   ICONE_SRC,
   INSTRUCAO,
+  INTRODUCAO,
   PDF_DRIVE_URL,
    PRATELEIRA_SRC,
    FUNDO_ESTANTE_SRC,
@@ -1122,7 +1123,11 @@ function TarefaContent() {
             </div>
           </div>
 
-          <div className="mt-6 flex justify-center px-4">
+          <div className="mx-auto max-w-3xl whitespace-pre-line px-5 pt-10 text-justify text-[1rem] font-medium leading-relaxed text-[#2F2F2F] md:pt-14">
+            {INTRODUCAO}
+          </div>
+
+          <div className="mt-10 flex justify-center px-4">
             {PDF_DRIVE_URL ? (
               <a
                 href={PDF_DRIVE_URL}
