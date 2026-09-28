@@ -47,3 +47,8 @@ Este documento registra problemas conhecidos, limitações técnicas e pontos de
 ### 1.9. Equipes com mais de 4 membros no array
 * **Localização:** `equipes.membros`; botão Sala de Equipe em `src/app/montagem-equipe/page.jsx`.
 * **Descrição:** Algumas equipes ficaram com 5+ membros ativos. A sala e as questões só exigem membro ativo. O botão Sala de Equipe aparece com **4 ou mais** ativos; a composição oficial continua 1+1+2. Não há migração que apague o membro extra.
+
+### 1.10. `novos_enigmas.pdf` (tarefa Charadas) com id repetido
+* **Localização:** `public/novos_enigmas.pdf`; `src/app/tarefas/charadas/config.js`.
+* **Descrição:** No PDF, A1 e C4 aparecem os dois como `e11 / capa-11`, e o 12 não aparece. Decisão humana (spec 040): C4 = `e12 / capa-12`. O título do C5 diz "Linduarte Noronha e Vladimir Carvalho", mas o texto é sobre Walfredo Rodriguez e Vladimir; o título não aparece na tela.
+* **Impacto:** Rascunhos salvos antes da troca guardam `enigmas[id].valor` por id; com os novos enunciados, o valor passa a valer para o texto novo de mesmo id. Não há migração.

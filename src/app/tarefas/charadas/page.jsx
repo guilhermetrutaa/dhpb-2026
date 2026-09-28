@@ -30,9 +30,14 @@ import {
   alocacaoCompleta,
   alternativasDe,
      calcularPontosTarefa,
+     capacidadeMovel,
      CAPA_NO_TILE,
      DISCO_ANIM,
+     filaVisual,
+     FIXO_IDS,
+     fixosAntes,
      idsAlocados,
+     ordemGrade,
      prateleirasVazias,
      textoEscolhido,
      VALOR_CORRETO,
@@ -201,13 +206,15 @@ function formatAudit(iso, nome, entregue) {
     : `Última alteração por ${quem}, dia ${dia} às ${hora}`
 }
 
+/** Os fixos nunca entram no estado; um rascunho antigo que os tenha perde eles aqui. */
 function normalizarPrateleiras(raw) {
   const base = prateleirasVazias()
   if (!raw) return base
+  const moveis = (fila) => (fila || []).filter((id) => !FIXO_IDS.has(id))
   return {
-    1: [...(raw[1] || raw['1'] || [])],
-    2: [...(raw[2] || raw['2'] || [])],
-    3: [...(raw[3] || raw['3'] || [])],
+    1: moveis(raw[1] || raw['1']),
+    2: moveis(raw[2] || raw['2']),
+    3: moveis(raw[3] || raw['3']),
   }
 }
 
@@ -228,7 +235,7 @@ const NIVEIS = {
 
 function mensagemCapacidade(bloco) {
   const teto = CAPACIDADES[bloco]
-  return `Não pode haver mais de ${teto} enigmas nesta prateleira.`
+  return `Não pode haver mais de ${teto} enigmas nesta prateleira (contando o fixo).`
 }
 
 async function persistirResposta({
@@ -317,7 +324,13 @@ async function persistirResposta({
  */
 function FaixaPergunta({ texto, ref }) {
   const degrau =
-    texto.length > 230 ? 'text-[0.95rem] sm:text-[1.15rem]' : texto.length > 160 ? 'text-[1.05rem] sm:text-[1.35rem]' : 'text-[1.25rem] sm:text-[1.6rem]'
+    texto.length > 400
+      ? 'text-[0.8rem] sm:text-[0.95rem]'
+      : texto.length > 230
+        ? 'text-[0.95rem] sm:text-[1.15rem]'
+        : texto.length > 160
+          ? 'text-[1.05rem] sm:text-[1.35rem]'
+          : 'text-[1.25rem] sm:text-[1.6rem]'
   return (
     <p ref={ref} className={`charada-faixa w-full px-4 py-3 leading-[1.35] sm:px-8 sm:py-4 ${degrau}`}>
       {texto}
@@ -417,6 +430,18 @@ function TileEnigma({ id, index, comando, ativo, alocado, virado, marcado, capa,
  * botão usa `DVD_GEO.papel` no espaço do seu próprio pai, e o navegador aplica
  * a transformação. `escolha` nulo (ou sem valor) some com os botões.
  */
+/**
+ * Letra do papel por tamanho do texto. O `.dvd-texto` (2,1cqw) foi calibrado
+ * para 257 caracteres; a altura cresce com o quadrado da fonte, então textos
+ * maiores descem de degrau em vez de cortar no `overflow: hidden`.
+ */
+function fonteDoPapel(texto) {
+  const n = texto?.length || 0
+  if (n > 340) return { fontSize: '1.6cqw' }
+  if (n > 257) return { fontSize: '1.8cqw' }
+  return undefined
+}
+
 function DvdCaixa({ textoEsquerda, textoDireita, aberto = DVD_ABERTO_SRC, fechado = DVD_FECHADO_SRC, escolha, girarDisco = false }) {
   const { eixoX, folha, faceFrente, faceVerso, texto, papel, disco } = DVD_GEO
   const esperar = `${DVD_ANIM.delayMs + DVD_ANIM.duracaoMs}ms`
@@ -467,7 +492,7 @@ function DvdCaixa({ textoEsquerda, textoDireita, aberto = DVD_ABERTO_SRC, fechad
             </span>
           )}
           {textoDireita && (
-            <span className={`dvd-texto ${bryndan.variable} absolute`} style={texto.direita}>
+            <span className={`dvd-texto ${bryndan.variable} absolute`} style={{ ...texto.direita, ...fonteDoPapel(textoDireita) }}>
               {textoDireita}
             </span>
           )}
@@ -494,7 +519,7 @@ function DvdCaixa({ textoEsquerda, textoDireita, aberto = DVD_ABERTO_SRC, fechad
             }}
           >
             {textoEsquerda && (
-              <span className={`dvd-texto ${bryndan.variable} absolute`} style={texto.esquerda}>
+              <span className={`dvd-texto ${bryndan.variable} absolute`} style={{ ...texto.esquerda, ...fonteDoPapel(textoEsquerda) }}>
                 {textoEsquerda}
               </span>
             )}
@@ -594,7 +619,7 @@ function TarefaContent() {
   /**
    * O que acende no papel. Em Mostrar Filmes e na estante (leitura) é a
    * alternativa escolhida; num enigma respondido do PDF, que a equipe não
-   * escolheu, é a correta — a que vale 1. O mesmo que a equipe marcar, para não
+   * escolheu, é a correta — a que vale 2. O mesmo que a equipe marcar, para não
    * inventar um segundo visual de "respondido".
    */
   const valorMarcado = respondendo ? VALOR_CORRETO : valorEscolhido
@@ -936,14 +961,20 @@ function TarefaContent() {
       setMensagem('Clique primeiro em um enigma.')
       return
     }
+    if (FIXO_IDS.has(id)) {
+      setMensagem('Este enigma é fixo na estante e não pode ser movido.')
+      return
+    }
     const limpo = retirar(prateleiras, id)
     const fila = limpo[bloco]
-    if (fila.length >= CAPACIDADES[bloco]) {
+    if (fila.length >= capacidadeMovel(bloco)) {
       setAlertaCapacidade(mensagemCapacidade(bloco))
       setBlocoAlerta(bloco)
       return
     }
-    fila.splice(Math.max(0, Math.min(indice, fila.length)), 0, id)
+    // `indice` é o slot visual; no estado só estão os móveis, então desconta os fixos antes dele.
+    const indiceMovel = indice - fixosAntes(bloco, indice)
+    fila.splice(Math.max(0, Math.min(indiceMovel, fila.length)), 0, id)
     setPrateleiras({ ...limpo, [bloco]: fila })
     setAlertaCapacidade('')
     setBlocoAlerta(null)
@@ -1122,7 +1153,7 @@ function TarefaContent() {
               key={viradas}
               className={`mx-auto grid max-w-5xl grid-cols-5 gap-1.5 border-2 border-[#3B2A1E] bg-[#E9E1D3] p-2 sm:grid-cols-10 sm:gap-3 sm:p-4 ${mostrarFilmes ? 'dvd-virado' : ''} ${voltando ? 'dvd-voltando' : ''}`}
             >
-              {ENIGMAS.map((enigma, index) => (
+              {ordemGrade(sorteio).map((enigma, index) => (
                 <TileEnigma
                   key={enigma.id}
                   id={enigma.id}
@@ -1132,7 +1163,7 @@ function TarefaContent() {
                   alocado={alocados.has(enigma.id)}
                   virado={mostrarFilmes}
                   marcado={marcados.has(enigma.id)}
-                  capa={CAPA_SRC[index]}
+                  capa={CAPA_SRC[enigma.id]}
                   onClick={() => abrirEnigma(enigma.id)}
                   onPointerDown={(event) => iniciarArrasto(event, enigma.id)}
                   onPointerMove={(event) => moverArrasto(event, enigma.id)}
@@ -1234,7 +1265,8 @@ function TarefaContent() {
                 <div className="relative aspect-[1122/1402] h-[84%] sm:h-[88%]">
                   <img src={PRATELEIRA_SRC} alt="" className="absolute inset-0 h-full w-full" />
                 {[1, 2, 3].map((bloco) => {
-                  const fila = prateleiras[bloco]
+                  const fila = filaVisual(bloco, prateleiras[bloco])
+                  const ocupados = fila.filter(Boolean).length
                   const teto = CAPACIDADES[bloco]
                   return (
                     <button
@@ -1252,7 +1284,7 @@ function TarefaContent() {
                       aria-label={`Prateleira ${bloco}, até ${teto} enigmas`}
                     >
                       <span className="absolute left-0 top-0 -translate-y-[115%] bg-[#E9E1D3] px-1.5 text-[10px] font-medium uppercase tracking-wider text-[#3B2A1E]">
-                        Bloco {bloco} · {fila.length}/{teto}
+                        Bloco {bloco} · {ocupados}/{teto}
                       </span>
                       <div
                         className="grid h-full items-end gap-[1.5%]"
@@ -1260,6 +1292,7 @@ function TarefaContent() {
                       >
                         {Array.from({ length: teto }, (_, i) => {
                           const id = fila[i]
+                          const fixo = FIXO_IDS.has(id)
                           const alvo = alvoSlot === `${bloco}:${i}`
                           if (!id) {
                             return (
@@ -1275,7 +1308,7 @@ function TarefaContent() {
                           return (
                             <span
                               key={id}
-                              data-slot={`${bloco}:${i}`}
+                              data-slot={fixo ? undefined : `${bloco}:${i}`}
                               role="button"
                               tabIndex={0}
                               onClick={(event) => {
@@ -1289,13 +1322,13 @@ function TarefaContent() {
                                   abrirEnigma(id, true)
                                 }
                               }}
-                              aria-label={`Abrir o enigma ${id} na prateleira ${bloco}`}
+                              aria-label={`Abrir o enigma ${id} na prateleira ${bloco}${fixo ? ' (fixo)' : ''}`}
                               className="relative block aspect-[3/4] cursor-pointer"
                             >
                               <img
                                 src={
                                   mostrarFilmes
-                                    ? CAPA_SRC[ENIGMAS.findIndex((e) => e.id === id)]
+                                    ? CAPA_SRC[id]
                                     : marcados.has(id)
                                       ? RESPONDIDO_SRC
                                       : ICONE_SRC
@@ -1305,7 +1338,18 @@ function TarefaContent() {
                                   alvo ? 'border-[#82181A]' : 'border-[#3B2A1E]'
                                 } ${selecionadoId === id ? 'ring-2 ring-[#82181A]' : ''}`}
                               />
-                              {!locked && (
+                              {fixo && (
+                                <span
+                                  aria-hidden
+                                  title="Fixo na estante"
+                                  className="pointer-events-none absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center bg-[#3B2A1E] text-white"
+                                >
+                                  <svg viewBox="0 0 16 16" width="9" height="9" fill="currentColor">
+                                    <path d="M8 1a3 3 0 0 0-3 3v2H4a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-1V4a3 3 0 0 0-3-3m-1.5 5V4a1.5 1.5 0 1 1 3 0v2z" />
+                                  </svg>
+                                </span>
+                              )}
+                              {!locked && !fixo && (
                                 <span
                                   role="button"
                                   tabIndex={0}
@@ -1409,7 +1453,7 @@ function TarefaContent() {
             transform: `translate3d(${fantasma.x}px, ${fantasma.y}px, 0) translate(-50%, -50%) rotate(-6deg)`,
           }}
         >
-          <img src={mostrarFilmes ? CAPA_SRC[ENIGMAS.findIndex((e) => e.id === fantasma.id)] : ICONE_SRC} alt="" className="block w-full" draggable={false} />
+          <img src={mostrarFilmes ? CAPA_SRC[fantasma.id] : ICONE_SRC} alt="" className="block w-full" draggable={false} />
         </span>
       )}
 
@@ -1453,7 +1497,7 @@ function TarefaContent() {
               */}
               <DvdCaixa
                 aberto={dvdAbertoDoDetalhe}
-                fechado={mostrarFilmes ? CAPA_SRC[ENIGMAS.findIndex((e) => e.id === detalhe.id)] : DVD_FECHADO_SRC}
+                fechado={mostrarFilmes ? CAPA_SRC[detalhe.id] : DVD_FECHADO_SRC}
                 girarDisco={mostrarFilmes}
                 textoEsquerda={textoMostrado.esquerda}
                 textoDireita={textoMostrado.direita}

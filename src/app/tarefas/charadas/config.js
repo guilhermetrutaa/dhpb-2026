@@ -18,9 +18,9 @@ export const PRATELEIRA_SRC = '/tarefas/charadas/prateleira.svg'
 export const FUNDO_ESTANTE_SRC = '/desenho-fundo.jpeg'
 
 /**
- * Capas dos 20 enigmas, reveladas pelo botão "Mostrar Filmes". Os arquivos em
- * `public/tarefas/charadas/capas/` são 1086x1448 (3:4, a mesma proporção do
- * `icone-enigma.jpeg` e dos tiles).
+ * Extensão das capas dos 20 enigmas (`CAPA_SRC`, por id: `e11` usa `capa-11`).
+ * Os arquivos em `public/tarefas/charadas/capas/` são 1086x1448 (3:4, a mesma
+ * proporção do `icone-enigma.jpeg` e dos tiles).
  *
  * `CAPA_EXT` precisa bater com a arte que está na pasta. Já esteve errada: valia
  * `jpg` com os arquivos em `png`, e o resultado eram 20 imagens quebradas no
@@ -28,10 +28,6 @@ export const FUNDO_ESTANTE_SRC = '/desenho-fundo.jpeg'
  * aberta. Se trocar a arte, confira a extensão aqui.
  */
 const CAPA_EXT = 'png'
-export const CAPA_SRC = Array.from(
-  { length: 20 },
-  (_, i) => `/tarefas/charadas/capas/capa-${String(i + 1).padStart(2, '0')}.${CAPA_EXT}`,
-)
 
 /**
  * Zoom da capa dentro do tile, para a caixa de DVD preencher o quadrado do
@@ -208,262 +204,270 @@ Cada prateleira é um bloco: a de cima recebe 7 caixas (bloco 1), a do meio 7 (b
 
 Passo 1 — abra cada quadrado. A caixa de DVD mostra a pergunta e duas alternativas, uma em cada papel. Não existe alternativa errada: uma vale 1 ponto e a outra vale 2. As 10 caixas vermelhas já vêm respondidas, valem 0 ponto e servem de referência — o papel da alternativa certa fica marcado, e dá para abrir e ler, mas não para escolher.
 
-Passo 2 — escolhido o caminho dos 10 enigmas abertos, a estante se abre: arraste as caixas até ela para montar a linha do tempo. A ordem na prateleira (esquerda para a direita) é a ordem do tempo dentro do bloco. Antes de completar os 10, a estante não aceita nenhuma caixa.
+Passo 2 — escolhido o caminho dos 10 enigmas abertos, a estante se abre: arraste as caixas até ela para montar a linha do tempo. A ordem na prateleira (esquerda para a direita) é a ordem do tempo dentro do bloco. Antes de completar os 10, a estante não aceita nenhuma caixa. Três caixas já vêm fixas na estante, uma em cada prateleira, no lugar certo: servem de referência e não podem ser tiradas.
 
 Passo 3 — “Mostrar Filmes” vira os quadrados e mostra a capa de cada filme. Abrindo um deles, o DVD aparece com o disco e o papel traz só a alternativa que a equipe escolheu, para conferir. O botão vira “Fechar Filmes”; fechando, os quadrados voltam ao desenho vermelho e dá para trocar qualquer alternativa e mostrar de novo.
 
 Salve o rascunho quando quiser. Mesmo saindo da página, o rascunho permanece e pode ser alterado.
 
-Quando as 20 caixas estiverem na estante, use “Entregar tarefa”. Depois de entregar, nenhuma alteração é possível. Só entregue quando a equipe tiver certeza.`
+Quando as 20 caixas estiverem na estante (as 17 da equipe mais as 3 fixas), use “Entregar tarefa”. Depois de entregar, nenhuma alteração é possível. Só entregue quando a equipe tiver certeza.`
 
 /**
- * Os 20 enigmas do `TAREFA.pdf`.
+ * Os 20 enigmas do `novos_enigmas.pdf`, na ordem do PDF (A1..A7, B1..B7,
+ * C1..C6). A grade não segue esta ordem: é embaralhada por equipe
+ * (`ordemGrade`). O `id` é o `eNN` do PDF e dá a capa e o disco; no PDF o C4
+ * vinha como `e11` (repetido com A1) e foi corrigido para `e12`.
  *
- * Nos 20 **abertos** não existe gabarito: as duas alternativas são caminhos
- * legítimos e o que diferencia é o valor, 1 ou 2 pontos (no PDF saem como 0,5 e
- * 1,0 — corrigido para 1 e 2). `valorBaixo`/`valorAlto` guardam os textos já com
- * o valor certo; qual dos dois fica à esquerda é sorteado por equipe (ver
- * `ordemAlternativas`).
+ * Nos 10 **abertos** não existe gabarito: as duas alternativas são caminhos
+ * legítimos e o que diferencia é o valor, 1 ou 2 pontos. `valorBaixo`/`valorAlto`
+ * guardam os textos já com o valor certo; qual dos dois fica à esquerda é
+ * sorteado por equipe (ver `ordemAlternativas`).
  *
- * Nos 10 **respondidos** existe resposta certa, e é sempre a que vale 1
+ * Nos 10 **respondidos** existe resposta certa, e é sempre a que vale 2
  * (`VALOR_CORRETO`). O app marca o papel dela, mas não pontua: são referência.
  *
- * `bloco` + `posicao` são a coluna "Colocação na prateleira" do PDF: 1 a 7 na
- * prateleira 1, 8 a 14 na 2, 15 a 20 na 3.
+ * `bloco` + `posicao` são a letra e o número do PDF: A = prateleira 1
+ * (Filmes), B = 2 (Espaços de exibição), C = 3 (Personalidades).
  *
  * `respondido: true` marca os 10 que já vêm resolvidos: capa vermelha, marca no
  * papel da correta e sem clique nas alternativas.
+ *
+ * `fixo: true` ("RESPONDIDA - ESTANTE" no PDF) já vem na estante, na posição do
+ * gabarito, e a equipe não tira. Um por prateleira.
  */
 export const ENIGMAS = [
   {
-    id: 'e01',
+    id: 'e11',
     bloco: 1,
     posicao: 0,
+    respondido: true,
     comando:
-      'Nas primeiras décadas do século XX, a Paraíba começou a deixar de ser apenas espectadora para se tornar produtora de imagens. Nesta época, foram produzidas as primeiras imagens em movimento da capital do estado. Sobre esse movimento histórico...',
+      'Sou o longa-metragem silencioso de maior projeção nacional de minha época em solo paraibano. Minhas lentes registraram os rituais da vaquejada e a brutalidade da pesca da baleia. Cruzei o oceano rumo a Paris em busca de voz e som para a modernidade, mas meu destino foi o extravio, restando ao tempo guardar apenas fragmentos de minha força visual.',
     valorBaixo:
-      'Escolha este caminho se a sua equipe identifica que o ano de 1923 marca o início do Ciclo do Cinema Amador/Primeiras Vistas na Paraíba, impulsionado por realizadores pioneiros como Walfredo Rodriguez',
+      'entende que o filme se intitula Sob o Céu Nordestino, estreou na capital paraibana no ano de 1929 e contou originalmente com dois mil e oitenta metros de película. O filme documentário, hoje não está completo, mas mostra aspectos da Paraíba de uma forma didática.',
     valorAlto:
-      'Escolha este caminho se sua equipe identifica que as primeiras filmagens documentais em solo paraibano seguiam a lógica das "vistas" urbanas francesas, registrando o progresso urbano encomendado pelas forças políticas da época.',
-  },
-  {
-    id: 'e02',
-    bloco: 1,
-    posicao: 1,
-    comando:
-      'Ir ao cinema na Paraíba das primeiras décadas do século XX era um verdadeiro ritual social. Prédios suntuosos foram erguidos, funcionando não apenas para projetar fitas, mas como termômetros da divisão de classes da sociedade. Neste cenário de táticas e estratégias...',
-    valorBaixo:
-      'Escolha este caminho se a equipe reconhece que os primeiros cinemas de rua (como o Cine Rex ou o Cine Capitólio) funcionavam como os principais centros de entretenimento, lazer e sociabilidade urbana do estado.',
-    valorAlto:
-      'Escolha este caminho se a equipe compreende que a introdução do cinema alterou os hábitos de lazer urbanos, mas externou na disposição dos assentos as clivagens e preconceitos socioeconômicos das cidades em expansão.',
+      'Enquanto análises tradicionais reduziam o filme ao "primitivismo" ufanista, a tese destaca uma estética "parnasiana" (formalista e cuidada) na captura de rituais como a pesca da baleia; Rodriguez aliou sensibilidade poética e rigor na composição de quadros, recusando o mero exotismo comercial.',
   },
   {
     id: 'e03',
     bloco: 1,
-    posicao: 2,
+    posicao: 1,
     respondido: true,
     comando:
-      'O cinema depende de tecnologia, engenharia e eletricidade. Na história paraibana, a transição do cinema mudo para o sonoro e a manutenção das salas do interior dependeu da genialidade técnica e das invenções de João Deodato Machado Bittencourt.',
+      'Nasci das inquietações de um jornalista e crítico que trocou a caneta pela câmera Bolex. Vim das lonjuras paraibanas sem dinheiro ou circuitos de exibição, mas rompi com o cinema comercial e propagandístico. Tornei-me a matriz ideológica que sacudiu o país, sendo consagrado como o verdadeiro ponto de inflexão e a síntese estética de um novo movimento nacional.',
     valorBaixo:
-      'Escolha este caminho se equipe entendeu que Machado Bittencourt foi uma das figuras mais importantes da exibição cinematográfica no Nordeste, sendo responsável pela eletrificação e instalação de projetores desafiando o monopólio estrangeiro.',
+      'entende que o filme é Aruanda, lançado em 1960 e dirigido por Linduarte Noronha. inaugurando uma estética realista e de baixo orçamento que serviu de matriz para o Cinema Novo.',
     valorAlto:
-      'Escolha este caminho se equipe analisa que a trajetória dele evidencia a dependência tecnológica e o "subdesenvolvimento" industrial do Nordeste, onde a necessidade de criar "gambiarras" técnicas revelava o isolamento da região frente aos eixos industriais.',
-  },
-  {
-    id: 'e04',
-    bloco: 1,
-    posicao: 3,
-    comando:
-      'Nas décadas de 1920 e 1930, surgiram na Paraíba as primeiras iniciativas que tentaram organizar o cinema sob uma lógica empresarial, buscando criar uma indústria local que pudesse competir com o Sudeste. Sobre essas ações...',
-    valorBaixo:
-      'Escolha este caminho se a equipe identifica que as primeiras empresas estruturadas no estado foram a Aurora Filme e a Parahyba Filme, voltadas para produções comerciais.',
-    valorAlto:
-      'Escolha este caminho se a equipe percebe que a rápida falência dessas produtoras revela a impossibilidade de consolidação de um mercado regional devido ao monopólio de distribuição das grandes empresas estrangeiras e à falta de apoio fiscal do Estado.',
-  },
-  {
-    id: 'e05',
-    bloco: 1,
-    posicao: 4,
-    comando:
-      'Produzir um longa-metragem de ficção com atores e roteiro complexo foi um desafio que a Paraíba só consolidou em 1970. Sobre essa produção cinematográfica...',
-    valorBaixo:
-      'Escolha este caminho se a equipe sabe que o primeiro longa-metragem de ficção do estado foi O Salário da Morte (1970), dirigido por Linduarte Noronha.',
-    valorAlto:
-      'Escolha este caminho se a equipe avalia que o filme utiliza a ficção para discutir o coronelismo e a violência agrária, provando que o cinema paraibano instrumentalizou a dramaturgia para denunciar as oligarquias e a impunidade no interior.',
-  },
-  {
-    id: 'e06',
-    bloco: 1,
-    posicao: 5,
-    respondido: true,
-    comando:
-      'Ele esteve nos bastidores de Aruanda, mas tornou-se o maior cronista documental da Paraíba. Seus filmes misturam investigação histórica com sensibilidade poética, denunciando a violência contra as Ligas Camponesas.',
-    valorBaixo:
-      'Escolha este caminho se a equipe acredita que nascido em Itabaiana (PB), sua obra O País de São Saruê (1971) foi inteiramente proibida pela Censura Federal do regime militar, sendo liberada para o público somente em 1979.',
-    valorAlto:
-      'Escolha este caminho se a equipe compreende que o cinema dele funciona como um documento histórico contra a Ditadura Militar, usando o cinema-denúncia para disputar a memória oficial e defender as populações camponesas exploradas.',
+      'compreende que o diretor fundiu o olhar jornalístico à linguagem cinematográfica para criar um cinema sociologicamente engajado; a obra é um divisor de águas pois rompeu com os documentários propagandísticos vigentes.',
   },
   {
     id: 'e07',
     bloco: 1,
-    posicao: 6,
-    respondido: true,
+    posicao: 2,
     comando:
-      'Uma charmosa cidade no Cariri paraibano ostenta um enorme letreiro na montanha e vende-se turisticamente como a "Roliúde Nordestina". No entanto, pesquisadores fazem uma dura crítica a esse título de marketing. Por quê...',
+      'Dou vida e movimento a uma comunidade remanescente que a história oficial tentou isolar no alto da serra. Trago para a tela o barro, a aridez e o cotidiano de homens e mulheres esquecidos pelo poder público. Embora eu os coloque no centro do debate social do país, as minhas imagens são mediadas por uma voz exterior que interpreta o sofrimento deles sem deixá-los falar.',
     valorBaixo:
-      'Escolha este caminho se a equipe compreende que a crítica acadêmica aponta o descompasso entre o uso da imagem da cidade para o turismo cinematográfico e a falta de fomento ou escolas técnicas para que os próprios moradores locais dirijam seus filmes.',
+      'a experiência de uma comunidade na Serra do Talhado, fundada pelo ex-escravizado Zé Bento, e a atividade de destaque é a produção de cerâmica (louceiras), contudo, o "modelo sociológico" limita sua autonomia, pois uma voz narradora exterior e supostamente neutra se sobrepõe às vivências dos sujeitos.',
     valorAlto:
-      'Escolha este caminho se a equipe entende que o título mascara uma política de fetichização e dependência, onde a cidade funciona apenas como cenário exótico passivo para produtoras do Sudeste, sem desenvolver uma indústria audiovisual local autônoma.',
+      'compreende que o filme insere os quilombolas no debate ao denunciar o abandono político, o analfabetismo, sequelas do pós-abolição, no Nordeste. Esse é um debate social da época e, ao mesmo tempo, discute o limite dessa representação por meio do conceito de "modelo sociológico".',
   },
   {
-    id: 'e08',
+    id: 'e15',
+    bloco: 1,
+    posicao: 3,
+    comando:
+      'A narrativa do longa-metragem de 1983 desafia abertamente a contumácia memorial de uma sociedade conservadora. De um lado, a película encena os efervescentes conflitos políticos oligárquicos que deflagraram a Revolução de 1930. De outro, o enredo resgata a subjetividade de uma mulher vanguardista, utilizando a linguagem audiovisual como um dispositivo genealógico de reparação histórica contra discursos puramente depreciativos.',
+    valorBaixo:
+      'Em Parahyba, Mulher Macho, a diretora Tizuka Yamazaki desloca o foco do "herói" mítico João Pessoa para fixá-lo na professora e poetisa Anayde Beiriz. A trama expõe seu romance com o advogado João Dantas, elo afetivo que desencadeou a crise política no estado.',
+    valorAlto:
+      'Essa reconstrução confronta o silenciamento e a exclusão da mulher na historiografia oficial paraibana. Sequências emblemáticas, como o corte de cabelo à la garçonne, materializam visualmente os ideais de independência e emancipação feminina. O cinema atua como meio crítico ao reverter o rótulo moralista e provinciano imposto pela dominação masculina da época.',
+  },
+  {
+    id: 'e01',
+    bloco: 1,
+    posicao: 4,
+    respondido: true,
+    comando:
+      'O percurso da nossa narrativa de 1942 ganha sentido nas paradas para exibições comerciais sobre as aspirinas, revelando que a modernidade mudou as condições objetivas do mercado e as condições subjetivas do indivíduo. Um de nós reage a esse processo com um entusiasmo cego e acrítico, fascinado por uma suposta superioridade intelectual dos modernos habitantes das cidades. O outro manifesta certa repulsa a essa ideia de moderno, pois traz em sua memória o horror de uma tecnologia militar mortífera que desaba como bombas do céu.',
+    valorBaixo:
+      'Em Cinema, Aspirinas e Urubus, o sertanejo Ranulpho fica deslumbrado com a projeção cinematográfica que mostra São Paulo como um povo destinado a cumprir uma missão civilizadora. Enquanto isso, o alemão Johann evita ao máximo falar sobre a guerra e prefere viver isolado em uma região que o senso comum considera o oposto do moderno.',
+    valorAlto:
+      'O choque entre os personagens evidencia que a sensibilidade moderna produz uma atmosfera de agitação e destruição de laços pessoais. Enquanto o habitante do sertão associa o progresso técnico a uma promessa de possibilidades para escapar da miséria regional, o migrante europeu percebe os perigos de que era portador do progresso técnico no quadro da civilização.',
+  },
+  {
+    id: 'e04',
+    bloco: 1,
+    posicao: 5,
+    respondido: true,
+    fixo: true,
+    comando:
+      'Eu nasci para colorir o céu de Natal e arrancar sorrisos da infância na Rua Campos Sales. Mas o sopro que me inflava guardava um calor invisível e mortal. Num instante, a alegria virou fumaça, o metal cedeu à pressão e a memória de Campina Grande mudou para sempre. Um cineasta paraibano, anos depois, juntou os fragmentos desse sopro para que o tempo não apagasse o choro de José Pinheiro.',
+    valorBaixo:
+      'Escolha este caminho se sua equipe A obra que resgata esse acontecimento é o documentário paraibano "Os Balões de 74", dirigido por Luciano Mariz e lançado em 2007. Dando voz aos sobreviventes e familiares, o filme tensiona o silenciamento histórico sobre uma tragédia.',
+    valorAlto:
+      'Escolha este caminho se sua equipe A análise da obra de Luciano Mariz revela como o cinema documental atua como um instrumento de memória social contra o esquecimento institucional, transformando a dor privada em um debate público.',
+  },
+  {
+    id: 'e17',
+    bloco: 1,
+    posicao: 6,
+    comando:
+      'O curso da nossa travessia é guiado pelo fluxo constante da água, que conecta o mar da Aldeia Alto do Tambá, o Rio Jaguaribe e o açude no Sertão paraibano. Uma força nesta jornada se manifesta na indignação contra os livros didáticos escolares, que retratam os povos originários de forma pejorativa e impõem uma narrativa oficial de apagamento. A outra força reside na oralidade e no mundo dos sonhos, onde se encontra a rara capacidade de reprogramar memórias e plantar os sinais deixados pelos antepassados.',
+    valorBaixo:
+      'No filme O Sonho de Anu, a protagonista Anú usa o sonho como bússola espiritual para reencontrar sua linhagem ancestral de África e do Brasil. Ela desafia a violência da escrita colonial propondo um olhar crítico à colonização a partir das vivências em territórios paraibanos.',
+    valorAlto:
+      'O filme celebra a ancestralidade ao provar que a memória viva, guardada pelas águas e pelas vozes que nunca se calaram, é capaz de interferir e ressignificar a história oficial. Enquanto os livros didáticos simbolizam as contradições do processo civilizatório europeu, os áudios e a voz materna tornam-se um testemunho afetivo e político de resistência cultural.',
+  },
+  {
+    id: 'e02',
     bloco: 2,
     posicao: 0,
     comando:
-      'Imagine que você tem uma grande ideia na cabeça, mas quase nenhum dinheiro. Você pega uma câmera emprestada, viaja para o interior do estado e grava um filme que muda a história do cinema nacional. Linduarte Noronha...',
+      'em uma noite de festa e devoção, em 28 de julho de 1897, fui apresentado como a última grande invenção do século. Prometi trazer o progresso moderno ao iluminar uma sala escura, mas cobrei um preço que barrou a entrada do povo humilde, abrindo minhas portas apenas para os bolsos da elite parahybana.',
     valorBaixo:
-      'Escolha este caminho se a equipe idealizou o projeto após publicar uma reportagem fotográfica intitulada "Aruanda" no jornal A União, em 1959.',
+      'O aparelho foi o cinematógrafo, introduzido no ano de 1897 pelo exibidor italiano Nicolau Maria Parente, na festa das Neves, mas para as camadas abastadas da sociedade paraibana.',
     valorAlto:
-      'Escolha este caminho se a equipe compreende que ele demonstrou que a possibilidade de fazer cinema não depende de estúdios caros, mas sim de lançar um olhar atento sobre a realidade do nosso povo.',
-  },
-  {
-    id: 'e09',
-    bloco: 2,
-    posicao: 1,
-    respondido: true,
-    comando:
-      'Sou um lugar que nasceu do desejo de liberdade. No passado, pessoas que escaparam da escravidão criaram esse refúgio no Sertão paraibano. Em 1960, o filme revelou para o mundo que esse lugar ainda resistia.',
-    valorBaixo:
-      'Escolha este caminho se a equipe localiza esse lugar como a comunidade quilombola de Olho D’Água da Serra do Talhado, situada no município de Santa Luzia.',
-    valorAlto:
-      'Escolha este caminho se você percebe que a existência desse local denuncia o isolamento geográfico e o abandono por parte do Estado, mostrando que a abolição formal (1888) não foi acompanhada por políticas de inserção social ou direito à terra.',
+      'A estreia revela a contradição de uma tecnologia avançada inserida em um ambiente de contrastes sociais, pois o alto custo do ingresso restringiu o consumo à elite, gerando uma modernização excludente e segregadora.',
   },
   {
     id: 'e10',
     bloco: 2,
-    posicao: 2,
+    posicao: 1,
     respondido: true,
     comando:
-      'Na comunidade retratada pelo filme não havia fábricas, lojas ou empregos. A sobrevivência das famílias dependia de transformar a própria terra molhada em objetos úteis para vender na feira.',
+      'Afastei-me do luxo das avenidas centrais para acompanhar o crescimento da cidade em direção ao leste. Sou menor, mais simples e herdo as fitas que os palácios do centro já cansaram de exibir, mas cumpro o papel de levar a tela aos trabalhadores por poucas moedas.',
     valorBaixo:
-      'Escolha este caminho se a equipe identifica que o filme foca na produção artesanal de panelas e potes de cerâmica feitos de barro pelas mulheres da comunidade.',
+      'Identifique que a categoria desse tipo de sala de exibição se trata dos cinemas de bairro (ou "poeirinhas"), representada pelo pioneiro Cine São João, inaugurado em Jaguaribe em 1923.',
     valorAlto:
-      'Escolha este caminho se a equipe entende que, por conta da aridez e do fracasso de lavouras como o algodão, a manipulação da argila tornou-se o esteio material e de preservação da memória daquela população.',
-  },
-  {
-    id: 'e11',
-    bloco: 2,
-    posicao: 3,
-    comando:
-      'Meu nome brilha nas religiões de matriz africana como um paraíso místico de paz e liberdade. Mas no filme, esse nome batiza um lugar de terra rachada e muita pobreza.',
-    valorBaixo:
-      'Escolha este caminho se a equipe reconhece que o termo provém das tradições afro-brasileiras e expressa a busca por liberdade; Linduarte usou-o para chocar o público ao mostrar que o refúgio geográfico do povo era também um espaço de esquecimento social.',
-    valorAlto:
-      'Escolha este caminho se você enxerga a ironia social do título, que contrasta o paraíso espiritual prometido com a dura realidade material de exclusão social e fome vivida pelos personagens na caatinga.',
-  },
-  {
-    id: 'e12',
-    bloco: 2,
-    posicao: 4,
-    comando:
-      'Eu não sou um ator de Hollywood usando maquiagem. Sou um trabalhador real, líder da minha comunidade, e abri as portas da minha casa e da minha rotina para a câmera do cinema.',
-    valorBaixo:
-      'Escolha este caminho para a equipe que reconhece que Zé Bento, carpinteiro e ex-escravizado, fundou o local por volta de XIX. No filme, seus descendentes (como Paulino Carneiro) encenam sua caminhada original.',
-    valorAlto:
-      'Escolha este caminho se sua equipe valoriza que a presença dele na tela significa a conquista do protagonismo do homem negro e camponês no cinema brasileiro, rompendo com os estereótipos caricatos vigentes nas produções comerciais da época.',
+      'compreende que a divisão espacial reflete a segregação urbana: o centro retinha os cinemas lançadores com filmes inéditos e caros para a elite, enquanto os bairros operários recebiam fitas atrasadas e baratas, hierarquizando o acesso ao lazer moderno.',
   },
   {
     id: 'e13',
     bloco: 2,
-    posicao: 5,
-    respondido: true,
+    posicao: 2,
     comando:
-      'Fazer cinema nunca é o trabalho de uma pessoa só. Atrás das câmeras de Aruanda, jovens intelectuais paraibanos ajudaram a planejar, capturar e editar as cenas que chocaram o país.',
+      'Nós somos as duas dimensões indissociáveis que dão corpo à existência de um filme e determinam sua força como documento pedagógico e histórico. A primeira de nós se manifesta na fisicalidade e no desuso tecnológico, exigindo esforços urgentes de salvaguarda química e eletrônica para que as velhas bitolas analógicas não desapareçam nas prateleiras dos arquivos universitários. A segunda de nós reside no imaterial, sobrevivendo como um testemunho estético e político capaz de projetar nos olhos de novas gerações as vestimentas, as expressões, as arquiteturas e os cotidianos esquecidos de tempos que já se foram.',
     valorBaixo:
-      'Escolha este caminho se a equipe entende que o filme foi fruto de um mutirão de jovens da Faculdade de Direito e do meio intelectual da época que fundaram a tradição do documentarismo local.',
+      'Os filmes são bens materiais e imateriais simultaneamente. Diante da obsolescência tecnológica, a digitalização de acervo, como o da UFPB, salvou um patrimônio que estava inacessível ao público geral.',
     valorAlto:
-      'Escolha este caminho se sua equipe compreende que essa parceria demonstra a força do movimento cultural coletivo e universitário na Paraíba dos anos 60, que uniu jovens dispostos a usar o cinema como arma de transformação e denúncia.',
-  },
-  {
-    id: 'e14',
-    bloco: 2,
-    posicao: 6,
-    respondido: true,
-    comando:
-      'Antes de 1960, o cinema brasileiro tentava imitar os filmes estrangeiros. Aruanda quebrou esse padrão e criou uma estética nova baseada na luz do sol e no realismo, influenciando diretores como Glauber Rocha.',
-    valorBaixo:
-      'Escolha este caminho se a equipe identifica que o filme é considerado o marco zero do Cinema Novo, movimento famoso pelo lema prático de "uma câmera na mão e uma ideia na cabeça".',
-    valorAlto:
-      'Escolha este caminho se sua equipe reconhece que Glauber Rocha assistiu a Aruanda em Salvador e declarou publicamente que aquele curta apontava o caminho estético definitivo para a emancipação do cinema nacional frente ao colonialismo cultural.',
-  },
-  {
-    id: 'e15',
-    bloco: 3,
-    posicao: 0,
-    comando:
-      'No século XXI, a maneira de fazer cinema sofreu uma revolução técnica. Se antes era preciso rolos de película caríssimos, hoje a juventude consegue produzir narrativas complexas utilizando uma tecnologia que cabe no bolso.',
-    valorBaixo:
-      'Escolha este caminho se sua equipe reconhece que projetos de formação nas periferias paraibanas subvertem o uso do celular, transformando o aparelho de mero receptor de redes sociais em um emissor de arte política e comunitária.',
-    valorAlto:
-      'Escolha este caminho se sua equipe analisa que essa tecnologia promove uma quebra do monopólio estético, permitindo que sujeitos historicamente marginalizados narrem suas próprias vivências sem intermediários.',
+      'A preservação fílmica atua diretamente na educação de resistência histórica. Ao disponibilizar a Coleção Cinema Paraibano, se democratiza o acesso e cria uma "viagem no tempo", permitindo uma expansão no repertório crítico dos jovens contra o esvaziamento provocado pela indústria cultural de massa.',
   },
   {
     id: 'e16',
-    bloco: 3,
-    posicao: 1,
+    bloco: 2,
+    posicao: 3,
     respondido: true,
+    fixo: true,
     comando:
-      'No século XXI, uma vibrante rede de festivais de cinema espalhou-se pelo Sertão, Cariri e Brejo paraibano. Cidades pequenas transformam praças públicas e igrejas em salas de exibição temporárias. Sobre esse fenômeno...',
+      'Surgi em João Pessoa no ano de 2005, batizado com o nome do filme mais emblemático da história de nossa terra. Multipliquei-me rapidamente, fincando raízes da capital ao sertão, e passei a integrar um \'boom\' nacional. Sou a principal janela que acolhe a cadeia alternativa e independente, dando vazão a obras experimentais que as grandes massas comerciais costumam ignorar.',
     valorBaixo:
-      'Escolha este caminho se sua equipe reconhece que eventos como o Cine Congo, o Festissauro e o Curta Coremas interiorizaram o acesso à produção cinematográfica no estado.',
+      'descobriu que o evento pioneiro é o Fest Aruanda, o estado contabiliza atualmente dezessete festivais tais como o Comunicurtas (Campina Grande), Curta Coremas (Coremas), Cinema com Farinha (Patos) e Cine Congo (Congo).',
     valorAlto:
-      'Escolha este caminho se sua equipe compreende que esses festivais operam como polos de descentralização e resistência cultural, validando o sotaque, a paisagem e a memória do homem do interior contra o monopólio das capitais.',
+      'entende que eles funcionam como elos cruciais na cadeia produtiva ao suprir a falta de salas comerciais no estado, servindo como a única janela de difusão e exibição para filmes independentes e de circulação alternativa.',
   },
   {
-    id: 'e17',
+    id: 'e18',
+    bloco: 2,
+    posicao: 4,
+    respondido: true,
+    comando:
+      'Aventurei-me por caminhos onde as salas de exibição convencionais jamais ousaram existir, subvertendo o tradicional fluxo cultural que sempre viaja da capital para o interior. Muito além de promover o turismo e movimentar o comércio local por onde passo, tornei-me um escudo social nas mãos de pequenas comunidades, usando a arte e o compartilhamento de saberes para resgatar jovens da criminalidade.',
+    valorBaixo:
+      'descobriu que o fenômeno de interiorização da cultura audiovisual promovido por esses festivais que ocorrem em doze cidades, apresenta apenas 25% delas (três cidades) que possuem salas convencionais, e os três municípios citados são Congo, Coremas e Picuí.',
+    valorAlto:
+      'descobriu que o processo de interiorização inverte o fluxo cultural e democratiza o acesso à arte; ao promover oficinas e debates, os festivais quebram a hegemonia estética de massa e servem como ferramentas de inclusão social e enfrentamento a vulnerabilidades locais.',
+  },
+  {
+    id: 'e20',
+    bloco: 2,
+    posicao: 5,
+    comando:
+      'Nós fomos as duas realidades do cinema independente da Paraíba. O primeiro foi o confinamento, com rolos esquecidos em prateleiras por falta de projetores. O segundo foi a libertação digital, que colocou essas imagens na internet para cineclubes e salas de aula.',
+    valorBaixo:
+      'O Projeto CP:MP realizou a telecinagem e disponibilização virtual de dezenas de documentários paraibanos. O acervo que antes sofria com a oxidação no NUDOC passou a abastecer pesquisas e exibições cineclubistas.',
+    valorAlto:
+      'A migração para o ambiente digital transforma o cinema em ferramenta de debate social nas escolas. Filmes antigos que tratam de sexualidade, questões indígenas e lutas camponesas saem do nicho acadêmico direto para os estudantes. A internet, portanto, transforma a memória audiovisual em uma prática pedagógica viva de afirmação identitária.',
+  },
+  {
+    id: 'e19',
+    bloco: 2,
+    posicao: 6,
+    comando:
+      'Eu não exijo poltronas de veludo, pois minha mágica acontece na poeira das praças, nas comunidades rurais e nos bairros periféricos. Levo na bagagem curtas paraibanos como "O Sonho de Anu" para exibi-los diretamente nos bairros e aldeias onde foram gravados. Mostrar esses filmes para as próprias pessoas que os inspiraram prova que a tela de cinema tem o poder de devolver narrativas e criar laços de pura esperança e ancestralidade. De que movimento eu faço parte?',
+    valorBaixo:
+      'Escolha este caminho se sua equipe identifica iniciativas socioculturais contemporâneas, como o projeto Cine Juá (em João Pessoa e Sertão) e o Cine Derréis (em Patos), que realizam exibições gratuitas e levam a "devolutiva" de produções audiovisuais para populações que muitas vezes não têm acesso ao cinema comercial.',
+    valorAlto:
+      'Escolha este caminho se sua equipe compreende que a importância de ver um bom filme vai muito além do entretenimento financeiro. Assistir coletivamente a histórias sobre a própria região em espaços públicos transforma a experiência de ir ao cinema em um espelho cultural poderoso, garantindo o direito à arte, curando apagamentos históricos e cultivando um profundo sentimento de pertencimento, união e esperança popular.',
+  },
+  {
+    id: 'e05',
+    bloco: 3,
+    posicao: 0,
+    respondido: true,
+    fixo: true,
+    comando:
+      'Nascido no final do século XIX, vi o cinema nascer nos braços de meu pai. Tornei-me um \'homem-equipe\' que acumulava funções para desbravar milhares de quilômetros registrando a realidade da Parahyba do Norte. Rompendo com o ufanismo comercial e a ficção, criei o verdadeiro marco zero de nossa história através de imagens silenciosas e puras do real.',
+    valorBaixo:
+      'para a equipe esse é o cineasta Walfredo Rodriguez, dono da produtora Nordeste Film, que estreou seu primeiro cinejornal (Filme-Jornal do Brasil – Um Pouco de Tudo) no ano de 1919 e na Parahyba do Norte buscou despertar uma identidade para o cinema paraibano.',
+    valorAlto:
+      'compreende que ele foi o marco zero local ao consolidar uma cinematografia fundada no real e no código documental; sua importância reside em filiar a Paraíba ao cinema de não-ficção, diferenciando-se da maioria dos ciclos brasileiros dos anos 1920, que priorizavam o gênero ficcional e "posado"',
+  },
+  {
+    id: 'e06',
+    bloco: 3,
+    posicao: 1,
+    comando:
+      'Eu fui a pioneira que abriu as portas do cinema mudo regional no início da década de 1930. Minha trajetória como protagonista foi interrompida de forma abrupta quando a indústria cultural estrangeira impôs uma revolução tecnológica que mudou o mercado nacional.',
+    valorBaixo:
+      'Mazyl Jurema estreou no filme No Cenário da Vida (1930) e vivenciou o encerramento do Ciclo do Recife. Sua carreira na tela grande foi freada pela rejeição do público aos filmes mudos após a chegada do cinema sonoro estrangeiro. Isso demonstra como as rápidas transformações da mídia de massa podiam silenciar talentos pioneiros regionais sem dar espaço de adaptação.',
+    valorAlto:
+      'A trajetória de Mazyl expõe a extrema vulnerabilidade da mulher no mercado cultural do início do século XX. Ela foi vítima de uma exclusão forçada por fatores exclusivamente econômicos e tecnológicos, fenômeno que evidencia como as velozes transformações na mídia de massa sufocavam o pioneirismo regional.',
+  },
+  {
+    id: 'e08',
     bloco: 3,
     posicao: 2,
     respondido: true,
     comando:
-      'Durante décadas, o cinema do Sudeste retratou o paraibano sob o estigma do "retirante sofredor" ou do "personagem caricato". No século XXI, os realizadores locais usam as telas para implodir essas visões de fora. Essa disputa de representatividade...',
+      'Eu despontei nos anos 1950 e conquistei consagração nacional no cinema, rádio e televisão. Décadas mais tarde, tomei a decisão consciente de romper com as telas comerciais por rejeitar o esvaziamento artístico e as produções apelativas da grande mídia.',
     valorBaixo:
-      'Escolha este caminho se a equipe aponta que o cinema contemporâneo atua como um espaço de autorrepresentação cultural, mostrando a Paraíba a partir dos olhos dos seus próprios realizadores.',
+      'Cacilda Lanuza estreou nacionalmente em O Canto do Mar (1953) e ganhou destaque na revista Cinearte. Na década de 1970, ela abandonou voluntariamente a televisão e o cinema comercial para se dedicar de forma exclusiva aos palcos.',
     valorAlto:
-      'Escolha este caminho se a equipe analisa que o cinema paraibano atual promove uma fratura nos estereótipos da "nordestinidade", retratando um estado plural, urbano, complexo e tecnológico, tornando o ato de filmar um exercício de soberania.',
+      'O afastamento de Cacilda representa uma postura política ativa, autônoma e de vanguarda feminina. Utilizando sua independência financeira, ela rejeitou uma mídia de massa alienante. Ao escolher os palcos, transformou o teatro em uma trincheira de resistência artística e de afirmação de sua dignidade criativa.',
   },
   {
-    id: 'e18',
+    id: 'e12',
     bloco: 3,
     posicao: 3,
-    respondido: true,
     comando:
-      'Os suntuosos prédios de cinema sumiram dos centros históricos de João Pessoa e Campina Grande. As telas da Paraíba migraram em massa para dentro das caixas de concreto dos shopping centers. Essa transformação...',
+      'Nós fomos os olhares pioneiros que capturaram as realidades profundas do povo nordestino e redefiniram os rumos da nossa cinematografia. O primeiro de nós utilizou uma câmera quase de forma documental e poética para registrar a saga de uma família negra na Serra do Talhado, revelando ao Brasil o abandono dos descendentes de escravizados e inaugurando um ciclo estético divisor de águas. O segundo de nós, partindo dessa mesma efervescência, dedicou décadas a documentar de forma contundente as lutas camponesas e a própria memória do nosso cinema, encerrando aquele ciclo áureo com uma homenagem poética feita a partir de fragmentos do passado.',
     valorBaixo:
-      'Escolha este caminho se a equipe identifica que o fechamento dos cinemas de rua (como o Cine Plaza ou o Cine Babilônia) e sua substituição pelas salas multiplex de shoppings administradas por redes estrangeiras alterou o consumo cultural no século XXI.',
+      'As trajetórias de Linduarte Noronha e Vladimir de Carvalho evidenciam o papel transformador e de vanguarda do cinema paraibano no cenário do Cinema Novo brasileiro, deslocando o eixo temático nacional para a crueza da realidade sertaneja.',
     valorAlto:
-      'Escolha este caminho se a equipe problematiza que essa transição representa a mercantilização e a elitização do lazer, impondo uma triagem socioeconômica do público e padronizando a programação com blockbusters que sufocam o cinema local.',
+      'Enquanto a produção de Linduarte Noronha, (Aruanda 1960) representou um marco fundador de inserção nacional por meio do curta-metragem documental de denúncia social, a atuação de Vladimir de Carvalho, (O País de São Saruê 1971), representou aprofundamento dessa estética, utilizando o documentário como uma ferramenta viva de preservação da memória histórica e de resistência política contra o apagamento cultural.',
   },
   {
-    id: 'e19',
+    id: 'e09',
     bloco: 3,
     posicao: 4,
+    respondido: true,
     comando:
-      'Diante da dominação comercial dos shoppings, um formato histórico de exibição ganhou força de resistência na Paraíba de hoje. Organizados por estudantes e movimentos sociais em espaços alternativos, eles exibem filmes gratuitos seguidos de debates. Que espaços são esses?',
+      'Nós fomos os guardiões e tecelões das imagens que guardam o tempo e a história da Paraíba. O primeiro de nós, considerado o pai do cinema do nosso estado, desbravou o território nas primeiras décadas do século XX, registrando desde a flora local até os discursos e viagens do político João Pessoa, mas viu sua produção cessar e deixar apenas fragmentos perdidos no tempo. O Outro, décadas mais tarde, assumiu a missão de resgatar esses mesmos pedaços esquecidos e incorporá-los em sua própria obra cinematográfica, transformando a arqueologia de películas antigas em uma ode à resistência cultural e ao encerramento de uma era de ouro do documentário.',
     valorBaixo:
-      'Escolha este caminho se a equipe reconhece o fortalecimento e a atuação dos Cineclubes na Paraíba (articulados por coletivos independentes e pela Federação Paraibana de Cineclubes) como circuitos alternativos de difusão.',
+      'Vladimir de Carvalho, ao realizar o documentário O Homem de Areia (1982), utilizou estrategicamente fragmentos restantes das obras de Walfredo Rodrigues, transformando a arqueologia de películas antigas em uma ode à resistência cultural e ao encerramento de uma era de ouro do documentário.',
     valorAlto:
-      'Escolha este caminho se a equipe compreende que o cineclubismo mantém viva a tradição de usar salas públicas, associações de bairro e escolas como polos de conscientização política através de acervos não comerciais.',
+      'Ambas as carreiras ilustram o desafio histórico da preservação e da continuidade da memória audiovisual em solo paraibano. Enquanto Walfredo Rodrigues enfrentou a solidão do pioneirismo e a posterior escassez de produção, Vladimir de Carvalho agiu não apenas como realizador, mas como um “historiador visual”, estabelecendo uma ponte dialética entre o cinema mudo do início do século e o documentário moderno.',
   },
   {
-    id: 'e20',
+    id: 'e14',
     bloco: 3,
     posicao: 5,
     comando:
-      'Para o cinema moderno brilhar na Paraíba de hoje, foi preciso plantar bases no passado. No entanto, rolos de película, projetores antigos e documentos raros do século XX sofrem com a falta de investimento e correm o risco de virar poeira. Sobre a importância da preservação de acervos...',
+      'Eu não busco as grandes luzes dos festivais internacionais, mas as lâmpadas improvisadas nas sedes de bairros e clubes de mães de Campina Grande. Carrego na bagagem o riso do "Major Palito" e os acordes do "Biu do Violão", fazendo com que o cinema do meu estado pertença à comunidade, e não apenas às elites. Entre as salas de aula da universidade e a poeira das ruas periféricas, divido meu tempo para que o audiovisual paraibano seja visto, debatido e, acima de tudo, lembrado por quem o inspira.',
     valorBaixo:
-      'Escolha este caminho se a equipe aponta que é urgente e necessária a salvaguarda, catalogação e preservação física e digital do Acervo Histórico como o de Machado Bittencourt, pioneiro técnico da exibição no estado.',
+      'Escolha este caminho se sua equipe Refere-se ao professor e cineasta Rômulo Azevedo e ao seu projeto de extensão "Cinema de Bairro" da UEPB. Os curtas citados são "Apresentando o Major Palito & Família" e "Biu do Violão e o Diamante Cor-de-rosa".',
     valorAlto:
-      'Escolha este caminho se a equipe analisa que o descaso com esse patrimônio revela a amnésia institucional do estado, onde a destruição das provas materiais do desenvolvimento tecnológico do interior sabota a compreensão da nossa história.',
+      'Escolha este caminho se sua equipe Sua importância está na democratização do acesso à cultura e na formação de plateia. Ao tirar os filmes dos circuitos comerciais e levá-los gratuitamente às periferias, ele descentraliza o audiovisual e transforma o cinema em uma ferramenta de emancipação e afirmação da identidade popular paraibana.',
   },
 ]
 
@@ -485,48 +489,109 @@ export const DVD_COM_CD = Object.fromEntries(
   ENIGMAS.map((e) => [e.id, `/tarefas/charadas/dvd-abertos-respondidos/${e.id}.png`]),
 )
 
+/** Capa de cada enigma, pelo número do id: `e11` usa `capa-11`. */
+export const CAPA_SRC = Object.fromEntries(
+  ENIGMAS.map((e) => [e.id, `/tarefas/charadas/capas/capa-${e.id.slice(1)}.${CAPA_EXT}`]),
+)
+
+/** Os 3 enigmas que já vêm na estante, na posição do gabarito, e não saem. */
+export const FIXOS = ENIGMAS.filter((e) => e.fixo)
+export const FIXO_IDS = new Set(FIXOS.map((e) => e.id))
+
 /** Enigmas que a equipe precisa escolher (os respondidos não pontuam). */
 export const ENIGMAS_ABERTOS = ENIGMAS.filter((e) => !e.respondido)
 
 /**
- * Valor da alternativa **certa** nos 10 enigmas que já vêm respondidos: o PDF
- * marca que a correta é a que vale 1. Só eles têm resposta certa — nos 10
- * abertos as duas alternativas são caminhos legítimos e a escolha é da equipe.
+ * Valor da alternativa **certa** nos 10 enigmas que já vêm respondidos: é a de
+ * maior peso (2). Só eles têm resposta certa — nos 10 abertos as duas
+ * alternativas são caminhos legítimos e a escolha é da equipe.
  */
-export const VALOR_CORRETO = 1
+export const VALOR_CORRETO = 2
+
+/** Maior sequência permitida, na ordem da grade, do 2 no mesmo lado. */
+const MAX_SEQUENCIA_LADO = 2
+
+function mulberry32(semente) {
+  let a = semente
+  return () => {
+    a = (a + 0x6d2b79f5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+function embaralhar(lista, rand) {
+  const out = [...lista]
+  for (let i = out.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(rand() * (i + 1))
+    ;[out[i], out[j]] = [out[j], out[i]]
+  }
+  return out
+}
+
+function maiorSequencia(lados) {
+  let maior = 0
+  let atual = 0
+  lados.forEach((lado, i) => {
+    atual = i > 0 && lado === lados[i - 1] ? atual + 1 : 1
+    maior = Math.max(maior, atual)
+  })
+  return maior
+}
+
+const LADOS_CACHE = new Map()
 
 /**
- * Índice dos enigmas respondidos, na ordem do PDF, para alternar de que lado a
- * correta cai. Ver `ordemAlternativas`.
+ * De que lado fica a alternativa de 2 pontos em cada enigma, por equipe:
+ * `true` = esquerda. Sorteado com a semente da equipe, com três garantias que o
+ * sorteio livre não dá (medido antes: algumas sementes deixavam as 10 corretas
+ * dos respondidos do mesmo lado):
+ *
+ * - 5 à esquerda e 5 à direita nos 10 respondidos (onde o papel certo acende);
+ * - 5 e 5 nos 10 abertos;
+ * - na ordem em que a equipe vê a grade, o 2 nunca fica mais de
+ *   `MAX_SEQUENCIA_LADO` vezes seguidas do mesmo lado.
+ *
+ * Alternância perfeita seria outro padrão fácil de ver, então não é isso: é um
+ * embaralhamento balanceado, rejeitado e sorteado de novo enquanto houver
+ * sequência longa. ponytail: rejeição com teto de tentativas; com 20 enigmas
+ * acha em ~100 tentativas. Se o número de enigmas crescer muito, trocar por
+ * geração com restrição.
  */
-const PARIDADE_RESPONDIDO = new Map(
-  ENIGMAS.filter((e) => e.respondido).map((e, i) => [e.id, i % 2]),
-)
-
+function ladosDoDois(sorteio) {
+  const chave = sorteio || ''
+  if (LADOS_CACHE.has(chave)) return LADOS_CACHE.get(chave)
+  const grade = ordemGrade(chave)
+  const rand = mulberry32(hash32(`${chave}:lados`))
+  const metade = (n) => [...Array(n / 2).fill(true), ...Array(n / 2).fill(false)]
+  let lados = null
+  for (let tentativa = 0; tentativa < 20000 && !lados; tentativa += 1) {
+    const filas = {
+      respondido: embaralhar(metade(10), rand),
+      aberto: embaralhar(metade(10), rand),
+    }
+    const seq = grade.map((e) => filas[e.respondido ? 'respondido' : 'aberto'].pop())
+    if (maiorSequencia(seq) <= MAX_SEQUENCIA_LADO) lados = seq
+  }
+  lados ||= grade.map((_, i) => i % 4 < 2)
+  const mapa = new Map(grade.map((e, i) => [e.id, lados[i]]))
+  LADOS_CACHE.set(chave, mapa)
+  return mapa
+}
 
 /**
- * Ordem das alternativas no DVD: qual vai no papel da esquerda e qual no da
- * direita. Sorteada por equipe a partir de uma semente salva no rascunho, para
- * que o par de 1 e 2 pontos não fique sempre do mesmo lado. Determinística:
- * a mesma semente + o mesmo enigma dão sempre a mesma ordem.
- *
- * FNV-1a sozinho não serve: o bit baixo é fraco e saía um padrão quase
- * alternado, além de sementes diferentes caírem na mesma ordem. O `fmix32` do
- * murmur3 no final espalha os bits.
- *
- * **Os respondidos não usam o sorteio.** A média do hash é boa (medido: 50,1%
- * esquerda / 49,9% direita em 2000 sementes x 10 respondidos), mas ele não
- * garante nada para uma equipe específica: 3 dessas 2000 sementes deixaram as
- * 10 corretas no lado direito, e uma deixou as 10 no esquerdo. Como nos
- * respondidos a correta é sempre a mesma (a que vale 1), o risco é a equipe
- * perceber o padrão. Aqui a correta alterna por posição na lista de respondidos
- * — 5 de cada lado para qualquer conjunto de 10, sempre.
+ * Ordem das alternativas no DVD: índice de `VALORES` que vai no papel da
+ * esquerda e no da direita. `[1, 0]` = o 2 à esquerda. Determinística: a mesma
+ * semente dá sempre a mesma ordem. Ver `ladosDoDois`.
  */
 export function ordemAlternativas(sorteio, id) {
-  const paridade = PARIDADE_RESPONDIDO.get(id)
-  if (paridade !== undefined) return paridade === 0 ? [0, 1] : [1, 0]
+  return ladosDoDois(sorteio).get(id) ? [1, 0] : [0, 1]
+}
+
+function hash32(texto) {
   let h = 2166136261
-  for (const ch of `${sorteio || ''}:${id}`) {
+  for (const ch of texto) {
     h ^= ch.charCodeAt(0)
     h = Math.imul(h, 16777619)
   }
@@ -535,7 +600,18 @@ export function ordemAlternativas(sorteio, id) {
   h ^= h >>> 13
   h = Math.imul(h, 3266489909)
   h ^= h >>> 16
-  return (h >>> 0) % 2 === 0 ? [0, 1] : [1, 0]
+  return h >>> 0
+}
+
+/**
+ * Ordem dos 20 quadrados na grade, embaralhada por equipe com a mesma semente
+ * das alternativas. Determinística: a equipe vê sempre a mesma ordem, e a ordem
+ * do `ENIGMAS` (que é o gabarito) nunca aparece na tela.
+ */
+export function ordemGrade(sorteio) {
+  return ENIGMAS.map((e) => [hash32(`${sorteio || ''}:grade:${e.id}`), e])
+    .sort((a, b) => a[0] - b[0])
+    .map(([, e]) => e)
 }
 
 /**
@@ -557,20 +633,45 @@ export function prateleirasVazias() {
   return { 1: [], 2: [], 3: [] }
 }
 
+/*
+ * `prateleiras` guarda só os enigmas móveis, em lista compacta por bloco. Os
+ * fixos não entram no estado: `filaVisual` os encaixa na posição deles na hora
+ * de desenhar e de pontuar.
+ */
+
+/** Quantos móveis cabem no bloco: a capacidade menos os fixos dele. */
+export function capacidadeMovel(bloco) {
+  return CAPACIDADES[bloco] - FIXOS.filter((f) => f.bloco === bloco).length
+}
+
+/** Quantos fixos há antes do slot visual `indice`: converte índice visual em índice móvel. */
+export function fixosAntes(bloco, indice) {
+  return FIXOS.filter((f) => f.bloco === bloco && f.posicao < indice).length
+}
+
+/** A prateleira como aparece: fixos na posição deles, móveis nos outros slots, em ordem. */
+export function filaVisual(bloco, moveis = []) {
+  const fixos = new Map(FIXOS.filter((f) => f.bloco === bloco).map((f) => [f.posicao, f.id]))
+  let k = 0
+  return Array.from({ length: CAPACIDADES[bloco] }, (_, i) => fixos.get(i) ?? moveis[k++])
+}
+
 export function idsAlocados(prateleiras) {
-  return new Set([1, 2, 3].flatMap((bloco) => prateleiras[bloco] || prateleiras[String(bloco)] || []))
+  return new Set([...FIXO_IDS, ...[1, 2, 3].flatMap((bloco) => prateleiras[bloco] || prateleiras[String(bloco)] || [])])
 }
 
 export function alocacaoCompleta(prateleiras) {
-  return [1, 2, 3].every((bloco) => (prateleiras[bloco] || prateleiras[String(bloco)] || []).length === CAPACIDADES[bloco])
+  return [1, 2, 3].every((bloco) => (prateleiras[bloco] || prateleiras[String(bloco)] || []).length === capacidadeMovel(bloco))
 }
 
-/** Gabarito da estante: a coluna "Colocação na prateleira" do PDF. */
+/** Gabarito da estante (só os móveis, no formato do estado): a letra e o número do PDF. */
 export function gabaritoPrateleiras() {
   const next = prateleirasVazias()
-  ENIGMAS.forEach((enigma) => {
-    next[enigma.bloco][enigma.posicao] = enigma.id
-  })
+  ;[...ENIGMAS]
+    .sort((a, b) => a.posicao - b.posicao)
+    .forEach((enigma) => {
+      if (!enigma.fixo) next[enigma.bloco].push(enigma.id)
+    })
   return next
 }
 
@@ -584,13 +685,13 @@ export function calcularPontosResolucao(enigmas = {}, teto = 20) {
   return Math.min(pontos, teto)
 }
 
-/** Etapa 2: 1 ponto por slot na posição certa. Teto 20. */
+/** Etapa 2: 1 ponto por slot na posição certa, fixos inclusive (3 garantidos). Teto 20. */
 export function calcularPontosEstante(prateleiras, teto = 20) {
   const gabarito = gabaritoPrateleiras()
   let acertos = 0
   for (const bloco of [1, 2, 3]) {
-    const fila = prateleiras[bloco] || prateleiras[String(bloco)] || []
-    const certa = gabarito[bloco]
+    const fila = filaVisual(bloco, prateleiras[bloco] || prateleiras[String(bloco)] || [])
+    const certa = filaVisual(bloco, gabarito[bloco])
     for (let i = 0; i < certa.length; i += 1) {
       if (fila[i] === certa[i]) acertos += 1
     }
@@ -615,9 +716,23 @@ if (process.env.NODE_ENV !== 'production') {
   const c1 = calcularPontosTarefa({ ...nada, enigmas: maxEnigmas })
   const c2 = calcularPontosTarefa({ prateleiras: cheio, enigmas: maxEnigmas })
   const c3 = calcularPontosTarefa(nada)
-  if (c1.resolucao !== 20 || c1.nota !== 10) throw new Error('20 enigmas abertos no máximo devem dar 20 de resolução e nota 10')
+  if (c1.resolucao !== 20 || c1.nota !== 11.5) throw new Error('10 abertos no máximo + só os fixos devem dar 20 de resolução e nota 11,5')
   if (c2.estante !== 20 || c2.nota !== 20) throw new Error('estante cheia no gabarito deve dar 20 e nota 20')
-  if (c3.nota !== 0) throw new Error('sem resposta e sem estante a nota deve ser 0')
+  if (c3.estante !== 3 || c3.nota !== 1.5) throw new Error('sem resposta e sem estante sobram os 3 fixos: estante 3, nota 1,5')
+  if (FIXOS.length !== 3 || new Set(FIXOS.map((f) => f.bloco)).size !== 3 || FIXOS.some((f) => !f.respondido)) {
+    throw new Error('devem ser 3 fixos respondidos, um por prateleira')
+  }
+  for (const f of FIXOS) {
+    if (filaVisual(f.bloco, [])[f.posicao] !== f.id) throw new Error(`fixo ${f.id} fora da posição`)
+  }
+  if (new Set(ENIGMAS.map((e) => e.id)).size !== 20) throw new Error('ids repetidos')
+  const grades = new Set()
+  for (let s = 0; s < 50; s += 1) {
+    const ordem = ordemGrade(`equipe-${s}`).map((e) => e.id)
+    if (new Set(ordem).size !== 20) throw new Error('ordemGrade não é permutação dos 20')
+    grades.add(ordem.join())
+  }
+  if (grades.size < 50) throw new Error('ordemGrade repetiu entre equipes')
   if (ENIGMAS.length !== 20 || ENIGMAS_ABERTOS.length !== 10) throw new Error('devem ser 20 enigmas, 10 abertos')
   if (ENIGMAS.some((e) => e.bloco < 1 || e.bloco > 3)) throw new Error('bloco fora de 1..3')
   const aplicados = new Set(ENIGMAS.map((e) => `${e.bloco}:${e.posicao}`))
@@ -625,26 +740,25 @@ if (process.env.NODE_ENV !== 'production') {
   if (alocacaoCompleta(cheio) !== true || alocacaoCompleta(prateleirasVazias()) !== false) {
     throw new Error('alocacaoCompleta quebrou')
   }
-  // o sorteio precisa variar de verdade entre equipes. Só os 10 abertos
-  // sorteiam; os respondidos são fixos pela paridade, então medir a variedade
-  // nos 20 daria um teto artificial (só 2^10 combinações existem).
+  // Lado do 2, por equipe: 5/5 nos respondidos, 5/5 nos abertos, nunca mais de
+  // MAX_SEQUENCIA_LADO seguidos na ordem da grade, e variando entre equipes.
   const SEMENTES = 400
   const padroes = new Set()
-  const esquerdaPorEnigma = new Map(ENIGMAS_ABERTOS.map((e) => [e.id, 0]))
-  for (let s = 0; s < SEMENTES; s += 1) {
-    padroes.add(ENIGMAS_ABERTOS.map((e) => ordemAlternativas(`equipe-${s}`, e.id)[0]).join(''))
-    for (const e of ENIGMAS_ABERTOS) {
-      if (ordemAlternativas(`equipe-${s}`, e.id)[0] === 0) esquerdaPorEnigma.set(e.id, esquerdaPorEnigma.get(e.id) + 1)
+  const esquerdaPorEnigma = new Map(ENIGMAS.map((e) => [e.id, 0]))
+  const doisEsquerda = (s, e) => ordemAlternativas(s, e.id)[0] === 1
+  for (let n = 0; n < SEMENTES; n += 1) {
+    const s = `equipe-${n}`
+    const seq = ordemGrade(s).map((e) => doisEsquerda(s, e))
+    if (maiorSequencia(seq) > MAX_SEQUENCIA_LADO) throw new Error(`sequência longa do mesmo lado na semente ${s}`)
+    for (const grupo of [ENIGMAS.filter((e) => e.respondido), ENIGMAS_ABERTOS]) {
+      const esquerda = grupo.filter((e) => doisEsquerda(s, e)).length
+      if (esquerda !== 5) throw new Error(`o 2 ficou ${esquerda} de 10 à esquerda num grupo na semente ${s}`)
     }
+    padroes.add(seq.join())
+    for (const e of ENIGMAS) if (doisEsquerda(s, e)) esquerdaPorEnigma.set(e.id, esquerdaPorEnigma.get(e.id) + 1)
   }
-  if (padroes.size < 250) throw new Error('sorteio das alternativas repetiu padrão entre equipes')
+  if (padroes.size < SEMENTES * 0.95) throw new Error('lado das alternativas repetiu padrão entre equipes')
   for (const [id, n] of esquerdaPorEnigma) {
-    if (n < SEMENTES * 0.4 || n > SEMENTES * 0.6) throw new Error(`sorteio enviesado no enigma ${id}`)
-  }
-  // A correta dos respondidos tem de cair dos dois lados, sempre: nem todas à
-  // esquerda nem todas à direita, em nenhuma semente.
-  for (let s = 0; s < 200; s += 1) {
-    const esquerda = ENIGMAS.filter((e) => e.respondido).filter((e) => ordemAlternativas(`equipe-${s}`, e.id)[0] === 0).length
-    if (esquerda !== 5) throw new Error(`a correta dos respondidos ficou ${esquerda} à esquerda na semente ${s}`)
+    if (n < SEMENTES * 0.35 || n > SEMENTES * 0.65) throw new Error(`lado enviesado no enigma ${id}`)
   }
 }
