@@ -61,7 +61,7 @@ function isLocalDevHost() {
   return host === 'localhost' || host === '127.0.0.1' || host === '[::1]'
 }
 
-const STORAGE_PREFIX = 'dhpb-tarefa-galeria-cultural'
+const STORAGE_PREFIX = 'dhpb-tarefa-galeria-de-enigmas'
 
 function storageKey(faseId) {
   return `${STORAGE_PREFIX}:${faseId || 'preview'}`
@@ -355,20 +355,19 @@ function FaixaPergunta({ texto, ref }) {
  * Enter/Espaço num button não geram `pointerup`.
  */
 function TileEnigma({ id, index, comando, ativo, alocado, virado, marcado, capa, onClick, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onLostPointerCapture }) {
+  // Na estante, o quadrado da grade é só a marca do lugar vazio: abre-se pela caixa na prateleira.
+  const gestos = alocado ? {} : { onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onLostPointerCapture }
   return (
     <button
       type="button"
+      disabled={alocado}
       onClick={(event) => {
-        if (event.detail === 0) onClick()
+        if (!alocado && event.detail === 0) onClick()
       }}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerCancel}
-      onLostPointerCapture={onLostPointerCapture}
-      aria-label={`Enigma ${id}${marcado ? ' (respondido)' : ''}: ${comando}`}
+      {...gestos}
+      aria-label={`Enigma ${id}${marcado ? ' (respondido)' : ''}${alocado ? ' (na estante)' : ''}: ${comando}`}
       className={`relative block aspect-[240/312] w-full border-2 border-[#3B2A1E] touch-none transition-colors ${
-        virado ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
+        alocado ? 'cursor-default' : virado ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
       } ${alocado ? 'border-dashed border-[#3B2A1E]/35 bg-[#E9E1D3]/45' : ''}`}
     >
       {!alocado && (
@@ -676,7 +675,7 @@ function TarefaContent() {
     if (!isLocalDevHost()) return
     setLocalPreview(true)
     setCarregando(false)
-    setFase((atual) => atual || { tarefa: { titulo: 'Galeria Cultural', pontuacao: 20 }, peso: 0, status: 'aberta' })
+    setFase((atual) => atual || { tarefa: { titulo: 'Galeria de Enigmas', pontuacao: 20 }, peso: 0, status: 'aberta' })
     const salvo = lerProgressoLocal(faseId)
     if (salvo) aplicarSalvo(salvo)
   }, [faseId])

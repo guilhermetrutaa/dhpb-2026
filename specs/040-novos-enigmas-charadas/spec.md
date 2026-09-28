@@ -30,8 +30,8 @@ Nenhuma leitura/escrita nova. `prateleiras` continua guardando só os enigmas m�
 
 1. `specs/037-enigmas-tarefa-pdf/spec.md`
 2. `public/novos_enigmas.pdf`
-3. `src/app/tarefas/galeria-cultural/config.js` (ex-`charadas`)
-4. `src/app/tarefas/galeria-cultural/page.jsx`
+3. `src/app/tarefas/galeria-de-enigmas/config.js` (ex-`charadas`)
+4. `src/app/tarefas/galeria-de-enigmas/page.jsx`
 
 ## Critérios de aceite
 
@@ -42,5 +42,5 @@ Nenhuma leitura/escrita nova. `prateleiras` continua guardando só os enigmas m�
 - [x] Estante completa = 17 móveis; nota da estante conta os 3 fixos
 - [x] Textos longos (até 651 caracteres) sem corte na faixa e nos papéis — medido no DOM em 980x914 e 375x720
 - [x] Respondidos marcam a alternativa de 2; lado do 2 sem sequência > 2 (self-check em 400 sementes)
-- [x] `node --no-warnings scripts/simular-pontuacao-galeria-cultural.mjs` confere a nota (fixos + aleatórios)
+- [x] `node --no-warnings scripts/simular-pontuacao-galeria-de-enigmas.mjs` confere a nota (fixos + aleatórios)
 - [x] Self-check do config passando; `npm run build` código 0

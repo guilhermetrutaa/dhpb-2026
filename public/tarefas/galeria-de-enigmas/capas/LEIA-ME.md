@@ -8,5 +8,5 @@ PROVISÓRIA" no desenho). Substitua todos pelo arquivo final com o mesmo nome e
 a mesma proporção — não é preciso mexer em código.
 
 A ordem do arquivo não é a ordem cronológica: `capa-01.jpg` é o enigma `e01`.
-O caminho é gerado em `src/app/tarefas/galeria-cultural/config.js` (`CAPA_SRC`).
+O caminho é gerado em `src/app/tarefas/galeria-de-enigmas/config.js` (`CAPA_SRC`).
 Se a arte final for PNG, troque a extensão só na constante `CAPA_EXT`.

@@ -1,10 +1,10 @@
 export const PDF_DRIVE_URL = ''
 
-export const ICONE_SRC = '/tarefas/galeria-cultural/icone-enigma.jpeg'
+export const ICONE_SRC = '/tarefas/galeria-de-enigmas/icone-enigma.jpeg'
 /** Capa dos enigmas já respondidos no PDF: caixa vermelha, só leitura. */
 export const RESPONDIDO_SRC = '/quadrado-respondido.webp'
 
-export const PRATELEIRA_SRC = '/tarefas/galeria-cultural/prateleira.svg'
+export const PRATELEIRA_SRC = '/tarefas/galeria-de-enigmas/prateleira.svg'
 
 /**
  * Cenário da locadora atrás da estante: 1280x720 (16:9). O miolo do desenho é a
@@ -19,7 +19,7 @@ export const FUNDO_ESTANTE_SRC = '/desenho-fundo.jpeg'
 
 /**
  * Extensão das capas dos 20 enigmas (`CAPA_SRC`, por id: `e11` usa `capa-11`).
- * Os arquivos em `public/tarefas/galeria-cultural/capas/` são 1086x1448 (3:4, a mesma
+ * Os arquivos em `public/tarefas/galeria-de-enigmas/capas/` são 1086x1448 (3:4, a mesma
  * proporção do `icone-enigma.jpeg` e dos tiles).
  *
  * `CAPA_EXT` precisa bater com a arte que está na pasta. Já esteve errada: valia
@@ -486,12 +486,12 @@ export const VALORES = [1, 2]
  * era só para os respondidos. O nome ficou; o uso não é mais esse.
  */
 export const DVD_COM_CD = Object.fromEntries(
-  ENIGMAS.map((e) => [e.id, `/tarefas/galeria-cultural/dvd-abertos-respondidos/${e.id}.png`]),
+  ENIGMAS.map((e) => [e.id, `/tarefas/galeria-de-enigmas/dvd-abertos-respondidos/${e.id}.png`]),
 )
 
 /** Capa de cada enigma, pelo número do id: `e11` usa `capa-11`. */
 export const CAPA_SRC = Object.fromEntries(
-  ENIGMAS.map((e) => [e.id, `/tarefas/galeria-cultural/capas/capa-${e.id.slice(1)}.${CAPA_EXT}`]),
+  ENIGMAS.map((e) => [e.id, `/tarefas/galeria-de-enigmas/capas/capa-${e.id.slice(1)}.${CAPA_EXT}`]),
 )
 
 /** Os 3 enigmas que já vêm na estante, na posição do gabarito, e não saem. */
