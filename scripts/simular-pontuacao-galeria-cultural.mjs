@@ -1,13 +1,13 @@
-// Simulador da nota da tarefa Charadas. Usa as mesmas funções da página
+// Simulador da nota da tarefa Galeria Cultural. Usa as mesmas funções da página
 // (`calcularPontosTarefa`), então o que sai aqui é o que vai para o Firestore.
-// Uso: node --no-warnings scripts/simular-pontuacao-charadas.mjs [equipesAleatorias]
+// Uso: node --no-warnings scripts/simular-pontuacao-galeria-cultural.mjs [equipesAleatorias]
 import {
   ENIGMAS_ABERTOS,
   calcularPontosTarefa,
   capacidadeMovel,
   gabaritoPrateleiras,
   prateleirasVazias,
-} from '../src/app/tarefas/charadas/config.js'
+} from '../src/app/tarefas/galeria-cultural/config.js'
 
 const gabarito = gabaritoPrateleiras()
 const escolhas = (fn) => Object.fromEntries(ENIGMAS_ABERTOS.map((e, i) => [e.id, { valor: fn(i) }]))

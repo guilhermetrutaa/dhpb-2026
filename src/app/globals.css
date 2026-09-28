@@ -45,9 +45,9 @@ body {
 .animate-support-in { animation: support-in 0.25s ease-out both; }
 .animate-support-bounce { animation: support-bounce 1.2s ease-in-out infinite; }
 
-/* Tarefa charadas - caixa de DVD que abre em 3D dentro do modal.
+/* Tarefa galeria-cultural - caixa de DVD que abre em 3D dentro do modal.
    Geometria (eixo da lombada, folha, recortes, papel) vem de
-   tarefas/charadas/config.js via custom properties, sempre em percentual.
+   tarefas/galeria-cultural/config.js via custom properties, sempre em percentual.
    Tempos vêm de DVD_ANIM. O palco só é montado dentro do modal, então
    montar o modal é o gatilho da animação: não há delay por tile, nem cascata. */
 
