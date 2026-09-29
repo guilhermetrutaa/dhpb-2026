@@ -254,9 +254,9 @@ export const ENIGMAS = [
     comando:
       'Sou o longa-metragem silencioso de maior projeção nacional de minha época em solo paraibano. Minhas lentes registraram os rituais da vaquejada e a brutalidade da pesca da baleia. Cruzei o oceano rumo a Paris em busca de voz e som para a modernidade, mas meu destino foi o extravio, restando ao tempo guardar apenas fragmentos de minha força visual.',
     valorBaixo:
-      'entende que o filme se intitula Sob o Céu Nordestino, estreou na capital paraibana no ano de 1929 e contou originalmente com dois mil e oitenta metros de película. O filme documentário, hoje não está completo, mas mostra aspectos da Paraíba de uma forma didática.',
+      'Escolha este caminho se sua equipe descobriu que o filme se intitula "Sob o Céu Nordestino", estreou na capital paraibana no ano de 1929 e contou originalmente com dois mil e oitenta metros de película. O filme documentário hoje não está completo, mas mostra aspectos da Paraíba de uma forma didática.',
     valorAlto:
-      'Enquanto análises tradicionais reduziam o filme ao "primitivismo" ufanista, a tese destaca uma estética "parnasiana" (formalista e cuidada) na captura de rituais como a pesca da baleia; Rodriguez aliou sensibilidade poética e rigor na composição de quadros, recusando o mero exotismo comercial.',
+      'Escolha este caminho se sua equipe compreende que, enquanto análises tradicionais reduziam o filme ao "primitivismo" ufanista, a tese destaca uma estética "parnasiana" (formalista e cuidada) na captura de rituais como a pesca da baleia; Rodriguez aliou sensibilidade poética e rigor na composição de quadros, recusando o mero exotismo comercial.',
   },
   {
     id: 'e03',
@@ -266,9 +266,9 @@ export const ENIGMAS = [
     comando:
       'Nasci das inquietações de um jornalista e crítico que trocou a caneta pela câmera Bolex. Vim das lonjuras paraibanas sem dinheiro ou circuitos de exibição, mas rompi com o cinema comercial e propagandístico. Tornei-me a matriz ideológica que sacudiu o país, sendo consagrado como o verdadeiro ponto de inflexão e a síntese estética de um novo movimento nacional.',
     valorBaixo:
-      'entende que o filme é Aruanda, lançado em 1960 e dirigido por Linduarte Noronha. inaugurando uma estética realista e de baixo orçamento que serviu de matriz para o Cinema Novo.',
+      'Escolha este caminho se sua equipe descobriu que o filme é Aruanda, lançado em 1960 e dirigido por Linduarte Noronha. Inaugurando uma estética realista e de baixo orçamento que serviu de matriz para o Cinema Novo.',
     valorAlto:
-      'compreende que o diretor fundiu o olhar jornalístico à linguagem cinematográfica para criar um cinema sociologicamente engajado; a obra é um divisor de águas pois rompeu com os documentários propagandísticos vigentes.',
+      'Escolha este caminho se sua equipe compreende que o diretor fundiu o olhar jornalístico à linguagem cinematográfica para criar um cinema sociologicamente engajado; a obra é um divisor de águas pois rompeu com os documentários propagandísticos vigentes.',
   },
   {
     id: 'e07',
@@ -277,9 +277,9 @@ export const ENIGMAS = [
     comando:
       'Dou vida e movimento a uma comunidade remanescente que a história oficial tentou isolar no alto da serra. Trago para a tela o barro, a aridez e o cotidiano de homens e mulheres esquecidos pelo poder público. Embora eu os coloque no centro do debate social do país, as minhas imagens são mediadas por uma voz exterior que interpreta o sofrimento deles sem deixá-los falar.',
     valorBaixo:
-      'a experiência de uma comunidade na Serra do Talhado, fundada pelo ex-escravizado Zé Bento, e a atividade de destaque é a produção de cerâmica (louceiras), contudo, o "modelo sociológico" limita sua autonomia, pois uma voz narradora exterior e supostamente neutra se sobrepõe às vivências dos sujeitos.',
+      'Escolha este caminho se sua equipe compreende que a experiência de uma comunidade na Serra do Talhado, fundada pelo ex-escravizado Zé Bento, e a atividade de destaque é a produção de cerâmica (louceiras), contudo, o "modelo sociológico" limita sua autonomia, pois uma voz narradora exterior e supostamente neutra se sobrepõe às vivências dos sujeitos.',
     valorAlto:
-      'compreende que o filme insere os quilombolas no debate ao denunciar o abandono político, o analfabetismo, sequelas do pós-abolição, no Nordeste. Esse é um debate social da época e, ao mesmo tempo, discute o limite dessa representação por meio do conceito de "modelo sociológico".',
+      'Escolha este caminho se sua equipe entende que o filme insere os quilombolas no debate ao denunciar o abandono político, o analfabetismo e as sequelas do pós-abolição no Nordeste. Esse é um debate social da época e, ao mesmo tempo, discute o limite dessa representação por meio do conceito de "modelo sociológico".',
   },
   {
     id: 'e15',
@@ -288,9 +288,9 @@ export const ENIGMAS = [
     comando:
       'A narrativa do longa-metragem de 1983 desafia abertamente a contumácia memorial de uma sociedade conservadora. De um lado, a película encena os efervescentes conflitos políticos oligárquicos que deflagraram a Revolução de 1930. De outro, o enredo resgata a subjetividade de uma mulher vanguardista, utilizando a linguagem audiovisual como um dispositivo genealógico de reparação histórica contra discursos puramente depreciativos.',
     valorBaixo:
-      'Em Parahyba, Mulher Macho, a diretora Tizuka Yamazaki desloca o foco do "herói" mítico João Pessoa para fixá-lo na professora e poetisa Anayde Beiriz. A trama expõe seu romance com o advogado João Dantas, elo afetivo que desencadeou a crise política no estado.',
+      'Escolha este caminho se sua equipe entende que em Parahyba, Mulher Macho, a diretora Tizuka Yamazaki desloca o foco do "herói" mítico João Pessoa para fixá-lo na professora e poetisa Anayde Beiriz. A trama expõe seu romance com o advogado João Dantas, elo afetivo que desencadeou a crise política no estado.',
     valorAlto:
-      'Essa reconstrução confronta o silenciamento e a exclusão da mulher na historiografia oficial paraibana. Sequências emblemáticas, como o corte de cabelo à la garçonne, materializam visualmente os ideais de independência e emancipação feminina. O cinema atua como meio crítico ao reverter o rótulo moralista e provinciano imposto pela dominação masculina da época.',
+      'Escolha este caminho se sua equipe compreende que essa reconstrução confronta o silenciamento e a exclusão da mulher na historiografia oficial paraibana. Sequências emblemáticas, como o corte de cabelo à la garçonne, materializam visualmente os ideais de independência e emancipação feminina. O cinema atua como meio crítico ao reverter o rótulo moralista e provinciano imposto pela dominação masculina da época.',
   },
   {
     id: 'e01',
@@ -300,9 +300,9 @@ export const ENIGMAS = [
     comando:
       'O percurso da nossa narrativa de 1942 ganha sentido nas paradas para exibições comerciais sobre as aspirinas, revelando que a modernidade mudou as condições objetivas do mercado e as condições subjetivas do indivíduo. Um de nós reage a esse processo com um entusiasmo cego e acrítico, fascinado por uma suposta superioridade intelectual dos modernos habitantes das cidades. O outro manifesta certa repulsa a essa ideia de moderno, pois traz em sua memória o horror de uma tecnologia militar mortífera que desaba como bombas do céu.',
     valorBaixo:
-      'Em Cinema, Aspirinas e Urubus, o sertanejo Ranulpho fica deslumbrado com a projeção cinematográfica que mostra São Paulo como um povo destinado a cumprir uma missão civilizadora. Enquanto isso, o alemão Johann evita ao máximo falar sobre a guerra e prefere viver isolado em uma região que o senso comum considera o oposto do moderno.',
+      'Escolha este caminho se sua equipe descobriu que em Cinema, Aspirinas e Urubus, o sertanejo Ranulpho fica deslumbrado com a projeção cinematográfica que mostra São Paulo como um povo destinado a cumprir uma missão civilizadora. Enquanto isso, o alemão Johann evita ao máximo falar sobre a guerra e prefere viver isolado em uma região que o senso comum considera o oposto do moderno.',
     valorAlto:
-      'O choque entre os personagens evidencia que a sensibilidade moderna produz uma atmosfera de agitação e destruição de laços pessoais. Enquanto o habitante do sertão associa o progresso técnico a uma promessa de possibilidades para escapar da miséria regional, o migrante europeu percebe os perigos de que era portador do progresso técnico no quadro da civilização.',
+      'Escolha este caminho se sua equipe descobriu que o choque entre os personagens evidencia que a sensibilidade moderna produz uma atmosfera de agitação e destruição de laços pessoais. Enquanto o habitante do sertão associa o progresso técnico a uma promessa de possibilidades para escapar da miséria regional, o migrante europeu percebe os perigos de que era portador do progresso técnico no quadro da civilização.',
   },
   {
     id: 'e04',
@@ -313,9 +313,9 @@ export const ENIGMAS = [
     comando:
       'Eu nasci para colorir o céu de Natal e arrancar sorrisos da infância na Rua Campos Sales. Mas o sopro que me inflava guardava um calor invisível e mortal. Num instante, a alegria virou fumaça, o metal cedeu à pressão e a memória de Campina Grande mudou para sempre. Um cineasta paraibano, anos depois, juntou os fragmentos desse sopro para que o tempo não apagasse o choro de José Pinheiro.',
     valorBaixo:
-      'Escolha este caminho se sua equipe A obra que resgata esse acontecimento é o documentário paraibano "Os Balões de 74", dirigido por Luciano Mariz e lançado em 2007. Dando voz aos sobreviventes e familiares, o filme tensiona o silenciamento histórico sobre uma tragédia.',
+      'Escolha este caminho se sua equipe entende que a obra resgatadora desse acontecimento é o documentário paraibano "Os Balões de 74", dirigido por Luciano Mariz e lançado em 2007. Dando voz aos sobreviventes e familiares, o filme tensiona o silenciamento histórico sobre uma tragédia.',
     valorAlto:
-      'Escolha este caminho se sua equipe A análise da obra de Luciano Mariz revela como o cinema documental atua como um instrumento de memória social contra o esquecimento institucional, transformando a dor privada em um debate público.',
+      'Escolha este caminho se sua equipe entende que a análise da obra de Luciano Mariz revela como o cinema documental atua como um instrumento de memória social contra o esquecimento institucional, transformando a dor privada em um debate público.',
   },
   {
     id: 'e17',
@@ -324,20 +324,20 @@ export const ENIGMAS = [
     comando:
       'O curso da nossa travessia é guiado pelo fluxo constante da água, que conecta o mar da Aldeia Alto do Tambá, o Rio Jaguaribe e o açude no Sertão paraibano. Uma força nesta jornada se manifesta na indignação contra os livros didáticos escolares, que retratam os povos originários de forma pejorativa e impõem uma narrativa oficial de apagamento. A outra força reside na oralidade e no mundo dos sonhos, onde se encontra a rara capacidade de reprogramar memórias e plantar os sinais deixados pelos antepassados.',
     valorBaixo:
-      'No filme O Sonho de Anu, a protagonista Anú usa o sonho como bússola espiritual para reencontrar sua linhagem ancestral de África e do Brasil. Ela desafia a violência da escrita colonial propondo um olhar crítico à colonização a partir das vivências em territórios paraibanos.',
+      'Escolha este caminho se sua equipe compreende que no filme "O Sonho de Anu", a protagonista Anú usa o sonho como bússola espiritual para reencontrar sua linhagem ancestral de África e do Brasil. Ela desafia a violência da escrita colonial propondo um olhar crítico à colonização a partir das vivências em territórios paraibanos.',
     valorAlto:
-      'O filme celebra a ancestralidade ao provar que a memória viva, guardada pelas águas e pelas vozes que nunca se calaram, é capaz de interferir e ressignificar a história oficial. Enquanto os livros didáticos simbolizam as contradições do processo civilizatório europeu, os áudios e a voz materna tornam-se um testemunho afetivo e político de resistência cultural.',
+      'Escolha este caminho se sua equipe compreende que no filme "O Sonho de Anu",  a ancestralidade é celebrada ao provar que a memória viva, guardada pelas águas e pelas vozes que nunca se calaram, é capaz de interferir e ressignificar a história oficial. Enquanto os livros didáticos simbolizam as contradições do processo civilizatório europeu, os áudios e a voz materna tornam-se um testemunho afetivo e político de resistência cultural.',
   },
   {
     id: 'e02',
     bloco: 2,
     posicao: 0,
     comando:
-      'em uma noite de festa e devoção, em 28 de julho de 1897, fui apresentado como a última grande invenção do século. Prometi trazer o progresso moderno ao iluminar uma sala escura, mas cobrei um preço que barrou a entrada do povo humilde, abrindo minhas portas apenas para os bolsos da elite parahybana.',
+      'Em uma noite de festa e devoção, em 28 de julho de 1897, fui apresentado como a última grande invenção do século. Prometi trazer o progresso moderno ao iluminar uma sala escura, mas cobrei um preço que barrou a entrada do povo humilde, abrindo minhas portas apenas para os bolsos da elite parahybana.',
     valorBaixo:
-      'O aparelho foi o cinematógrafo, introduzido no ano de 1897 pelo exibidor italiano Nicolau Maria Parente, na festa das Neves, mas para as camadas abastadas da sociedade paraibana.',
+      'Escolha este caminho se sua equipe descobriu que o aparelho foi o cinematógrafo, introduzido no ano de 1897 pelo exibidor italiano Nicolau Maria Parente, na festa das Neves, mas para as camadas abastadas da sociedade paraibana.',
     valorAlto:
-      'A estreia revela a contradição de uma tecnologia avançada inserida em um ambiente de contrastes sociais, pois o alto custo do ingresso restringiu o consumo à elite, gerando uma modernização excludente e segregadora.',
+      'Escolha este caminho se sua equipe compreende que a estreia revela a contradição de uma tecnologia avançada inserida em um ambiente de contrastes sociais, pois o alto custo do ingresso restringiu o consumo à elite, gerando uma modernização excludente e segregadora.',
   },
   {
     id: 'e10',
@@ -347,9 +347,9 @@ export const ENIGMAS = [
     comando:
       'Afastei-me do luxo das avenidas centrais para acompanhar o crescimento da cidade em direção ao leste. Sou menor, mais simples e herdo as fitas que os palácios do centro já cansaram de exibir, mas cumpro o papel de levar a tela aos trabalhadores por poucas moedas.',
     valorBaixo:
-      'Identifique que a categoria desse tipo de sala de exibição se trata dos cinemas de bairro (ou "poeirinhas"), representada pelo pioneiro Cine São João, inaugurado em Jaguaribe em 1923.',
+      'Escolha este caminho se sua equipe identifica que a categoria desse tipo de sala de exibição se trata dos cinemas de bairro (ou "poeirinhas"), representada pelo pioneiro Cine São João, inaugurado em Jaguaribe em 1923.',
     valorAlto:
-      'compreende que a divisão espacial reflete a segregação urbana: o centro retinha os cinemas lançadores com filmes inéditos e caros para a elite, enquanto os bairros operários recebiam fitas atrasadas e baratas, hierarquizando o acesso ao lazer moderno.',
+      'Escolha este caminho se sua equipe compreende que a divisão espacial reflete a segregação urbana: o centro retinha os cinemas lançadores com filmes inéditos e caros para a elite, enquanto os bairros operários recebiam fitas atrasadas e baratas, hierarquizando o acesso ao lazer moderno.',
   },
   {
     id: 'e13',
@@ -358,9 +358,9 @@ export const ENIGMAS = [
     comando:
       'Nós somos as duas dimensões indissociáveis que dão corpo à existência de um filme e determinam sua força como documento pedagógico e histórico. A primeira de nós se manifesta na fisicalidade e no desuso tecnológico, exigindo esforços urgentes de salvaguarda química e eletrônica para que as velhas bitolas analógicas não desapareçam nas prateleiras dos arquivos universitários. A segunda de nós reside no imaterial, sobrevivendo como um testemunho estético e político capaz de projetar nos olhos de novas gerações as vestimentas, as expressões, as arquiteturas e os cotidianos esquecidos de tempos que já se foram.',
     valorBaixo:
-      'Os filmes são bens materiais e imateriais simultaneamente. Diante da obsolescência tecnológica, a digitalização de acervo, como o da UFPB, salvou um patrimônio que estava inacessível ao público geral.',
+      'Escolha este caminho se sua equipe compreende que os filmes são, simultaneamente, bens materiais e imateriais. Diante da obsolescência tecnológica, a digitalização de acervo, como o da UFPB, salvou um patrimônio que estava inacessível ao público geral.',
     valorAlto:
-      'A preservação fílmica atua diretamente na educação de resistência histórica. Ao disponibilizar a Coleção Cinema Paraibano, se democratiza o acesso e cria uma "viagem no tempo", permitindo uma expansão no repertório crítico dos jovens contra o esvaziamento provocado pela indústria cultural de massa.',
+      'Escolha este caminho se sua equipe identifica que a preservação fílmica atua diretamente na educação de resistência histórica. Ao disponibilizar a Coleção Cinema Paraibano, se democratiza o acesso e cria uma "viagem no tempo", permitindo uma expansão no repertório crítico dos jovens contra o esvaziamento provocado pela indústria cultural de massa.',
   },
   {
     id: 'e16',
@@ -371,9 +371,9 @@ export const ENIGMAS = [
     comando:
       'Surgi em João Pessoa no ano de 2005, batizado com o nome do filme mais emblemático da história de nossa terra. Multipliquei-me rapidamente, fincando raízes da capital ao sertão, e passei a integrar um \'boom\' nacional. Sou a principal janela que acolhe a cadeia alternativa e independente, dando vazão a obras experimentais que as grandes massas comerciais costumam ignorar.',
     valorBaixo:
-      'descobriu que o evento pioneiro é o Fest Aruanda, o estado contabiliza atualmente dezessete festivais tais como o Comunicurtas (Campina Grande), Curta Coremas (Coremas), Cinema com Farinha (Patos) e Cine Congo (Congo).',
+      'Escolha este caminho se sua equipe descobriu que o evento pioneiro é o Fest Aruanda, o estado contabiliza atualmente dezessete festivais tais como o Comunicurtas (Campina Grande), Curta Coremas (Coremas), Cinema com Farinha (Patos) e Cine Congo (Congo).',
     valorAlto:
-      'entende que eles funcionam como elos cruciais na cadeia produtiva ao suprir a falta de salas comerciais no estado, servindo como a única janela de difusão e exibição para filmes independentes e de circulação alternativa.',
+      'Escolha este caminho se sua equipe entende que eles funcionam como elos cruciais na cadeia produtiva ao suprir a falta de salas comerciais no estado, servindo como a única janela de difusão e exibição para filmes independentes e de circulação alternativa.',
   },
   {
     id: 'e18',
@@ -383,9 +383,9 @@ export const ENIGMAS = [
     comando:
       'Aventurei-me por caminhos onde as salas de exibição convencionais jamais ousaram existir, subvertendo o tradicional fluxo cultural que sempre viaja da capital para o interior. Muito além de promover o turismo e movimentar o comércio local por onde passo, tornei-me um escudo social nas mãos de pequenas comunidades, usando a arte e o compartilhamento de saberes para resgatar jovens da criminalidade.',
     valorBaixo:
-      'descobriu que o fenômeno de interiorização da cultura audiovisual promovido por esses festivais que ocorrem em doze cidades, apresenta apenas 25% delas (três cidades) que possuem salas convencionais, e os três municípios citados são Congo, Coremas e Picuí.',
+      'Escolha este caminho se sua equipe descobriu que o fenômeno de interiorização da cultura audiovisual promovido por esses festivais que ocorrem em doze cidades, apresenta apenas 25% delas (três cidades) que possuem salas convencionais, e os três municípios citados são Congo, Coremas e Picuí.',
     valorAlto:
-      'descobriu que o processo de interiorização inverte o fluxo cultural e democratiza o acesso à arte; ao promover oficinas e debates, os festivais quebram a hegemonia estética de massa e servem como ferramentas de inclusão social e enfrentamento a vulnerabilidades locais.',
+      'Escolha este caminho se sua equipe descobriu que o processo de interiorização inverte o fluxo cultural e democratiza o acesso à arte; ao promover oficinas e debates, os festivais quebram a hegemonia estética de massa e servem como ferramentas de inclusão social e enfrentamento a vulnerabilidades locais.',
   },
   {
     id: 'e20',
@@ -394,9 +394,9 @@ export const ENIGMAS = [
     comando:
       'Nós fomos as duas realidades do cinema independente da Paraíba. O primeiro foi o confinamento, com rolos esquecidos em prateleiras por falta de projetores. O segundo foi a libertação digital, que colocou essas imagens na internet para cineclubes e salas de aula.',
     valorBaixo:
-      'O Projeto CP:MP realizou a telecinagem e disponibilização virtual de dezenas de documentários paraibanos. O acervo que antes sofria com a oxidação no NUDOC passou a abastecer pesquisas e exibições cineclubistas.',
+      'Escolha este caminho se sua equipe identificou que o Projeto CP:MP realizou a telecinagem e disponibilização virtual de dezenas de documentários paraibanos. O acervo que antes sofria com a oxidação no NUDOC passou a abastecer pesquisas e exibições cineclubistas.',
     valorAlto:
-      'A migração para o ambiente digital transforma o cinema em ferramenta de debate social nas escolas. Filmes antigos que tratam de sexualidade, questões indígenas e lutas camponesas saem do nicho acadêmico direto para os estudantes. A internet, portanto, transforma a memória audiovisual em uma prática pedagógica viva de afirmação identitária.',
+      'Escolha este caminho se sua equipe entende que a migração para o ambiente digital transforma o cinema em ferramenta de debate social nas escolas. Filmes antigos que tratam de sexualidade, questões indígenas e lutas camponesas saem do nicho acadêmico direto para os estudantes. A internet, portanto, transforma a memória audiovisual em uma prática pedagógica viva de afirmação identitária.',
   },
   {
     id: 'e19',
@@ -418,9 +418,9 @@ export const ENIGMAS = [
     comando:
       'Nascido no final do século XIX, vi o cinema nascer nos braços de meu pai. Tornei-me um \'homem-equipe\' que acumulava funções para desbravar milhares de quilômetros registrando a realidade da Parahyba do Norte. Rompendo com o ufanismo comercial e a ficção, criei o verdadeiro marco zero de nossa história através de imagens silenciosas e puras do real.',
     valorBaixo:
-      'para a equipe esse é o cineasta Walfredo Rodriguez, dono da produtora Nordeste Film, que estreou seu primeiro cinejornal (Filme-Jornal do Brasil – Um Pouco de Tudo) no ano de 1919 e na Parahyba do Norte buscou despertar uma identidade para o cinema paraibano.',
+      'Escolha este caminho se, para a equipe, esse é o cineasta Walfredo Rodriguez, dono da produtora Nordeste Film, que estreou seu primeiro cinejornal (Filme-Jornal do Brasil – Um Pouco de Tudo) no ano de 1919 e na Parahyba do Norte buscou despertar uma identidade para o cinema paraibano.',
     valorAlto:
-      'compreende que ele foi o marco zero local ao consolidar uma cinematografia fundada no real e no código documental; sua importância reside em filiar a Paraíba ao cinema de não-ficção, diferenciando-se da maioria dos ciclos brasileiros dos anos 1920, que priorizavam o gênero ficcional e "posado"',
+      'Escolha este caminho se sua equipe compreende que ele foi o marco zero local ao consolidar uma cinematografia fundada no real e no código documental; sua importância reside em filiar a Paraíba ao cinema de não-ficção, diferenciando-se da maioria dos ciclos brasileiros dos anos 1920, que priorizavam o gênero ficcional e "posado"',
   },
   {
     id: 'e06',
@@ -429,9 +429,9 @@ export const ENIGMAS = [
     comando:
       'Eu fui a pioneira que abriu as portas do cinema mudo regional no início da década de 1930. Minha trajetória como protagonista foi interrompida de forma abrupta quando a indústria cultural estrangeira impôs uma revolução tecnológica que mudou o mercado nacional.',
     valorBaixo:
-      'Mazyl Jurema estreou no filme No Cenário da Vida (1930) e vivenciou o encerramento do Ciclo do Recife. Sua carreira na tela grande foi freada pela rejeição do público aos filmes mudos após a chegada do cinema sonoro estrangeiro. Isso demonstra como as rápidas transformações da mídia de massa podiam silenciar talentos pioneiros regionais sem dar espaço de adaptação.',
+      'Escolha este caminho se sua equipe descobriu que Mazyl Jurema estreou no filme No Cenário da Vida (1930) e vivenciou o encerramento do Ciclo do Recife. Sua carreira na tela grande foi freada pela rejeição do público aos filmes mudos após a chegada do cinema sonoro estrangeiro. Isso demonstra como as rápidas transformações da mídia de massa podiam silenciar talentos pioneiros regionais sem dar espaço de adaptação.',
     valorAlto:
-      'A trajetória de Mazyl expõe a extrema vulnerabilidade da mulher no mercado cultural do início do século XX. Ela foi vítima de uma exclusão forçada por fatores exclusivamente econômicos e tecnológicos, fenômeno que evidencia como as velozes transformações na mídia de massa sufocavam o pioneirismo regional.',
+      'Escolha este caminho se sua equipe entende que a trajetória de Mazyl expõe a extrema vulnerabilidade da mulher no mercado cultural do início do século XX. Ela foi vítima de uma exclusão forçada por fatores exclusivamente econômicos e tecnológicos, fenômeno que evidencia como as velozes transformações na mídia de massa sufocavam o pioneirismo regional.',
   },
   {
     id: 'e08',
@@ -441,9 +441,9 @@ export const ENIGMAS = [
     comando:
       'Eu despontei nos anos 1950 e conquistei consagração nacional no cinema, rádio e televisão. Décadas mais tarde, tomei a decisão consciente de romper com as telas comerciais por rejeitar o esvaziamento artístico e as produções apelativas da grande mídia.',
     valorBaixo:
-      'Cacilda Lanuza estreou nacionalmente em O Canto do Mar (1953) e ganhou destaque na revista Cinearte. Na década de 1970, ela abandonou voluntariamente a televisão e o cinema comercial para se dedicar de forma exclusiva aos palcos.',
+      'Escolha este caminho se sua equipe descobriu que Cacilda Lanuza estreou nacionalmente em O Canto do Mar (1953) e ganhou destaque na revista Cinearte. Na década de 1970, ela abandonou voluntariamente a televisão e o cinema comercial para se dedicar de forma exclusiva aos palcos.',
     valorAlto:
-      'O afastamento de Cacilda representa uma postura política ativa, autônoma e de vanguarda feminina. Utilizando sua independência financeira, ela rejeitou uma mídia de massa alienante. Ao escolher os palcos, transformou o teatro em uma trincheira de resistência artística e de afirmação de sua dignidade criativa.',
+      'Escola este caminho se sua equipe compreende que o afastamento de Cacilda representa uma postura política ativa, autônoma e de vanguarda feminina. Utilizando sua independência financeira, ela rejeitou uma mídia de massa alienante. Ao escolher os palcos, transformou o teatro em uma trincheira de resistência artística e de afirmação de sua dignidade criativa.',
   },
   {
     id: 'e12',
@@ -452,9 +452,9 @@ export const ENIGMAS = [
     comando:
       'Nós fomos os olhares pioneiros que capturaram as realidades profundas do povo nordestino e redefiniram os rumos da nossa cinematografia. O primeiro de nós utilizou uma câmera quase de forma documental e poética para registrar a saga de uma família negra na Serra do Talhado, revelando ao Brasil o abandono dos descendentes de escravizados e inaugurando um ciclo estético divisor de águas. O segundo de nós, partindo dessa mesma efervescência, dedicou décadas a documentar de forma contundente as lutas camponesas e a própria memória do nosso cinema, encerrando aquele ciclo áureo com uma homenagem poética feita a partir de fragmentos do passado.',
     valorBaixo:
-      'As trajetórias de Linduarte Noronha e Vladimir de Carvalho evidenciam o papel transformador e de vanguarda do cinema paraibano no cenário do Cinema Novo brasileiro, deslocando o eixo temático nacional para a crueza da realidade sertaneja.',
+      'Escolha este caminho se sua equipe compreende que as trajetórias de Linduarte Noronha e Vladimir de Carvalho evidenciam o papel transformador e de vanguarda do cinema paraibano no cenário do Cinema Novo brasileiro, deslocando o eixo temático nacional para a crueza da realidade sertaneja.',
     valorAlto:
-      'Enquanto a produção de Linduarte Noronha, (Aruanda 1960) representou um marco fundador de inserção nacional por meio do curta-metragem documental de denúncia social, a atuação de Vladimir de Carvalho, (O País de São Saruê 1971), representou aprofundamento dessa estética, utilizando o documentário como uma ferramenta viva de preservação da memória histórica e de resistência política contra o apagamento cultural.',
+      'Escolha este caminho se sua equipe compreende que enquanto a produção de Linduarte Noronha, (Aruanda 1960) representou um marco fundador de inserção nacional por meio do curta-metragem documental de denúncia social, a atuação de Vladimir de Carvalho, (O País de São Saruê 1971), representou aprofundamento dessa estética, utilizando o documentário como uma ferramenta viva de preservação da memória histórica e de resistência política contra o apagamento cultural.',
   },
   {
     id: 'e09',
@@ -464,9 +464,9 @@ export const ENIGMAS = [
     comando:
       'Nós fomos os guardiões e tecelões das imagens que guardam o tempo e a história da Paraíba. O primeiro de nós, considerado o pai do cinema do nosso estado, desbravou o território nas primeiras décadas do século XX, registrando desde a flora local até os discursos e viagens do político João Pessoa, mas viu sua produção cessar e deixar apenas fragmentos perdidos no tempo. O Outro, décadas mais tarde, assumiu a missão de resgatar esses mesmos pedaços esquecidos e incorporá-los em sua própria obra cinematográfica, transformando a arqueologia de películas antigas em uma ode à resistência cultural e ao encerramento de uma era de ouro do documentário.',
     valorBaixo:
-      'Vladimir de Carvalho, ao realizar o documentário O Homem de Areia (1982), utilizou estrategicamente fragmentos restantes das obras de Walfredo Rodrigues, transformando a arqueologia de películas antigas em uma ode à resistência cultural e ao encerramento de uma era de ouro do documentário.',
+      'Escolha este caminho se sua equipe descobriu que Vladimir de Carvalho, ao realizar o documentário O Homem de Areia (1982), utilizou estrategicamente fragmentos restantes das obras de Walfredo Rodrigues, transformando a arqueologia de películas antigas em uma ode à resistência cultural e ao encerramento de uma era de ouro do documentário.',
     valorAlto:
-      'Ambas as carreiras ilustram o desafio histórico da preservação e da continuidade da memória audiovisual em solo paraibano. Enquanto Walfredo Rodrigues enfrentou a solidão do pioneirismo e a posterior escassez de produção, Vladimir de Carvalho agiu não apenas como realizador, mas como um “historiador visual”, estabelecendo uma ponte dialética entre o cinema mudo do início do século e o documentário moderno.',
+      'Escolha este caminho se sua equipe compreende que ambas as carreiras ilustram o desafio histórico da preservação e da continuidade da memória audiovisual em solo paraibano. Enquanto Walfredo Rodrigues enfrentou a solidão do pioneirismo e a posterior escassez de produção, Vladimir de Carvalho agiu não apenas como realizador, mas como um “historiador visual”, estabelecendo uma ponte dialética entre o cinema mudo do início do século e o documentário moderno.',
   },
   {
     id: 'e14',
@@ -475,9 +475,9 @@ export const ENIGMAS = [
     comando:
       'Eu não busco as grandes luzes dos festivais internacionais, mas as lâmpadas improvisadas nas sedes de bairros e clubes de mães de Campina Grande. Carrego na bagagem o riso do "Major Palito" e os acordes do "Biu do Violão", fazendo com que o cinema do meu estado pertença à comunidade, e não apenas às elites. Entre as salas de aula da universidade e a poeira das ruas periféricas, divido meu tempo para que o audiovisual paraibano seja visto, debatido e, acima de tudo, lembrado por quem o inspira.',
     valorBaixo:
-      'Escolha este caminho se sua equipe Refere-se ao professor e cineasta Rômulo Azevedo e ao seu projeto de extensão "Cinema de Bairro" da UEPB. Os curtas citados são "Apresentando o Major Palito & Família" e "Biu do Violão e o Diamante Cor-de-rosa".',
+      'Escolha este caminho se sua equipe compreende que o enigma se refere ao professor e cineasta Rômulo Azevedo e ao seu projeto de extensão "Cinema de Bairro" da UEPB. Os curtas citados são "Apresentando o Major Palito & Família" e "Biu do Violão e o Diamante Cor-de-rosa".',
     valorAlto:
-      'Escolha este caminho se sua equipe Sua importância está na democratização do acesso à cultura e na formação de plateia. Ao tirar os filmes dos circuitos comerciais e levá-los gratuitamente às periferias, ele descentraliza o audiovisual e transforma o cinema em uma ferramenta de emancipação e afirmação da identidade popular paraibana.',
+      'Escolha este caminho se sua equipe entende que a importância está na democratização do acesso à cultura e na formação de plateia. Ao tirar os filmes dos circuitos comerciais e levá-los gratuitamente às periferias, ele descentraliza o audiovisual e transforma o cinema em uma ferramenta de emancipação e afirmação da identidade popular paraibana.',
   },
 ]
 
