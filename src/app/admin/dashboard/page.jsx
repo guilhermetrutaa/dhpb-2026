@@ -20,6 +20,11 @@ import {
   itemBonificacaoViagemTempo,
   montarRespostaBonificadaViagemTempo,
 } from '@/lib/bonificarViagemTempo'
+import {
+  gerarPreviewNotaFixaFase3,
+  itemNotaFixaFase3,
+  montarRespostaNotaFixa,
+} from '@/lib/fixarNotaTarefaFase3'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -233,6 +238,9 @@ function TabEquipes() {
   const [mostraConfirmarViagem, setMostraConfirmarViagem] = useState(false)
   const [previewViagem, setPreviewViagem] = useState(null)
   const viagemContextoRef = useRef(null)
+  const [mostraConfirmarFase3, setMostraConfirmarFase3] = useState(false)
+  const [previewFase3, setPreviewFase3] = useState(null)
+  const fase3ContextoRef = useRef(null)
 
   useEffect(() => {
     const carregar = async () => {
@@ -820,6 +828,129 @@ function TabEquipes() {
     }
   }
 
+  const handleSimularNotaFase3 = async () => {
+    if (!edicaoRecalcId) {
+      alert('Selecione a edição.')
+      return
+    }
+    if (!window.confirm(
+      'Simular nota fixa 20 na tarefa da fase 3 (Galeria de Enigmas).\n\n' +
+      'Tira o peso atual da tarefa e grava 20. Só equipes que já entregaram. Questões da fase não mudam. Quem não enviou não ganha.\n\n' +
+      'Nenhuma gravação será feita.'
+    )) return
+    setCarregando(true)
+    setMostraConfirmarFase3(false)
+    setPreviewFase3(null)
+    try {
+      const ctx = await carregarContextoRecorte13(edicaoRecalcId)
+      const preview = gerarPreviewNotaFixaFase3(ctx.equipes, ctx.fases)
+      if (preview.erro === 'sem_fase3') {
+        alert('Esta edição não tem 3 fases. Nada foi gravado.')
+        return
+      }
+      if (preview.erro === 'tarefa_nao_galeria') {
+        alert('A 3ª fase desta edição não é a Galeria de Enigmas. Nada foi gravado.')
+        return
+      }
+      fase3ContextoRef.current = { fase: preview.fase }
+      setPreviewFase3(preview)
+      if (preview.alteradas.length === 0) {
+        alert(`SIMULAÇÃO: nenhuma equipe precisa da nota 20 na tarefa da fase 3.\n\nEquipes lidas: ${preview.itens.length}.`)
+        return
+      }
+      const linhas = preview.alteradas.slice().sort((a, b) =>
+        String(a.nome).localeCompare(String(b.nome), 'pt-BR')
+      ).map((item) =>
+        `${item.nome}: tarefa ${item.pesoAtual.toFixed(2)} → ${item.pesoNovo.toFixed(2)} | Df ${item.dfAntigo.toFixed(2)} → ${item.dfNovo.toFixed(2)}`
+      )
+      const avisoCota = preview.writesEstimados > 5000
+        ? `\nATENÇÃO: ~${preview.writesEstimados} escritas (cota Spark 20k/dia). Grave em horário calmo.`
+        : ''
+      const lista = [
+        `Nota fixa 20 — tarefa da fase 3 — ${preview.alteradas.length} equipe(s)`,
+        `Equipes lidas: ${preview.itens.length}`,
+        `Writes estimados: ${preview.writesEstimados}`,
+        '',
+        ...linhas,
+      ].join('\n')
+      setMostraConfirmarFase3(true)
+      await copiarTexto(
+        lista,
+        `SIMULAÇÃO: ${preview.alteradas.length} equipe(s) ficam com 20 na tarefa da fase 3 (~${preview.writesEstimados} escritas).` +
+        `\nEquipes lidas: ${preview.itens.length}.` +
+        `\n\nLista completa copiada (${preview.alteradas.length} linhas). Cole num bloco de notas para conferir.` +
+        avisoCota +
+        '\n\nNenhuma gravação foi feita. Confira e depois confirme.'
+      )
+    } catch (err) {
+      alert('Erro na simulação: ' + err.message)
+    } finally {
+      setCarregando(false)
+    }
+  }
+
+  const handleConfirmarNotaFase3 = async () => {
+    if (!previewFase3?.alteradas?.length || !fase3ContextoRef.current?.fase) {
+      alert('Simule a nota 20 da fase 3 antes de confirmar.')
+      return
+    }
+    if (!window.confirm(
+      `Isto vai GRAVAR peso 20 na tarefa da fase 3 de ${previewFase3.alteradas.length} equipe(s) (~${previewFase3.writesEstimados} escritas).\n\n` +
+      'As respostas da galeria e as questões da fase não são alteradas. Tem certeza absoluta?'
+    )) return
+    setCarregando(true)
+    const { fase } = fase3ContextoRef.current
+    let gravadas = 0
+    let puladas = 0
+    try {
+      for (const item of previewFase3.alteradas) {
+        const mudou = await runTransaction(db, async (transaction) => {
+          const equipeRef = doc(db, 'equipes', item.id)
+          const respostaRef = doc(db, 'equipes', item.id, 'respostas', item.respostaId)
+          const pontuacaoRef = doc(db, 'equipes', item.id, 'pontuacoes', item.faseId)
+          const snap = await transaction.get(equipeRef)
+          if (!snap.exists()) return false
+          const live = { id: item.id, ...snap.data() }
+          const liveItem = itemNotaFixaFase3(live, fase)
+          if (!liveItem.mudou) return false
+          const atual = respostaTarefaDaFase(live, liveItem.faseId)
+          if (!atual) return false
+          const respostaObj = montarRespostaNotaFixa(atual, liveItem.faseId)
+          transaction.set(respostaRef, {
+            peso: liveItem.pesoNovo,
+            atualizadoEm: respostaObj.atualizadoEm,
+            atualizadoPor: 'admin',
+          }, { merge: true })
+          const equipeUpdate = {
+            [`respostas.${liveItem.respostaId}`]: respostaObj,
+            df: increment(liveItem.deltaDi),
+            [`pontuacoes.${liveItem.faseId}.ni`]: increment(liveItem.delta),
+            [`pontuacoes.${liveItem.faseId}.di`]: increment(liveItem.deltaDi),
+          }
+          if (liveItem.atualizarLegadoTarefa) {
+            equipeUpdate['respostas.tarefa'] = respostaObj
+          }
+          transaction.set(pontuacaoRef, {
+            ni: increment(liveItem.delta),
+            di: increment(liveItem.deltaDi),
+          }, { merge: true })
+          transaction.update(equipeRef, equipeUpdate)
+          return true
+        })
+        if (mudou) gravadas++
+        else puladas++
+      }
+      alert(`NOTA 20 DA FASE 3 CONCLUÍDA.\n\nEquipes gravadas: ${gravadas}\nSem mudança na transação: ${puladas}`)
+      setMostraConfirmarFase3(false)
+      setPreviewFase3(null)
+      fase3ContextoRef.current = null
+    } catch (err) {
+      alert('Erro na nota 20 da fase 3: ' + err.message)
+    } finally {
+      setCarregando(false)
+    }
+  }
+
   const handleRecalcularCompletas = async () => {
     if (!window.confirm('Custo de ~650 leituras e gravações. O sistema fará a contagem exata e atualizará todas as equipes com a tag de completa. Tem certeza?')) return
     setCarregando(true)
@@ -1127,9 +1258,12 @@ function TabEquipes() {
                   setMostraConfirmarViagem(false)
                   setPreviewViagem(null)
                   viagemContextoRef.current = null
+                  setMostraConfirmarFase3(false)
+                  setPreviewFase3(null)
+                  fase3ContextoRef.current = null
                 }}
                 className='text-xs border border-amber-300 rounded-md px-2 py-1 bg-white text-neutral-700 font-semibold outline-none focus:border-[#82181A]'
-                title='Edição usada no recálculo de Ni/Di/Df, no crédito do recorte 13 e no crédito da Viagem no Tempo'
+                title='Edição usada no recálculo de Ni/Di/Df, no crédito do recorte 13, no crédito da Viagem no Tempo e na nota 20 da fase 3'
               >
                 {edicoes.length === 0 && <option value=''>Nenhuma edição</option>}
                 {edicoes.map((ed) => (
@@ -1182,6 +1316,22 @@ function TabEquipes() {
                   className='bg-orange-100 text-orange-700 px-3 py-1 rounded-md hover:bg-orange-200 transition-colors cursor-pointer font-bold border border-orange-300'
                 >
                   CONFIRMAR CRÉDITO VIAGEM NO TEMPO
+                </button>
+              )}
+              <button
+                onClick={handleSimularNotaFase3}
+                disabled={!edicaoRecalcId}
+                className='bg-rose-100 text-rose-800 px-3 py-1 rounded-md hover:bg-rose-200 transition-colors cursor-pointer font-bold disabled:opacity-50'
+                title='Tira o peso atual da tarefa da fase 3 e grava 20. Só quem já entregou. Questões da fase não mudam.'
+              >
+                Simular nota 20 fase 3
+              </button>
+              {mostraConfirmarFase3 && (
+                <button
+                  onClick={handleConfirmarNotaFase3}
+                  className='bg-orange-100 text-orange-700 px-3 py-1 rounded-md hover:bg-orange-200 transition-colors cursor-pointer font-bold border border-orange-300'
+                >
+                  CONFIRMAR NOTA 20 FASE 3
                 </button>
               )}
             </div>
