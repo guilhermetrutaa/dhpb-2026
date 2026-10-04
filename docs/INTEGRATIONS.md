@@ -21,7 +21,7 @@ Este documento relaciona todos os serviços e APIs externas integradas à plataf
 
 ## 2. Cloudinary (CDN de Imagens e Documentos)
 
-* **Finalidade:** Armazenamento de comprovantes de professores e imagens de apoio em questões de prova.
+* **Finalidade:** Armazenamento de comprovantes de professores, imagens de apoio em questões de prova e imagens do Portfólio Artístico das equipes (spec 042, upload unsigned em `dhpb/portfolios/{equipeId}`, JPG/PNG até 3 MB).
 * **Contas / Presets:**
   * Principal: `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME`, `NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET` (e preset `dhpb-questoes`).
   * Suporte: `NEXT_PUBLIC_SUPPORT_CLOUDINARY_CLOUD_NAME`, `NEXT_PUBLIC_SUPPORT_CLOUDINARY_UPLOAD_PRESET`.
