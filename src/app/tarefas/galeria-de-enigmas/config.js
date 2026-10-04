@@ -1,4 +1,4 @@
-export const PDF_DRIVE_URL = 'https://drive.google.com/file/d/1G_PZmapjnHe97GSpu7JEz8tOYB6q6lq1/view?usp=sharing'
+export const PDF_DRIVE_URL = 'https://drive.google.com/file/d/1ULpQCw5DJU7wLBPpD6wI6Q-orXqncou6/view?usp=sharing'
 
 export const ICONE_SRC = '/tarefas/galeria-de-enigmas/icone-enigma.jpeg'
 /** Capa dos enigmas já respondidos no PDF: caixa vermelha, só leitura. */
