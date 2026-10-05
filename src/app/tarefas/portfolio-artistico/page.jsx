@@ -15,6 +15,7 @@ import {
   MIN_CHARS,
   SECOES,
   TEMAS,
+  PDF_DRIVE_URL,
   contarFaltantes,
   linkValido,
   validarImagem,
@@ -23,6 +24,20 @@ import {
 const poppins = Poppins({ subsets: ['latin'], weight: ['400', '500', '600', '700'] })
 
 const STORAGE_PREFIX = 'dhpb-tarefa-portfolio-artistico'
+
+const DESCRICAO_TAREFA = `O Desafio em História da Paraíba não é uma prova temática. Porém, frequentemente reiteramos tópicos em questões no decorrer das fases. Desta vez, um deles reaparece na Tarefa da Fase 4. No decorrer das fases, as equipes foram convidadas a conhecerem alguns e algumas artistas paraibanos e parte de suas obras. Portanto, o objetivo desta tarefa é promover uma atitude crítica sobre a produção artística paraibana a partir da elaboração de um portfólio.
+
+Um portfólio pode ser uma experiência de trabalho de historiador. Ao investigar a vida, a produção ou uma obra específica de um(a) artista, precisamos aprender a observar, fazer perguntas, pesquisar, relacionar informações e construir interpretações sobre o passado.
+
+O percurso começa pela biografia, onde, segundo a historiadora Sabrina Loriga “a redescoberta da biografia remete principalmente a experiências no campo da história atentas ao cotidiano, a subjetividades outras” (NOGUEIRA; FERREIRA NETO, 2016, p. 275), buscando conhecer o(a) artista como uma pessoa que viveu em determinado tempo e lugar. Sua trajetória foi marcada por experiências, relações, referências, escolhas e acontecimentos. Essa investigação ajuda a entender como o/a artista construiu seu caminho e desenvolveu sua produção.
+
+A partir dessa trajetória, o trabalho se aproxima de uma situação particular: uma obra, um período da vida do(a) artista ou uma experiência importante. Esse olhar mais próximo caracteriza a Micro-história, onde ocorre o “recorte de objeto em escala microscópica, mas explorando tal objeto à exaustão, de modo a desvendar o universo de uma sociedade para além do próprio protagonista do estudo” (COELHO, 2014, p. 3). Sendo assim, ao estudar um caso específico, podemos encontrar pistas para compreender questões maiores da sociedade e do período em que o/a artista vive ou viveu.
+
+A figura do(a) artista também faz parte de um cenário cultural, formado por outros artífices, grupos, instituições, espaços de exposição, públicos, críticos e diferentes formas de reconhecimento. Observar essas relações ajuda a compreender como uma obra é produzida, apresentada, valorizada, legitimada em uma determinada sociedade. 
+
+Essas ideias fazem parte da História Cultural, que nos ajuda a estudar as maneiras pelas quais as pessoas produzem sentidos, constroem representações, formam identidades e participam do universo criativo de seu tempo.
+
+Em linhas gerais, o desafio tem o interesse de demonstrar como a cultura e a identidade paraibana podem ser analisadas por meio de diversas expressões artísticas.`
 
 function isLocalDevHost() {
   if (typeof window === 'undefined') return false
@@ -258,10 +273,16 @@ function TarefaContent() {
   const locked = status === 'entregue' || fase?.status === 'correcao'
   const faltantes = contarFaltantes(portfolio)
   const questoes = [...(fase?.questoesIndex || fase?.questoes || [])].filter((q) => q.id).sort((a, b) => (a.numero || 0) - (b.numero || 0))
-  const ultima = questoes[questoes.length - 1]
-  const setaEsquerdaHref = ultima && faseId && edicaoId
-    ? `/questao?questaoId=${ultima.id}&faseId=${faseId}&edicaoId=${edicaoId}&equipeId=${equipeId || ''}&prevId=${questoes[questoes.length - 2]?.id || ''}&nextId=`
-    : ''
+
+  const hrefQuestao = (q, idx) => {
+    if (!q?.id || !faseId || !edicaoId) return ''
+    const prevId = idx > 0 ? questoes[idx - 1]?.id || '' : ''
+    const nextId = idx < questoes.length - 1 ? questoes[idx + 1]?.id || '' : ''
+    return `/questao?questaoId=${q.id}&faseId=${faseId}&edicaoId=${edicaoId}&equipeId=${equipeId || ''}&prevId=${prevId}&nextId=${nextId}`
+  }
+
+  const setaEsquerdaHref = questoes.length > 0 ? hrefQuestao(questoes[questoes.length - 1], questoes.length - 1) : ''
+  const setaDireitaHref = questoes.length > 0 ? hrefQuestao(questoes[0], 0) : ''
 
   const aplicarResposta = (r) => {
     setPortfolio(r.portfolio || {})
@@ -280,6 +301,26 @@ function TarefaContent() {
     const salvo = lerLocal(faseId)
     if (salvo) aplicarResposta(salvo)
   }, [faseId])
+
+  useEffect(() => {
+    if (!edicaoId || !faseId) return
+    const carregarQuestoes = async () => {
+      try {
+        const faseSnap = await getDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId))
+        if (!faseSnap.exists()) return
+        const data = faseSnap.data()
+        setFase((atual) => ({
+          ...(atual || {}),
+          ...data,
+          id: faseSnap.id,
+          tarefa: data.tarefa || atual?.tarefa || { titulo: 'Portfólio do Artista' },
+        }))
+      } catch {
+        /* regras podem bloquear na prévia sem login */
+      }
+    }
+    carregarQuestoes()
+  }, [edicaoId, faseId])
 
   useEffect(() => {
     if (isLocalDevHost()) return
@@ -469,37 +510,57 @@ function TarefaContent() {
 
         <main className="mx-auto max-w-[620px] px-5 pb-24 pt-12">
           <div className="grid grid-cols-[44px_1fr_44px] items-center">
-            <div>
-              {setaEsquerdaHref && (
+            <div className="justify-self-start">
+              {setaEsquerdaHref ? (
                 <Link href={setaEsquerdaHref} className="flex h-10 w-10 items-center justify-center" aria-label="Questão anterior">
                   <span className="border-y-[7px] border-y-transparent border-r-[10px] border-r-black" />
                 </Link>
+              ) : (
+                <span className="flex h-10 w-10 items-center justify-center opacity-25" aria-hidden>
+                  <span className="border-y-[7px] border-y-transparent border-r-[10px] border-r-black" />
+                </span>
               )}
             </div>
             <div className="text-center">
-              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#82181A]">Produção do portfólio</p>
               <h1 className="mt-1 text-[2rem] font-medium leading-tight text-[#82181A] md:text-[2.4rem]">
                 {fase?.tarefa?.titulo || 'Portfólio do Artista'}
               </h1>
             </div>
-            <div />
-          </div>
-          <p className="mt-3 text-center text-sm text-neutral-700">Leia cada orientação e preencha os campos na ordem apresentada.</p>
-
-          {(status !== 'pendente' || locked) && (
-            <div className={`mt-8 px-4 py-3 text-center text-sm ${status === 'entregue' ? 'bg-[#CCFFE6]' : locked ? 'bg-[#F7F7F7]' : 'bg-[#F8E3E3]'}`}>
-              {status === 'entregue'
-                ? formatAudit(atualizadoEm, atualizadoPor, true) || 'Tarefa entregue.'
-                : locked
-                  ? 'Fase em correção: somente leitura.'
-                  : formatAudit(atualizadoEm, atualizadoPor, false)}
+            <div className="justify-self-end">
+              {setaDireitaHref ? (
+                <Link href={setaDireitaHref} className="flex h-10 w-10 items-center justify-center" aria-label="Primeira questão">
+                  <span className="border-y-[7px] border-y-transparent border-l-[10px] border-l-black" />
+                </Link>
+              ) : (
+                <span className="flex h-10 w-10 items-center justify-center opacity-25" aria-hidden>
+                  <span className="border-y-[7px] border-y-transparent border-l-[10px] border-l-black" />
+                </span>
+              )}
             </div>
-          )}
+          </div>
+
+          <div className="mt-6 flex justify-center px-4">
+            {PDF_DRIVE_URL ? (
+              <a
+                href={PDF_DRIVE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="cursor-pointer rounded-full border-[3px] border-[#82181A] px-6 py-2 text-sm font-medium text-[#82181A] transition-colors hover:bg-[#82181A] hover:text-white"
+              >
+                Baixar PDF da tarefa
+              </a>
+            ) : (
+              <span className="rounded-full border-[3px] border-neutral-300 px-6 py-2 text-sm font-medium text-neutral-400">
+                Baixar PDF da tarefa
+              </span>
+            )}
+          </div>
+          <p className="mt-6 whitespace-pre-line text-justify text-[15px] leading-relaxed text-neutral-800">{DESCRICAO_TAREFA}</p>
 
           {!locked && (
             <div className="mt-8 border-l-4 border-[#82181A] bg-[#F8E3E3] px-4 py-3 text-sm leading-relaxed text-neutral-800">
               <strong className="text-[#82181A]">Escolha do design:</strong> preencha os textos e as imagens abaixo. Ao clicar em
-              {' '}<strong>&quot;Concluir preenchimento&quot;</strong>, ao final da página, a equipe escolherá um dos quatro designs do portfólio
+              {' '}<strong>&quot;Visualizar portfólio&quot;</strong>, ao final da página, a equipe escolherá um dos quatro designs do portfólio
               e verá a prévia de como ele ficará. O design pode ser trocado até a entrega.
             </div>
           )}
@@ -547,11 +608,21 @@ function TarefaContent() {
                 </button>
               )}
               <button type="button" onClick={() => setPrevia(true)} className={botaoPrimario}>
-                {locked ? 'Ver portfólio' : '✓ Concluir preenchimento'}
+                {locked ? 'Ver portfólio' : 'Visualizar portfólio'}
               </button>
             </div>
           </div>
           {mensagem && <p className="mt-4 text-right text-sm font-medium text-[#82181A]">{mensagem}</p>}
+
+          {(status !== 'pendente' || locked) && (
+            <div className={`mt-8 px-4 py-3 text-center text-sm text-[#A1A1A1]`}>
+              {status === 'entregue'
+                ? formatAudit(atualizadoEm, atualizadoPor, true) || 'Tarefa entregue.'
+                : locked
+                  ? 'Fase em correção: somente leitura.'
+                  : formatAudit(atualizadoEm, atualizadoPor, false)}
+            </div>
+          )}
 
           <div className="mt-10 text-center">
             <Link href={resumoHref} className="text-sm text-neutral-600 underline hover:text-[#82181A]">Voltar para o resumo da fase</Link>
@@ -562,8 +633,11 @@ function TarefaContent() {
       {previa && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-neutral-900/95 backdrop-blur-sm" role="dialog" aria-label="Prévia do portfólio">
           <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 bg-neutral-950/90 px-4 py-3 text-white backdrop-blur">
-            <button type="button" onClick={() => setPrevia(false)} className="cursor-pointer text-sm font-medium hover:underline">
-              ← {locked ? 'Fechar' : 'Voltar e editar'}
+            <button type="button" onClick={() => setPrevia(false)} className="cursor-pointer text-sm font-medium hover:underline border-1 border-[#fff] px-4 py-2 text-white flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-left" viewBox="0 0 16 16">
+                <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8"/>
+              </svg>
+              {locked ? 'Fechar' : 'Voltar e editar'}
             </button>
             {!locked && design && (
               <div className="flex items-center gap-2" role="radiogroup" aria-label="Trocar design">

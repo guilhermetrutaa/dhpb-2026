@@ -217,7 +217,7 @@ export default function PortfolioWall({ portfolio = {}, temaId, nomeEquipe = '',
         <img src="/logo.svg" alt="DHPB" className="h-16 w-auto" />
         <div style={legendaStyle}>
           <span className="mb-2 block text-xs font-bold uppercase tracking-[0.15em]">Realização</span>
-          <img src="/ifpb-logo.svg" alt="IFPB" className="h-10 w-auto" />
+          <img src="/ifpb-logo-semfundo.png" alt="IFPB" className="h-10 w-auto" />
         </div>
         <div style={legendaStyle}>
           <span className="mb-2 block text-xs font-bold uppercase tracking-[0.15em]">Apoio</span>

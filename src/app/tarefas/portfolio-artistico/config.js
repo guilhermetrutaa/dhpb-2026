@@ -1,3 +1,4 @@
+export const PDF_DRIVE_URL = 'https://drive.google.com/file/d/1PiGJqwZiMWiUDdnyIO2GQnRaSrqe6Prm/view?usp=sharing'
 export const MIN_CHARS = 2
 export const IMG_MAX_BYTES = 3 * 1024 * 1024
 export const IMG_MAX_PX = 3000
