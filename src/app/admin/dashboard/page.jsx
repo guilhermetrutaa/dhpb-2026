@@ -25,6 +25,8 @@ import {
   itemNotaFixaFase3,
   montarRespostaNotaFixa,
 } from '@/lib/fixarNotaTarefaFase3'
+import { CORRETORES, FASE_ALVO, distribuir, normalizar } from '@/lib/correcao'
+import { salvarDistribuicao } from '@/lib/correcao-firestore'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -240,6 +242,7 @@ function TabEquipes() {
   const viagemContextoRef = useRef(null)
   const [mostraConfirmarFase3, setMostraConfirmarFase3] = useState(false)
   const [previewFase3, setPreviewFase3] = useState(null)
+  const [previewDistribuicao, setPreviewDistribuicao] = useState(null)
   const fase3ContextoRef = useRef(null)
 
   useEffect(() => {
@@ -951,6 +954,98 @@ function TabEquipes() {
     }
   }
 
+  const handleSimularDistribuicao = async () => {
+    if (!edicaoRecalcId) {
+      alert('Selecione a edição.')
+      return
+    }
+    if (!window.confirm(
+      'Simular a distribuição da correção da fase 4 (Portfólio Artístico).\n\n' +
+      'Cada portfólio entregue vai para 2 corretores, respeitando a restrição de campus.\n' +
+      'A distribuição é determinística: rodar de novo com as mesmas equipes gera o mesmo resultado.\n\n' +
+      'Nenhuma gravação será feita.'
+    )) return
+    setCarregando(true)
+    setPreviewDistribuicao(null)
+    try {
+      const ctx = await carregarContextoRecorte13(edicaoRecalcId)
+      const semCidade = new Set()
+      // O campus vem do município em escolas-pb.json; sem ele não há restrição,
+      // mas avisamos para o admin conferir antes de confirmar.
+      let res = await fetch('/escolas-pb.json')
+      const escolas = res.ok ? await res.json() : []
+      const porId = Object.fromEntries(escolas.map((e) => [String(e.id), e]))
+
+      const campusPorEquipe = {}
+      const equipesComResposta = ctx.equipes.filter((eq) => {
+        const r = respostaTarefaDaFase(eq, FASE_ALVO)
+        if (!r || r.status !== 'entregue') return false
+        const escola = porId[String(eq.escolaId)]
+        const municipio = normalizar(escola?.municipio || eq.cidade || '')
+        if (!municipio) semCidade.add(eq.nome || eq.id)
+        campusPorEquipe[eq.id] = municipio
+        return true
+      })
+
+      const dist = distribuir(equipesComResposta, campusPorEquipe)
+      const porCorretor = CORRETORES.map((c) => `${c.nome}: ${dist.carga[c.id] || 0}`)
+
+      const resumo = [
+        `Distribuição da correção — ${equipesComResposta.length} portfólio(s)`,
+        `Equipes lidas na edição: ${ctx.equipes.length}`,
+        `Carga por corretor: ${porCorretor.join(' | ')}`,
+        semCidade.size
+          ? `ATENÇÃO: ${semCidade.size} equipe(s) sem cidade conocida — sem restrição de campus aplicadas: ${[...semCidade].slice(0, 10).join(', ')}`
+          : 'Todas as equipes com cidade conhecida (restrição de campus aplicada).',
+      ].join('\n')
+
+      setPreviewDistribuicao({ ...dist, resumo, semCidade: [...semCidade] })
+      if (!equipesComResposta.length) {
+        alert(`Nenhum portfólio entregue na fase 4 desta edição.\n\nEquipes lidas: ${ctx.equipes.length}.`)
+        return
+      }
+      await copiarTexto(
+        resumo,
+        `SIMULAÇÃO: ${equipesComResposta.length} portfólio(s) distribuídos entre os 7 corretores.\n` +
+        `Carga: ${porCorretor.join(' | ')}.\n\nNenhuma gravação foi feita. Confira e depois confirme.`
+      )
+    } catch (err) {
+      alert('Erro na simulação da distribuição: ' + err.message)
+    } finally {
+      setCarregando(false)
+    }
+  }
+
+  const handleConfirmarDistribuicao = async () => {
+    if (!previewDistribuicao?.atribuido || !Object.keys(previewDistribuicao.atribuido).length) {
+      alert('Simule a distribuição antes de confirmar.')
+      return
+    }
+    if (previewDistribuicao.semCidade?.length &&
+      !window.confirm(
+        `${previewDistribuicao.semCidade.length} equipe(s) estão sem cidade conhecida, então a restrição de campus NÃO foi aplicada a elas.\n\n` +
+        'Isso pode permitir que um professor corrija o próprio campus. Quer continuar assim mesmo?'
+      )
+    ) return
+    if (!window.confirm(
+      `Isto vai GRAVAR a distribuição de ${Object.keys(previewDistribuicao.atribuido).length} portfólio(s) em correcoes/${FASE_ALVO}/distribuicao.\n\n` +
+      'Regerar sobrescreve a distribuição anterior. As correções já feitas NÃO são apagadas. Tem certeza?'
+    )) return
+    setCarregando(true)
+    try {
+      await salvarDistribuicao({
+        atribuido: previewDistribuicao.atribuido,
+        carga: previewDistribuicao.carga,
+      })
+      alert('DISTRIBUIÇÃO GRAVADA.\n\nOs corretores já veem a fila na página /correcao.')
+      setPreviewDistribuicao(null)
+    } catch (err) {
+      alert('Erro ao gravar a distribuição: ' + err.message)
+    } finally {
+      setCarregando(false)
+    }
+  }
+
   const handleRecalcularCompletas = async () => {
     if (!window.confirm('Custo de ~650 leituras e gravações. O sistema fará a contagem exata e atualizará todas as equipes com a tag de completa. Tem certeza?')) return
     setCarregando(true)
@@ -1332,6 +1427,22 @@ function TabEquipes() {
                   className='bg-orange-100 text-orange-700 px-3 py-1 rounded-md hover:bg-orange-200 transition-colors cursor-pointer font-bold border border-orange-300'
                 >
                   CONFIRMAR NOTA 20 FASE 3
+                </button>
+              )}
+              <button
+                onClick={handleSimularDistribuicao}
+                disabled={!edicaoRecalcId}
+                className='bg-indigo-100 text-indigo-800 px-3 py-1 rounded-md hover:bg-indigo-200 transition-colors cursor-pointer font-bold disabled:opacity-50'
+                title='Reparte os portfólios entregues da fase 4 entre os 7 corretores, 2 por portfólio, sem atribuir o próprio campus ao professor. Alimenta a página /correcao.'
+              >
+                Simular distribuição da correção
+              </button>
+              {previewDistribuicao && (
+                <button
+                  onClick={handleConfirmarDistribuicao}
+                  className='bg-orange-100 text-orange-700 px-3 py-1 rounded-md hover:bg-orange-200 transition-colors cursor-pointer font-bold border border-orange-300'
+                >
+                  CONFIRMAR DISTRIBUIÇÃO
                 </button>
               )}
             </div>

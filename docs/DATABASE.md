@@ -22,7 +22,8 @@ Documento: `users/{uid}` (Criado no cadastro pelo Firebase Auth, ou pelo admin e
 | `nome` | string | Primeiro nome do usuário |
 | `sobrenome` | string | Sobrenome do usuário |
 | `email` | string | E-mail da conta |
-| `tipo` | string | `'estudante'` ou `'professor'` |
+| `tipo` | string | `'estudante'`, `'professor'` ou `'corretor'` (spec 044 — comissão da fase 4, criada em `/correcao`) |
+| `nomeCompleto` | string (opcional) | Nome completo como digitado. Spec 044: é o campo que casa a conta com um dos 7 corretores |
 | `avatar` | string | Nome do arquivo SVG do avatar (ex: `'avatar.svg'` ou `'joaopessoa.svg'`) |
 | `createdAt` | string (ISO) | Data de criação da conta |
 | `documentoURL` | string (opcional) | URL do comprovante de vínculo no Cloudinary (apenas professores) |
@@ -137,7 +138,9 @@ Documento de tarefa interativa: `equipes/{equipeId}/respostas/tarefa_{faseId}` (
 | `imagem2AnoBonificado` | boolean (opcional) | Spec 039: crédito admin de +1,00 por erro de gabarito na data da imagem 2 da Viagem no Tempo; impede segundo clique |
 | `imagem7LocalBonificado` | boolean (opcional) | Spec 039: crédito admin de +1,00 por erro de gabarito no local da imagem 7 da Viagem no Tempo; impede segundo clique |
 | `design` | string (opcional) | Spec 042: tema do Portfólio Artístico (`rosa` \| `verde` \| `azul` \| `bege`) |
-| `portfolio` | object (opcional) | Spec 042: textos (`titulo`, `legenda1`, `nomeArtista`, `trajetoria`, `tituloObra2`, `link2`, `legenda2`, `apresentacao`, `tituloObra3`, `link3`, `legenda3`, `analise`, `reflexao`, `creditos`, `referencias`) e imagens (`capa`, `img1`, `img2`, `img3`, `imgEquipe`: `{ url, publicId }` do Cloudinary em `dhpb/portfolios/{equipeId}`). Entrega grava `peso: 0` (nota da banca, spec futura) |
+| `portfolio` | object (opcional) | Spec 042: textos (`titulo`, `legenda1`, `nomeArtista`, `trajetoria`, `tituloObra2`, `link2`, `legenda2`, `apresentacao`, `tituloObra3`, `link3`, `legenda3`, `analise`, `reflexao`, `creditos`, `referencias`) e imagens (`capa`, `img1`, `img2`, `img3`, `imgEquipe`: `{ url, publicId }` do Cloudinary em `dhpb/portfolios/{equipeId}`). Na entrega grava `peso: 0`; a nota da banca substitui esse `peso` (spec 044) |
+| `corrigidoEm` | string (ISO) (opcional) | Spec 044: momento em que o veredito da banca foi fechado |
+| `corrigidoPor` | string (opcional) | Spec 044: corretor que fechou o veredito |
 | `atualizadoEm` | string (ISO) | Momento da gravação |
 | `atualizadoPor` | string | Nome ou e-mail do integrante que gravou |
 
@@ -154,6 +157,21 @@ Documento: `membro-index/{base64(email)_edicaoId}`
 * **Finalidade:** Trava atômica de unicidade no Firestore. Garante que um estudante não possa ingressar em duas equipes na mesma edição simultaneamente.
 * Payload gravado por `criar-equipe` e pelo admin (`/admin/firestore`, spec 022): `{ equipeId, papel, uid }`. A chave canônica usa e-mail **lowercased**; exclusão/troca também tenta a chave sem lowercase (inconsistência legada).
 * Professor orientador em várias equipes: o index 1:1 **não** é sobrescrito ao adicionar outra equipe (spec 015 / 022).
+
+---
+
+### 2.5. Coleção `correcoes` (spec 044)
+Banco **principal**. Guarda a correção da tarefa Portfólio Artístico (fase 4). Criada pela página `/correcao`; o admin gera a distribuição em `/admin/dashboard` (aba Equipes → "Simular distribuição da correção").
+
+| Caminho | Campos | Descrição |
+|---|---|---|
+| `correcoes/fase4/distribuicao` | `versao`, `atribuido` (`{ [equipeId]: [corretorId, …] }`), `carga` (`{ [corretorId]: n }`), `geradoEm` | Doc único. 2 corretores por equipe; 3 quando houve 3ª correção. Idempotente: regerar sobrescreve `atribuido` |
+| `correcoes/fase4/correcoes/{equipeId}` | `equipeId`, `enviados` (array de `corretorId` que já enviaram), `notas` (`{ [corretorId]: 0–100 }`), `criterios` (`{ [criterioId]: nivel }`), `zerados` (ids de critério zerados por IA), `atualizadoEm` | **Um doc por equipe**, não por corretor. `notas` traz as notas de todo mundo daquele portfólio, então a query da aba (`where('enviados','array-contains', uid)` + `limit`) já entrega o estado do par |
+| `correcoes/fase4/vereditos/{equipeId}` | `status` (`aguardando-par` \| `aguardando-terceira` \| `fechado`), `atribuido`, `terceira`, `notas` (`[{ corretorId, nota }]`), `notaFinal`, `delta`, `atualizadoEm` | Resultado da banca. `notaFinal` é a nota gravada no `peso` da resposta |
+
+Leituras da `/correcao`: 1 `getDoc` da distribuição, 1 `getDoc` por equipe do corretor e 1 query filtrada das correções. Sem full scan e sem `collectionGroup`.
+
+Conta do corretor: `users/{uid}` com `tipo: 'corretor'`, `nomeCompleto` e `email`. `nomeCompleto` é o que casa o acesso com um dos 7 corretores (`identificarCorretor` na página); a sessão revalida no Firebase Auth, não confia em `localStorage`.
 
 ---
 

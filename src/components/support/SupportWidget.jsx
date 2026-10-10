@@ -19,7 +19,11 @@ const SupportWidget = () => {
   const [aberto, setAberto] = useState(false)
   const [visivel, setVisivel] = useState(false)
   const pathname = usePathname()
-  const isAreaSemSuporte = pathname?.startsWith('/admin') || pathname === '/certificado' || pathname === '/certificado-medalha'
+  const isAreaSemSuporte =
+    pathname?.startsWith('/admin') ||
+    pathname === '/certificado' ||
+    pathname === '/certificado-medalha' ||
+    pathname?.startsWith('/correcao')
   const chat = useSupportChat({ isChatOpen: aberto })
   const { naoLidasUsuario, inicializarBackground } = chat
 

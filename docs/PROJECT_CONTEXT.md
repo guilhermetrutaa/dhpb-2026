@@ -40,6 +40,7 @@ O **DHPB (Desafio em História da Paraíba)** é uma plataforma web para uma oli
 | Se você vai modificar... | Consulte obrigatoriamente | Arquivos de código relacionados |
 |---|---|---|
 | **Provas, Fases e Questões** | `docs/DATABASE.md` e `docs/BUSINESS_RULES.md` | `src/app/questao/page.jsx`, `src/app/resumo-fase/page.jsx`, `src/app/documento/page.jsx`, `src/app/admin/questoes/page.jsx`, `src/app/admin/questoes/visualizar/page.jsx` |
+| **Correção da fase 4 (banca)** | `docs/BUSINESS_RULES.md` §1.4 e `specs/044-correcao-portfolio/` | `src/app/correcao/page.jsx`, `src/lib/criterios.js`, `src/lib/correcao.js`, `src/lib/correcao-firestore.js`, `src/app/tarefas/portfolio-artistico/PortfolioWall.jsx` |
 | **Equipes e Participantes** | `docs/BUSINESS_RULES.md` e `docs/DATABASE.md` | `src/app/criar-equipe/page.jsx`, `src/app/montagem-equipe/page.jsx`, `src/app/sala-de-equipe/page.jsx`, `src/app/cadastro-escola/page.jsx` |
 | **Autenticação e Permissões** | `docs/AUTHENTICATION.md` | `src/context/AuthContext.jsx`, `src/app/login/page.jsx`, `src/app/cadastro/page.jsx`, `src/app/recuperar-senha/page.jsx`, `src/app/admin/page.jsx`, `src/app/api/admin/auth/*` |
 | **Ranking, Medalhas e Certificados** | `docs/BUSINESS_RULES.md` | `src/app/admin/ranking/page.jsx`, `src/app/admin/medalhas/page.jsx`, `src/app/certificado/page.jsx`, `src/app/certificado-medalha/page.jsx` |
