@@ -20,6 +20,7 @@ import {
   FASE_ALVO,
   colunaDe,
   escolherTerceiro,
+  identificarCorretor,
   normalizar,
   notaFinal,
   precisaTerceira,
@@ -47,21 +48,6 @@ function isLocalDevHost() {
   if (typeof window === 'undefined') return false
   const host = window.location.hostname
   return host === 'localhost' || host === '127.0.0.1' || host === '[::1]'
-}
-
-// ---------------------------------------------------------------------------
-// Identidade
-// ---------------------------------------------------------------------------
-
-/** Casa o nome do cadastro com um dos 7 corretores. Sobrenome é ignorado. */
-function identificarCorretor(nomeCompleto, email) {
-  const alvo = normalizar(nomeCompleto || email)
-  if (!alvo) return null
-  if (CORRETORES.some((c) => normalizar(c.nome) === alvo)) {
-    return CORRETORES.find((c) => normalizar(c.nome) === alvo) || null
-  }
-  const porNome = CORRETORES.filter((c) => alvo.startsWith(`${normalizar(c.nome)} `))
-  return porNome.length === 1 ? porNome[0] : null
 }
 
 // ---------------------------------------------------------------------------

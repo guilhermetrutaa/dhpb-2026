@@ -40,8 +40,28 @@ export const normalizar = (s) =>
   String(s || '')
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-zA-Z0-9\s]/g, ' ')
     .trim()
     .toLowerCase()
+
+/**
+ * Casa o nome do cadastro com um dos 7 corretores.
+ * Aceita o nome permitido em QUALQUER posição: "José Maxsuel Lourenço Alves" é o
+ * Maxsuel, e não por isso deixa de valer. O casamento é por palavra inteira, então
+ * "Maxsuelson" não engana. Dois nomes da lista no mesmo cadastro é ambíguo: null.
+ */
+export function identificarCorretor(nomeCompleto, email) {
+  const texto = normalizar(nomeCompleto || email)
+  if (!texto) return null
+  const palavras = new Set(texto.split(/\s+/).filter(Boolean))
+
+  const achados = CORRETORES.filter((c) => {
+    const alvo = normalizar(c.nome)
+    return palavras.has(alvo) || texto.split(/\s+/).includes(alvo)
+  })
+
+  return achados.length === 1 ? achados[0] : null
+}
 
 export const chaveRedeModalidade = (equipe) => {
   const rede = ehPublica(equipe?.tipoEscola) ? 'publica' : 'particular'

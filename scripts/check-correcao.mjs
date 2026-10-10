@@ -163,6 +163,33 @@ const outra = equipe('e1', 'e1', 'federal', 'medio')
 outra.respostas[`tarefa_${FASE_ALVO}`].faseId = 'fase3'
 assert.equal(prepararGravacao(outra, fase, 75, 'admin').atualizaLegado, false, 'legado de outra fase intocado')
 
+// --- identidade: o nome da comissão pode estar em qualquer posição do nome completo ---
+const { identificarCorretor } = corr
+const acha = (nome) => identificarCorretor(nome, '')?.id ?? null
+
+// o caso que quebrou: nome permitido no meio
+assert.equal(acha('José Maxsuel Lourenço Alves'), 'maxsuel', 'José Maxsuel Lourenço Alves é o Maxsuel')
+assert.equal(acha('Maria Glayds de Souza'), 'glayds', 'nome no meio (Glayds)')
+assert.equal(acha('Cristina Alves Rocha Lima'), 'cristina', 'nome no meio (Cristina)')
+assert.equal(acha('Stênio'), 'stenio', 'nome exato')
+assert.equal(acha('stenio de alencar'), 'stenio', 'sem acento, minúsculo')
+assert.equal(acha('STÊNIO ALMEIDA'), 'stenio', 'maiúsculo com acento')
+assert.equal(acha('Lício'), 'licio', 'Lício com acento')
+assert.equal(acha('Antonio Fabricio de Souza'), 'fabricio', 'Fabricio sem acento, no meio')
+assert.equal(acha('Leonardo'), 'leonardo')
+assert.equal(acha('Jose Leonardo'), 'leonardo', 'Leonardo sem acento no meio')
+
+// não pode dar falso positivo
+assert.equal(acha('Maxsuelson Silva'), null, 'palavrão não casa (Maxsuelson ≠ Maxsuel)')
+assert.equal(acha('João da Silva'), null, 'ninguém da comissão')
+assert.equal(acha(''), null, 'nome vazio')
+assert.equal(acha('Leonardo e Cristina Silva'), null, 'dois nomes da comissão = ambíguo')
+// os 7 têm de casar no formato completo
+for (const c of corr.CORRETORES) {
+  assert.equal(acha(`${c.nome} da Silva Santos`), c.id, `${c.nome} Completo`)
+  assert.equal(acha(c.nome), c.id, `${c.nome} exato`)
+}
+
 console.log(
   `ok — ${CRITERIOS_COM_ID.length} critérios / ${PESO_TOTAL} pontos, ${CORRETORES.length} corretores, ` +
   `carga ${minCarga}..${maxCarga}, 3ª correção em ≥ 20`
