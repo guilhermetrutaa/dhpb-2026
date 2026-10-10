@@ -32,7 +32,7 @@ Todo texto: mínimo 2 caracteres. Imagens: JPG/PNG, até 3 MB, até 3000×3000 p
 | 1 | Imagem 1, Legenda 1, Nome do artista, Trajetória | img, 400, 200, 800 |
 | 2 | Título da obra, Imagem 2, Link (opcional), Legenda 2, Apresentação | 200, img, 500, 400, 1200 |
 | 3 | Título da obra, Imagem 3, Link (opcional), Legenda 3, Análise | 200, img, 500, 400, 1600 |
-| 4 | Reflexão crítica, Identificação da questão | 800, 200 |
+| 4 | Reflexão crítica | 800 |
 | 5 | Imagem da equipe, Créditos | img, 400 |
 | 6 | Referências | 1000 |
 

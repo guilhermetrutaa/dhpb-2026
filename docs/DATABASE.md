@@ -137,7 +137,7 @@ Documento de tarefa interativa: `equipes/{equipeId}/respostas/tarefa_{faseId}` (
 | `imagem2AnoBonificado` | boolean (opcional) | Spec 039: crédito admin de +1,00 por erro de gabarito na data da imagem 2 da Viagem no Tempo; impede segundo clique |
 | `imagem7LocalBonificado` | boolean (opcional) | Spec 039: crédito admin de +1,00 por erro de gabarito no local da imagem 7 da Viagem no Tempo; impede segundo clique |
 | `design` | string (opcional) | Spec 042: tema do Portfólio Artístico (`rosa` \| `verde` \| `azul` \| `bege`) |
-| `portfolio` | object (opcional) | Spec 042: textos (`titulo`, `legenda1`, `nomeArtista`, `trajetoria`, `tituloObra2`, `link2`, `legenda2`, `apresentacao`, `tituloObra3`, `link3`, `legenda3`, `analise`, `reflexao`, `questaoConceito`, `creditos`, `referencias`) e imagens (`capa`, `img1`, `img2`, `img3`, `imgEquipe`: `{ url, publicId }` do Cloudinary em `dhpb/portfolios/{equipeId}`). Entrega grava `peso: 0` (nota da banca, spec futura) |
+| `portfolio` | object (opcional) | Spec 042: textos (`titulo`, `legenda1`, `nomeArtista`, `trajetoria`, `tituloObra2`, `link2`, `legenda2`, `apresentacao`, `tituloObra3`, `link3`, `legenda3`, `analise`, `reflexao`, `creditos`, `referencias`) e imagens (`capa`, `img1`, `img2`, `img3`, `imgEquipe`: `{ url, publicId }` do Cloudinary em `dhpb/portfolios/{equipeId}`). Entrega grava `peso: 0` (nota da banca, spec futura) |
 | `atualizadoEm` | string (ISO) | Momento da gravação |
 | `atualizadoPor` | string | Nome ou e-mail do integrante que gravou |
 

@@ -122,11 +122,6 @@ export const SECOES = [
         label: 'Reflexão crítica',
         orientacao: 'Reflita sobre o impacto e a relevância do artista e de sua obra, suas escolhas e referências, e como esses tópicos ajudam a compreender e ressignificar o campo artístico e a história da arte. Pesquise ao menos um conceito histórico trabalhado nesta edição do DHPB.',
       },
-      {
-        id: 'questaoConceito', tipo: 'linha', max: 200,
-        label: 'Identificação da questão',
-        orientacao: 'Insira o número da questão e o conceito trabalhado. Evite escolher a mesma questão de outra equipe do mesmo orientador.',
-      },
     ],
   },
   {

@@ -200,9 +200,6 @@ export default function PortfolioWall({ portfolio = {}, temaId, nomeEquipe = '',
     />,
     <>
       <Heading tema={tema}>Reflexão histórica</Heading>
-      <p style={legendaStyle} className="mb-6 text-lg font-bold uppercase tracking-[0.18em]">
-        {p.questaoConceito?.trim() || <Vazio>Questão X: conceito trabalhado</Vazio>}
-      </p>
       <Texto valor={p.reflexao} style={ff(tema.fontes.corpo)} />
     </>,
     <>
