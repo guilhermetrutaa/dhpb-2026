@@ -20,6 +20,7 @@ import {
   FASE_ALVO,
   colunaDe,
   escolherTerceiro,
+  explicarErro,
   identificarCorretor,
   normalizar,
   notaFinal,
@@ -42,8 +43,6 @@ import {
 const poppins = Poppins({ subsets: ['latin'], weight: ['400', '500', '600', '700'] })
 const CHAVE_SESSAO = 'correcao-authenticated'
 
-// Mesmo padrão de bypass das páginas de tarefa (spec 042): sem Firebase em dev local.
-// A produção nunca entra neste caminho — `localhost` não existe no domínio do Vercel.
 function isLocalDevHost() {
   if (typeof window === 'undefined') return false
   const host = window.location.hostname
@@ -63,8 +62,9 @@ function TelaAcesso({ aoEntrar }) {
   const [erro, setErro] = useState('')
   const [carregando, setCarregando] = useState(false)
 
+  // Removido rounded-2xl, adicionado rounded-none para visual mais quadrado e clássico
   const campo =
-    'block w-full rounded-2xl border border-neutral-300 p-4 pl-6 text-sm outline-none focus:border-[#82181A] focus:ring-1 focus:ring-[#82181A]'
+    'block w-full rounded-none border border-neutral-400 bg-white p-3 text-sm outline-none focus:border-[#82181A] focus:ring-1 focus:ring-[#82181A] transition-none'
 
   const mensagens = {
     'auth/invalid-credential': 'Email ou senha inválidos.',
@@ -134,20 +134,20 @@ function TelaAcesso({ aoEntrar }) {
 
   return (
     <div className={poppins.className}>
-      <div className="w-full min-h-screen bg-[#fff] text-[#000] flex flex-col">
+      <div className="w-full min-h-screen bg-[#f5f5f5] text-[#000] flex flex-col">
         <main className="flex flex-col lg:flex-row flex-1">
-          <div className="hidden lg:block lg:w-1/2">
+          <div className="hidden lg:block lg:w-1/2 bg-white border-r border-neutral-200">
             <Image src="/bg-admin.svg" width={800} height={100} alt="" className="w-full h-screen object-cover" />
           </div>
 
-          <div className="w-full lg:w-1/2 px-6 py-12 md:px-20 lg:pt-28 flex flex-col items-center lg:items-start">
-            <div className="w-full max-w-md">
+          <div className="w-full lg:w-1/2 px-6 py-12 md:px-20 lg:pt-28 flex flex-col items-center lg:items-start bg-white lg:bg-transparent">
+            <div className="w-full max-w-md bg-white lg:bg-transparent lg:p-0 p-8 border lg:border-none border-neutral-300">
               <div className="text-center lg:text-left">
-                <h1 className="text-3xl md:text-[2.2rem] text-[#82181A] font-medium">Correção</h1>
-                <p className="text-[#2e2e2e] pt-3">Sistema de correção da Fase 4 — Portfólio Artístico</p>
+                <h1 className="text-3xl md:text-[2.2rem] text-[#82181A] font-medium uppercase tracking-wide">Correção</h1>
+                <p className="text-[#333] pt-2">Sistema de correção da Fase 4 — Portfólio Artístico</p>
               </div>
 
-              <div className="flex gap-1 mt-8 border-b border-neutral-200">
+              <div className="flex gap-1 mt-8 border-b-2 border-neutral-300">
                 {[
                   { id: 'entrar', texto: 'Entrar' },
                   { id: 'cadastrar', texto: 'Criar conta' },
@@ -159,7 +159,7 @@ function TelaAcesso({ aoEntrar }) {
                       setAba(t.id)
                       setErro('')
                     }}
-                    className={`px-5 py-3 text-sm font-medium cursor-pointer border-b-2 -mb-px transition-colors ${
+                    className={`px-5 py-3 text-sm font-bold uppercase tracking-wider cursor-pointer border-b-4 -mb-[2px] transition-none ${
                       aba === t.id
                         ? 'border-[#82181A] text-[#82181A]'
                         : 'border-transparent text-neutral-500 hover:text-neutral-900'
@@ -170,10 +170,10 @@ function TelaAcesso({ aoEntrar }) {
                 ))}
               </div>
 
-              <form onSubmit={aba === 'entrar' ? entrar : cadastrar} className="space-y-6 pt-8">
+              <form onSubmit={aba === 'entrar' ? entrar : cadastrar} className="space-y-5 pt-8">
                 {aba === 'cadastrar' && (
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-neutral-900">Nome completo</label>
+                  <div className="space-y-1">
+                    <label className="block text-sm font-bold text-neutral-900 uppercase">Nome completo</label>
                     <input
                       type="text"
                       value={nome}
@@ -182,14 +182,14 @@ function TelaAcesso({ aoEntrar }) {
                       required
                       className={campo}
                     />
-                    <p className="text-xs text-neutral-500">
-                      É este nome que identifica você na comissão. Sem ele a fila fica vazia.
+                    <p className="text-xs text-neutral-500 mt-1">
+                      É este nome que identifica você na comissão.
                     </p>
                   </div>
                 )}
 
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-neutral-900">Email</label>
+                <div className="space-y-1">
+                  <label className="block text-sm font-bold text-neutral-900 uppercase">Email</label>
                   <input
                     type="email"
                     value={email}
@@ -201,8 +201,8 @@ function TelaAcesso({ aoEntrar }) {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-neutral-900">Senha</label>
+                <div className="space-y-1">
+                  <label className="block text-sm font-bold text-neutral-900 uppercase">Senha</label>
                   <input
                     type="password"
                     value={senha}
@@ -214,22 +214,22 @@ function TelaAcesso({ aoEntrar }) {
                   />
                 </div>
 
-                <label className="flex items-center gap-2 cursor-pointer select-none">
+                <label className="flex items-center gap-2 cursor-pointer select-none pt-2">
                   <input
                     type="checkbox"
                     checked={lembrar}
                     onChange={(e) => setLembrar(e.target.checked)}
-                    className="h-4 w-4 rounded border-neutral-300 text-[#82181A] focus:ring-[#82181A]"
+                    className="h-4 w-4 rounded-none border-neutral-400 text-[#82181A] focus:ring-[#82181A]"
                   />
-                  <span className="text-sm text-neutral-900">Manter conectado</span>
+                  <span className="text-sm font-medium text-neutral-800">Manter conectado</span>
                 </label>
 
-                {erro && <p className="text-red-600 text-sm text-center">{erro}</p>}
+                {erro && <p className="text-white bg-red-600 p-2 text-sm text-center border border-red-800 font-medium">{erro}</p>}
 
                 <button
                   type="submit"
                   disabled={carregando}
-                  className="w-full bg-[#82181A] py-4 font-semibold text-white cursor-pointer hover:bg-[#631214] transition-colors rounded-xl disabled:opacity-50"
+                  className="w-full bg-[#82181A] py-3.5 font-bold text-white uppercase tracking-wider cursor-pointer hover:bg-[#631214] border-2 border-[#540f11] rounded-none disabled:opacity-50 mt-2"
                 >
                   {carregando ? 'Aguarde...' : aba === 'entrar' ? 'Entrar' : 'Criar conta e entrar'}
                 </button>
@@ -251,20 +251,21 @@ function Card({ item, aoAbrir }) {
     <button
       type="button"
       onClick={() => aoAbrir(item)}
-      className="w-full text-left bg-white rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.12)] hover:shadow-[0_6px_16px_-4px_rgba(130,24,26,0.35)] hover:-translate-y-0.5 transition-all px-3 py-2.5 cursor-pointer border-l-[3px] border-l-[#82181A]"
+      // Interface sólida, plana, bordas retas
+      className="w-full text-left rounded-none bg-[#242424] border border-[#333] border-l-[4px] border-l-[#c9555f] hover:bg-[#2a2a2a] hover:border-l-[#e8757e] transition-none px-3 py-3 cursor-pointer"
     >
       <div className="flex items-start justify-between gap-2">
-        <span className="text-sm font-semibold text-[#1a1a1a] leading-tight">{item.nome}</span>
+        <span className="text-sm font-bold text-white leading-tight">{item.nome}</span>
         {item.notaFinal != null && (
-          <span className="shrink-0 text-xs font-bold text-white bg-[#82181A] px-1.5 py-0.5 rounded-full tabular-nums">
+          <span className="shrink-0 text-[11px] font-bold bg-[#82181A] text-white px-2 py-0.5 rounded-none tabular-nums border border-[#540f11]">
             {item.notaFinal}
           </span>
         )}
       </div>
-      <div className="text-xs text-neutral-600 mt-1 truncate">{item.escola}</div>
-      {item.cidade && <div className="text-xs text-neutral-400 truncate">{item.cidade}</div>}
+      <div className="text-xs text-neutral-400 mt-1.5 truncate">{item.escola}</div>
+      {item.cidade && <div className="text-xs text-neutral-500 truncate">{item.cidade}</div>}
       {item.minhaNota != null && (
-        <div className="inline-block text-xs font-medium text-neutral-700 bg-neutral-100 rounded px-1.5 py-0.5 mt-2">
+        <div className="inline-block text-[11px] font-bold text-neutral-300 bg-[#333] border border-[#444] px-2 py-0.5 rounded-none mt-2">
           Minha nota: {item.minhaNota}
         </div>
       )}
@@ -278,12 +279,12 @@ function Card({ item, aoAbrir }) {
 
 function LinhaCriterio({ criterio, valor, zerado, aoMarcar, aoAlternarZero }) {
   return (
-    <li className="bg-neutral-50 rounded-lg px-3 py-2.5">
+    <li className="bg-white rounded-none px-4 py-3 border border-neutral-300">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm text-neutral-800 leading-snug">{criterio.texto}</p>
-        <span className="shrink-0 text-xs font-semibold text-neutral-500 tabular-nums">peso {criterio.peso}</span>
+        <p className="text-sm font-medium text-neutral-900 leading-snug">{criterio.texto}</p>
+        <span className="shrink-0 text-xs font-bold text-neutral-600 bg-neutral-100 border border-neutral-200 px-1.5 py-0.5 uppercase tabular-nums">Peso {criterio.peso}</span>
       </div>
-      <div className="mt-2 flex items-center justify-between gap-3">
+      <div className="mt-3 flex items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-1.5">
           {NIVEIS.map((n) => (
             <button
@@ -292,10 +293,10 @@ function LinhaCriterio({ criterio, valor, zerado, aoMarcar, aoAlternarZero }) {
               onClick={() => aoMarcar(n.id)}
               title={n.nome}
               aria-pressed={valor === n.id}
-              className={`px-2.5 py-1.5 text-xs font-medium rounded-md border cursor-pointer transition-colors ${
+              className={`px-3 py-1.5 text-xs font-bold uppercase rounded-none border cursor-pointer transition-none ${
                 valor === n.id
                   ? 'border-[#82181A] bg-[#82181A] text-white'
-                  : 'border-neutral-300 bg-white text-neutral-600 hover:border-[#82181A]'
+                  : 'border-neutral-300 bg-neutral-50 text-neutral-700 hover:border-neutral-400 hover:bg-neutral-100'
               }`}
             >
               {n.nome}
@@ -306,17 +307,17 @@ function LinhaCriterio({ criterio, valor, zerado, aoMarcar, aoAlternarZero }) {
             onClick={aoAlternarZero}
             aria-pressed={zerado}
             title="Imagem produzida por IA: este item vale 0"
-            className={`px-2.5 py-1.5 text-xs font-medium rounded-md border cursor-pointer transition-colors ${
+            className={`px-3 py-1.5 text-xs font-bold uppercase rounded-none border cursor-pointer transition-none ml-2 ${
               zerado
-                ? 'border-amber-600 bg-amber-600 text-white'
-                : 'border-neutral-300 bg-white text-neutral-500 hover:border-amber-600'
+                ? 'border-amber-700 bg-amber-600 text-white'
+                : 'border-neutral-300 bg-neutral-50 text-neutral-700 hover:border-amber-600 hover:text-amber-700'
             }`}
           >
             IA = 0
           </button>
         </div>
-        <span className="shrink-0 text-xs font-bold text-neutral-900 tabular-nums">
-          {notaDe(criterio.id, valor, zerado)}
+        <span className="shrink-0 text-sm font-black text-neutral-900 tabular-nums bg-neutral-100 px-2 py-1 border border-neutral-300">
+          {notaDe(criterio.id, valor, zerado)} pts
         </span>
       </div>
     </li>
@@ -324,8 +325,6 @@ function LinhaCriterio({ criterio, valor, zerado, aoMarcar, aoAlternarZero }) {
 }
 
 function Painel({ equipe, correcao, aoSalvar, aoFechar }) {
-  // O pai remonta com `key={equipe.id}`, então o estado inicial já é o da equipe certa
-  // e não precisa de efeito para sincronizar.
   const [criterios, setCriterios] = useState(() => correcao?.criterios || {})
   const [zerados, setZerados] = useState(() => new Set(correcao?.zerados || []))
   const [situacao, setSituacao] = useState('')
@@ -372,11 +371,11 @@ function Painel({ equipe, correcao, aoSalvar, aoFechar }) {
   }
 
   return (
-    <div className="flex flex-col h-full bg-white">
-      <header className="px-5 py-4 border-b border-neutral-200 flex items-start justify-between gap-4 shrink-0">
+    <div className="flex flex-col h-full bg-neutral-100">
+      <header className="px-5 py-4 border-b-2 border-neutral-300 flex items-start justify-between gap-4 shrink-0 bg-white">
         <div className="min-w-0">
-          <h2 className="text-lg font-semibold text-neutral-900 truncate">{equipe.nome}</h2>
-          <p className="text-sm text-neutral-600 truncate">
+          <h2 className="text-xl font-bold text-neutral-900 uppercase truncate">{equipe.nome}</h2>
+          <p className="text-sm font-medium text-neutral-600 truncate mt-1">
             {equipe.escola}
             {equipe.cidade ? ` · ${equipe.cidade}` : ''}
           </p>
@@ -385,29 +384,29 @@ function Painel({ equipe, correcao, aoSalvar, aoFechar }) {
           type="button"
           onClick={aoFechar}
           aria-label="Fechar"
-          className="shrink-0 text-neutral-400 hover:text-neutral-900 cursor-pointer text-2xl leading-none px-2"
+          className="shrink-0 bg-neutral-200 border border-neutral-300 text-neutral-700 hover:bg-neutral-800 hover:text-white cursor-pointer text-xl font-bold leading-none px-3 py-1 rounded-none transition-none"
         >
-          ×
+          ✕
         </button>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
-        <p className="text-xs bg-[#F8E9B0] text-neutral-800 px-3 py-2 rounded-md">
+      <div className="flex-1 overflow-y-auto px-5 py-5 space-y-8">
+        <div className="text-xs bg-[#fff3cd] border-l-4 border-[#ffc107] text-[#856404] px-4 py-3 rounded-none font-medium">
           Se a equipe usou imagens criadas por IA, os itens sobre essas imagens valem 0 — marque “IA = 0” no critério.
-        </p>
+        </div>
 
         {BLOCOS.map((bloco) => {
           const itens = CRITERIOS_DO_BLOCO(bloco.id)
           const faltamNoBloco = itens.filter((c) => faltando.includes(c.id)).length
           return (
             <section key={bloco.id}>
-              <div className="flex items-baseline justify-between gap-2 border-b border-neutral-200 pb-1 mb-3">
-                <h3 className="text-sm font-semibold text-[#82181A]">{bloco.rotulo}</h3>
-                <span className="text-xs text-neutral-500 tabular-nums">
-                  {pontosDoBloco(bloco.id)} pts{faltamNoBloco > 0 && ` · ${faltamNoBloco} a responder`}
+              <div className="flex items-end justify-between gap-2 border-b-2 border-neutral-300 pb-2 mb-4">
+                <h3 className="text-base font-bold text-[#82181A] uppercase tracking-wide">{bloco.rotulo}</h3>
+                <span className="text-xs font-bold text-neutral-600 uppercase tabular-nums">
+                  {pontosDoBloco(bloco.id)} pts{faltamNoBloco > 0 && ` · ${faltamNoBloco} restam`}
                 </span>
               </div>
-              <ul className="space-y-3">
+              <ul className="space-y-4">
                 {itens.map((c) => (
                   <LinhaCriterio
                     key={c.id}
@@ -424,13 +423,13 @@ function Painel({ equipe, correcao, aoSalvar, aoFechar }) {
         })}
       </div>
 
-      <footer className="px-5 py-4 border-t border-neutral-200 shrink-0 flex items-center justify-between gap-4">
+      <footer className="px-5 py-4 border-t-2 border-neutral-300 shrink-0 flex items-center justify-between gap-4 bg-white">
         <div>
-          <div className="text-2xl font-bold text-[#82181A] tabular-nums">
-            {nota} <span className="text-sm font-medium text-neutral-500">/ {PESO_TOTAL}</span>
+          <div className="text-2xl font-black text-[#82181A] tabular-nums">
+            {nota} <span className="text-sm font-bold text-neutral-400">/ {PESO_TOTAL}</span>
           </div>
-          <div className="text-xs text-neutral-500">
-            {faltando.length > 0 ? `${faltando.length} critérios sem responder` : 'Todos os critérios respondidos'}
+          <div className="text-xs font-medium text-neutral-500 uppercase mt-1">
+            {faltando.length > 0 ? `${faltando.length} critérios pendentes` : 'Todos respondidos'}
             {situacao && ` · ${situacao}`}
           </div>
         </div>
@@ -438,9 +437,9 @@ function Painel({ equipe, correcao, aoSalvar, aoFechar }) {
           type="button"
           disabled={faltando.length > 0}
           onClick={() => aoSalvar({ criterios, zerados: [...zerados], nota, enviar: true })}
-          className="shrink-0 px-5 py-3 bg-[#82181A] text-white font-semibold rounded-lg hover:bg-[#631214] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="shrink-0 px-6 py-3 bg-[#82181A] text-white font-bold uppercase tracking-wider rounded-none hover:bg-[#631214] border-2 border-[#540f11] transition-none disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Enviar correção
+          Enviar Correção
         </button>
       </footer>
     </div>
@@ -463,8 +462,6 @@ function Board({ sessao, corretor, sim }) {
 
   const aba = abaAtiva || CORRETORES[0].id
 
-// Distribuição (doc único) + as equipes do corretor. Nada de varredura:
-  // `distribuicao.atribuido` já diz quais equipes são de quem.
   useEffect(() => {
     let vivo = true
     async function carregar() {
@@ -527,9 +524,10 @@ function Board({ sessao, corretor, sim }) {
         lista.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
         setEquipes(lista)
         setCarregando(false)
-      } catch {
+      } catch (err) {
         if (!vivo) return
-        setErro('Não foi possível carregar a fila. Recarregue a página.')
+        console.error('[correcao] falha ao carregar a fila:', err)
+        setErro(explicarErro(err))
         setCarregando(false)
       }
     }
@@ -539,7 +537,6 @@ function Board({ sessao, corretor, sim }) {
     }
   }, [aba])
 
-/** Uma query traz todas as correções desta aba — inclui o mapa `notas` dos pares. */
 useEffect(() => {
     if (isLocalDevHost()) return
     if (!equipes.length) return
@@ -561,13 +558,14 @@ useEffect(() => {
         }
         setNotasFs(mapa)
       })
-      .catch(() => {})
+      .catch((err) => {
+        console.error('[correcao] falha ao carregar as correções desta aba:', err)
+      })
     return () => {
       vivo = false
     }
   }, [aba, equipes])
 
-  // Na simulação as correções vêm do mock (derivado, sem efeito); no resto, do Firestore.
   const notas = useMemo(() => {
     if (!isLocalDevHost()) return notasFs
     const mapa = {}
@@ -587,13 +585,9 @@ useEffect(() => {
     })
   }
 
-  /** 2 notas fecham o veredito; divergência ≥ 20 pede a 3ª; 3 notas fecham sozinhas. */
   const fecharVeredito = useCallback(
     async (equipe, notasAposEnvio) => {
       const sim = isLocalDevHost()
-
-      // Quem pode corrigir: os 2 da distribuição + o 3º já designado. O doc de
-      // veredito é a fonte da verdade do 3º; sem somá-lo a nota dele fica fora.
       const veredito = sim ? MOCK_VEREDITOS[equipe.id] : await carregarVeredito(equipe.id)
       const distribuidos = distribuicao?.atribuido?.[equipe.id] || []
       const atrib = Array.from(new Set([...distribuidos, ...(veredito?.atribuido || [])]))
@@ -621,7 +615,6 @@ useEffect(() => {
           carga: distribuicao?.carga || {},
         })
         if (terceiro) {
-          // Sem isto a aba do 3º não listaria o portfólio e o veredito nunca fecharia.
           if (!sim) await acrescentarTerceiro(equipe.id, terceiro.id)
           await gravar(equipe.id, {
             status: 'aguardando-terceira',
@@ -651,10 +644,6 @@ useEffect(() => {
     [aba, distribuicao]
   )
 
-  /**
-   * Persiste a correção do corretor e, quando é o envio, tenta fechar o veredito.
-   * `notas` é o doc do par: por isso uma query só traz o estado dos dois.
-   */
   const salvar = useCallback(
     async (equipe, dados) => {
       const atual = notas[equipe.id] || {}
@@ -662,9 +651,6 @@ useEffect(() => {
         ? Array.from(new Set([...(atual.enviados || []), aba]))
         : atual.enviados || []
 
-      // Um doc por equipe. `enviados` diz quem já fechou a correção dela;
-      // a query da aba usa `array-contains` em `enviados`, então um doc traz
-      // também as notas do par — é o que permite fechar o veredito com 1 leitura.
       const registro = {
         equipeId: equipe.id,
         enviados,
@@ -690,131 +676,156 @@ useEffect(() => {
 
   return (
     <div
-      className={`${poppins.className} min-h-screen flex flex-col bg-cover bg-center`}
-      style={{ backgroundImage: `url(${FUNDO_SRC})`, backgroundAttachment: 'fixed' }}
+      className={`${poppins.className} min-h-screen bg-cover bg-center bg-fixed text-white`}
+      style={{ backgroundImage: `url(${FUNDO_SRC})` }}
     >
-      <header className="bg-[#82181A] text-white px-5 py-3 flex items-center justify-between gap-4 shadow-[0_2px_12px_rgba(0,0,0,0.25)]">
-        <div className="min-w-0">
-          <h1 className="text-base font-semibold leading-tight">Correção — Fase 4 · Portfólio Artístico</h1>
-          <p className="text-xs text-white/80 truncate">
-            {sessao?.nome}
-            {corretor ? ` · ${corretor.nome}` : ''}
-            {sessao?.email ? ` · ${sessao.email}` : ''}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={async () => {
-            if (sim) return
-            localStorage.removeItem(CHAVE_SESSAO)
-            await signOut(auth)
-          }}
-          className="shrink-0 px-4 py-2 text-sm font-medium rounded-lg bg-white/15 hover:bg-white/25 transition-colors cursor-pointer"
-        >
-          {sim ? 'Simulação' : 'Sair'}
-        </button>
-      </header>
-
-      {sim && (
-        <div className="mx-5 mt-4 bg-white/85 backdrop-blur-sm border border-amber-500 text-amber-950 text-sm px-4 py-2.5 rounded-lg flex items-center justify-between gap-4 shadow-sm">
-          <span>
-            <strong>Simulação local.</strong> Dados fictícios, sem Firebase. Nada disso vai para o banco e nada afeta a
-            pontuação real.
-          </span>
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="shrink-0 px-3 py-1.5 text-xs font-semibold rounded-md bg-amber-600 text-white hover:bg-amber-700 transition-colors cursor-pointer"
-          >
-            Recarregar simulação
-          </button>
-        </div>
-      )}
-
-      {semNome && (
-        <div className="mx-5 mt-5 bg-white/90 border border-amber-500 text-amber-950 text-sm px-4 py-3 rounded-lg shadow-sm">
-          <strong>Não encontramos seu nome na comissão.</strong> Este acesso foi criado com “{sessao?.nome}”, que não
-          corresponde a nenhum dos 7 corretores. Fale com o admin para ajustar o cadastro.
-        </div>
-      )}
-
-      {!semNome && (
-        <>
-          <nav className="mx-5 mt-4 bg-white/85 backdrop-blur-sm border border-white/60 rounded-full px-2 flex gap-1 overflow-x-auto shadow-sm">
-            {CORRETORES.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => {
-                  setAbaAtiva(c.id)
-                  setAberta(null)
-                  setAviso('')
-                }}
-                className={`px-4 py-2 text-sm font-medium whitespace-nowrap cursor-pointer rounded-full transition-colors ${
-                  aba === c.id
-                    ? 'bg-[#82181A] text-white shadow-sm'
-                    : 'text-neutral-700 hover:bg-white/70'
-                }`}
-              >
-                {c.nome}
-                {corretor?.id === c.id && (
-                  <span className="ml-1.5 text-[10px] bg-white/25 text-white px-1.5 py-0.5 rounded">você</span>
-                )}
-              </button>
-            ))}
-          </nav>
-
-          {erro && <div className="mx-5 mt-4 bg-red-50 border border-red-300 text-red-700 text-sm px-4 py-3 rounded-lg">{erro}</div>}
-          {aviso && <div className="mx-5 mt-4 bg-white/90 border border-sky-300 text-sky-900 text-sm px-4 py-3 rounded-lg shadow-sm">{aviso}</div>}
-
-          {!distribuicao && !carregando ? (
-            <p className="m-5 bg-white/85 border border-white/60 text-neutral-700 text-sm px-4 py-3 rounded-lg">
-              A distribuição ainda não foi gerada. Peça ao admin.
-            </p>
-          ) : carregando ? (
-            <p className="m-5 bg-white/85 border border-white/60 text-neutral-700 text-sm px-4 py-3 rounded-lg">
-              Carregando a fila…
-            </p>
-          ) : (
-            <div className="flex-1 flex gap-4 px-5 py-5 overflow-x-auto items-stretch min-h-0">
-              {COLUNAS.map((col) => {
-                const lista = porColuna(col.id)
-                return (
-                  <section
-                    key={col.id}
-                    className="shrink-0 w-72 flex flex-col rounded-2xl bg-white/80 backdrop-blur-sm border border-white/70 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.35)] overflow-hidden"
-                  >
-                    <div className="px-3.5 py-3 border-b border-neutral-200/80 flex items-center justify-between gap-2">
-                      <h2 className="text-sm font-bold text-neutral-800">{col.titulo}</h2>
-                      <span className="text-[11px] font-semibold text-neutral-600 bg-neutral-200/70 px-2 py-0.5 rounded-full tabular-nums">
-                        {lista.length}
-                      </span>
-                    </div>
-                    <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2.5 min-h-0">
-                      {lista.map((e) => (
-                        <Card
-                          key={e.id}
-                          item={{ ...e, minhaNota: notas[e.id]?.notas?.[aba] }}
-                          aoAbrir={setAberta}
-                        />
-                      ))}
-                      {!lista.length && (
-                        <p className="text-xs text-neutral-400 text-center py-8">
-                          {col.id === 'corrigidas' ? 'Nada corrigido ainda' : 'Vazio'}
-                        </p>
-                      )}
-                    </div>
-                  </section>
-                )
-              })}
+      {/* Camada escurecedora sólida, sem blur */}
+      <div className="min-h-screen flex flex-col bg-neutral-900/90">
+        <div className="flex-1 flex flex-col max-w-[1680px] w-full mx-auto px-4 sm:px-6 py-5 sm:py-7">
+          {/* ---- Painel principal Clássico/Quadrado ---- */}
+          <div className="flex-1 min-h-0 flex flex-col rounded-none bg-[#111] border border-[#333] shadow-none overflow-hidden">
+            {/* Logo + conta */}
+            <div className="flex items-center justify-between gap-4 px-5 sm:px-7 py-5 bg-[#1a1a1a] border-b border-[#333]">
+              <Image
+                src="/logo-page-correcao.svg"
+                alt="Correção — Fase 4"
+                width={300}
+                height={94}
+                priority
+                className="h-auto w-[180px] sm:w-[260px] shrink-0"
+              />
+              <div className="flex items-center gap-4 min-w-0">
+                <div className="min-w-0 text-right">
+                  <p className="text-sm font-bold uppercase tracking-wide truncate text-white">{sessao?.nome}</p>
+                  <p className="text-xs text-neutral-400 truncate">{sessao?.email}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (sim) return
+                    localStorage.removeItem(CHAVE_SESSAO)
+                    await signOut(auth)
+                  }}
+                  className="shrink-0 px-4 py-2 text-xs font-bold uppercase rounded-none bg-[#242424] hover:bg-[#333] border border-[#444] text-white transition-none cursor-pointer"
+                >
+                  {sim ? 'Simulação' : 'Sair'}
+                </button>
+              </div>
             </div>
-          )}
-        </>
-      )}
+
+            {sim && (
+              <div className="mx-5 sm:mx-7 mt-5 bg-[#332a00] border-l-4 border-[#ffc107] text-[#ffc107] text-sm px-4 py-3 rounded-none flex items-center justify-between gap-4">
+                <span>
+                  <strong>SIMULAÇÃO LOCAL.</strong> Dados fictícios, sem Firebase. Nada disso vai para o banco.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="shrink-0 px-3 py-1.5 text-xs font-bold uppercase rounded-none bg-[#ffc107] text-black hover:bg-[#e0a800] transition-none cursor-pointer"
+                >
+                  Recarregar
+                </button>
+              </div>
+            )}
+
+            {semNome && (
+              <div className="mx-5 sm:mx-7 mt-5 bg-[#401313] border-l-4 border-red-500 text-red-200 text-sm px-4 py-3 rounded-none">
+                <strong>Não encontramos seu nome na comissão.</strong> Este acesso foi criado com “{sessao?.nome}”, que
+                não corresponde a nenhum dos 7 corretores. Fale com o admin para ajustar o cadastro.
+              </div>
+            )}
+
+            {!semNome && (
+              <>
+                {/* Abas dos professores */}
+                <nav className="px-5 sm:px-7 pt-5 flex overflow-x-auto border-b border-[#333] bg-[#141414]">
+                  {CORRETORES.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => {
+                        setAbaAtiva(c.id)
+                        setAberta(null)
+                        setAviso('')
+                      }}
+                      className={`px-5 py-3 text-xs font-bold uppercase whitespace-nowrap cursor-pointer rounded-none border-t-2 border-l border-r transition-none -mb-[1px] ${
+                        aba === c.id
+                          ? 'bg-[#111] border-t-[#82181A] border-l-[#333] border-r-[#333] border-b-transparent text-white'
+                          : 'bg-[#1a1a1a] border-transparent border-b-[#333] text-neutral-500 hover:text-neutral-300 hover:bg-[#222]'
+                      }`}
+                    >
+                      {c.nome}
+                      {corretor?.id === c.id && (
+                        <span className="ml-2 text-[9px] bg-[#333] text-neutral-300 px-1.5 py-0.5 rounded-none border border-[#444]">VOCÊ</span>
+                      )}
+                    </button>
+                  ))}
+                  {/* Preenchimento do resto da borda */}
+                  <div className="flex-1 border-b border-[#333]"></div>
+                </nav>
+
+                {erro && (
+                  <div className="mx-5 sm:mx-7 mt-5 bg-[#401313] border-l-4 border-red-500 text-red-200 text-sm px-4 py-3 rounded-none">
+                    {erro}
+                  </div>
+                )}
+                {aviso && (
+                  <div className="mx-5 sm:mx-7 mt-5 bg-[#00273f] border-l-4 border-[#007bff] text-sky-200 text-sm px-4 py-3 rounded-none">
+                    {aviso}
+                  </div>
+                )}
+
+                {!distribuicao && !carregando ? (
+                  <p className="m-5 sm:m-7 bg-[#242424] border border-[#333] text-neutral-400 text-sm px-4 py-3 rounded-none font-medium">
+                    A distribuição ainda não foi gerada. Peça ao admin.
+                  </p>
+                ) : carregando ? (
+                  <p className="m-5 sm:m-7 bg-[#242424] border border-[#333] text-neutral-400 text-sm px-4 py-3 rounded-none font-medium">
+                    Carregando a fila…
+                  </p>
+                ) : (
+                  <div className="flex-1 min-h-0 flex gap-4 p-5 sm:p-7 overflow-x-auto bg-[#111]">
+                    {COLUNAS.map((col) => {
+                      const lista = porColuna(col.id)
+                      return (
+                        <section
+                          key={col.id}
+                          className="shrink-0 w-[270px] flex flex-col rounded-none bg-[#1a1a1a] border border-[#333] overflow-hidden"
+                        >
+                          <div className="px-4 py-3 border-b border-[#333] flex items-center justify-between gap-2 bg-[#141414]">
+                            <h2 className="text-[13px] font-bold uppercase text-neutral-200 tracking-wide">{col.titulo}</h2>
+                            <span className="text-[11px] font-bold text-white bg-[#333] border border-[#444] px-2 py-0.5 rounded-none tabular-nums">
+                              {lista.length}
+                            </span>
+                          </div>
+                          <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 min-h-0">
+                            {lista.map((e) => (
+                              <Card
+                                key={e.id}
+                                item={{ ...e, minhaNota: notas[e.id]?.notas?.[aba] }}
+                                aoAbrir={setAberta}
+                              />
+                            ))}
+                            {!lista.length && (
+                              <p className="text-xs font-bold uppercase text-neutral-600 text-center py-8">
+                                {col.id === 'corrigidas' ? 'Nenhuma corrigida' : 'Fila Vazia'}
+                              </p>
+                            )}
+                          </div>
+                        </section>
+                      )
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
 
       {aberta && (
-        <div className="fixed inset-0 z-50 bg-white flex">
-          <div className="w-1/2 min-w-0 border-r border-neutral-200 overflow-hidden">
+        <div className="fixed inset-0 z-50 bg-[#000000cc] flex">
+          <div className="w-1/2 min-w-0 border-r border-neutral-300 bg-white">
             <div className="h-full overflow-y-auto">
               <PortfolioWall
                 portfolio={aberta.portfolio}
@@ -824,7 +835,7 @@ useEffect(() => {
               />
             </div>
           </div>
-          <div className="w-1/2 min-w-0">
+          <div className="w-1/2 min-w-0 bg-neutral-100">
             <Painel
               key={aberta.id}
               equipe={aberta}
@@ -845,7 +856,6 @@ useEffect(() => {
 
 const semInscricao = () => () => {}
 
-/** `true` no cliente, `false` no servidor: o `sim` só liga depois da hidratação. */
 function useEstaNoCliente() {
   return useSyncExternalStore(
     semInscricao,
@@ -887,8 +897,8 @@ function AreaCorrecao() {
 
   if (aguardando) {
     return (
-      <div className={`${poppins.className} min-h-screen flex items-center justify-center`}>
-        <p className="text-[#82181A]">Carregando…</p>
+      <div className={`${poppins.className} min-h-screen flex items-center justify-center bg-[#f5f5f5]`}>
+        <p className="text-[#82181A] font-bold text-lg uppercase tracking-wide">Carregando…</p>
       </div>
     )
   }
@@ -901,8 +911,8 @@ export default function Page() {
   return (
     <Suspense
       fallback={
-        <div className={`${poppins.className} min-h-screen flex items-center justify-center`}>
-          <p className="text-[#82181A]">Carregando...</p>
+        <div className={`${poppins.className} min-h-screen flex items-center justify-center bg-[#f5f5f5]`}>
+          <p className="text-[#82181A] font-bold text-lg uppercase tracking-wide">Carregando...</p>
         </div>
       }
     >

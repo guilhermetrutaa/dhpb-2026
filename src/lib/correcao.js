@@ -29,6 +29,26 @@ export const COLUNAS = [
   { id: 'corrigidas', titulo: 'Corrigidas' },
 ]
 
+/**
+ * Traduz o erro do Firestore numa frase que diz o que fazer.
+ * Sem isto todo erro virava "Não foi possível carregar a fila" e o
+ * diagnóstico levava meio dia (foi o que escondeu o `permission-denied`
+ * das regras de `correcoes/**`).
+ */
+export function explicarErro(err) {
+  const codigo = String(err?.code || '').replace(/^firestore\//, '')
+  const mapa = {
+    'permission-denied': 'Seu acesso não foi liberado para ver a fila. Fale com o admin para checar as regras do Firestore em `correcoes/**`.',
+    unavailable: 'Sem conexão com o banco. Verifique a internet e recarregue.',
+    'deadline-exceeded': 'O banco demorou demais para responder. Tente novamente.',
+    'failed-precondition': 'Falta um índice no Firestore. O console mostra o link para criá-lo.',
+    'not-found': 'A distribuição ainda não foi gerada. Peça ao admin para gerá-la.',
+    unauthenticated: 'Sua sessão expirou. Saia e entre de novo.',
+    'resource-exhausted': 'Muitas requisições. Aguarde alguns instantes.',
+  }
+  return mapa[codigo] || `Não foi possível carregar a fila (${codigo || 'erro desconhecido'}).`
+}
+
 const COLUNA_POR_REDE_MODALIDADE = {
   publica_medio: 'pubMedio',
   publica_fundamental: 'pubFund',

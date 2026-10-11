@@ -190,6 +190,21 @@ for (const c of corr.CORRETORES) {
   assert.equal(acha(c.nome), c.id, `${c.nome} exato`)
 }
 
+// --- erros: a mensagem tem que dizer o que fazer, não só "não foi possível" ---
+const { explicarErro } = corr
+assert.match(explicarErro({ code: 'permission-denied' }), /regras do Firestore/, 'permission-denied aponta as regras')
+assert.match(explicarErro({ code: 'firestore/permission-denied' }), /regras do Firestore/, 'prefixo firestore/ é ignorado')
+assert.match(explicarErro({ code: 'unavailable' }), /conexão/, 'unavailable fala de conexão')
+assert.match(explicarErro({ code: 'failed-precondition' }), /índice/, 'failed-precondition fala de índice')
+assert.match(explicarErro({ code: 'unauthenticated' }), /sessão expirou/, 'unauthenticated fala de sessão')
+assert.match(explicarErro({}), /erro desconhecido/, 'sem código não some a informação')
+assert.match(explicarErro(null), /erro desconhecido/, 'null não estoura')
+// nenhum código pode virar a mensagem genérica sem dizer nada
+for (const c of ['permission-denied', 'unavailable', 'deadline-exceeded', 'failed-precondition', 'not-found', 'unauthenticated', 'resource-exhausted']) {
+  assert.ok(explicarErro({ code: c }).length > 30, `${c}: mensagem útil`)
+  assert.ok(!explicarErro({ code: c }).includes('undefined'), `${c}: sem "undefined"`)
+}
+
 console.log(
   `ok — ${CRITERIOS_COM_ID.length} critérios / ${PESO_TOTAL} pontos, ${CORRETORES.length} corretores, ` +
   `carga ${minCarga}..${maxCarga}, 3ª correção em ≥ 20`
