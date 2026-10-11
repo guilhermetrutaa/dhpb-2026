@@ -15,6 +15,7 @@ import { collection, doc, getDoc, getDocs, limit, query, setDoc, where } from 'f
 
 import { auth, db } from '@/lib/firebase'
 import {
+  CAMINHOS,
   COLUNAS,
   CORRETORES,
   FASE_ALVO,
@@ -544,7 +545,7 @@ useEffect(() => {
 
     getDocs(
       query(
-        collection(db, 'correcoes', FASE_ALVO, 'correcoes'),
+        collection(db, ...CAMINHOS.colecaoCorrecoes()),
         where('enviados', 'array-contains', aba),
         limit(500)
       )
@@ -660,7 +661,7 @@ useEffect(() => {
         atualizadoEm: new Date().toISOString(),
       }
       if (!isLocalDevHost()) {
-        await setDoc(doc(db, 'correcoes', FASE_ALVO, 'correcoes', equipe.id), registro, { merge: true })
+        await setDoc(doc(db, ...CAMINHOS.correcoes(equipe.id)), registro, { merge: true })
       }
       setNotasFs((n) => ({ ...n, [equipe.id]: registro }))
 

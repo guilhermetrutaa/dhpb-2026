@@ -11,10 +11,13 @@ import {
   writeBatch,
 } from 'firebase/firestore'
 
-import { FASE_ALVO, prepararGravacao } from '@/lib/correcao'
+import { CAMINHOS, FASE_ALVO, prepararGravacao } from '@/lib/correcao'
 
-const refDistribuicao = () => doc(db, 'correcoes', FASE_ALVO, 'distribuicao')
-const refVeredito = (equipeId) => doc(db, 'correcoes', FASE_ALVO, 'vereditos', equipeId)
+// Firestore: `doc()` exige número PAR de segmentos, `collection()` ímpar.
+// Caminho com 3 segmentos estoura `invalid-argument` antes de qualquer rede —
+// foi o que travou a fila. Os caminhos vivem em CAMINHOS e o check valida a paridade.
+const refDistribuicao = () => doc(db, ...CAMINHOS.distribuicao())
+const refVeredito = (equipeId) => doc(db, ...CAMINHOS.vereditos(equipeId))
 
 export async function carregarDistribuicao() {
   const snap = await getDoc(refDistribuicao())

@@ -205,6 +205,31 @@ for (const c of ['permission-denied', 'unavailable', 'deadline-exceeded', 'faile
   assert.ok(!explicarErro({ code: c }).includes('undefined'), `${c}: sem "undefined"`)
 }
 
+// --- caminhos do Firestore: doc = par de segmentos, coleção = ímpar ---
+// `doc()` com 3 segmentos estoura `invalid-argument` antes de qualquer rede e
+// derrubou a fila inteira. Este é o guard contra repetir o erro.
+const { CAMINHOS } = corr
+const docs = [
+  ['distribuicao', CAMINHOS.distribuicao()],
+  ['correcoes', CAMINHOS.correcoes('eq1')],
+  ['vereditos', CAMINHOS.vereditos('eq1')],
+]
+for (const [nome, segmentos] of docs) {
+  assert.equal(segmentos.length % 2, 0, `${nome}: doc precisa de nº par de segmentos, tem ${segmentos.length}`)
+  assert.ok(segmentos.every((s) => typeof s === 'string' && s && !s.includes('/')), `${nome}: segmento válido`)
+  assert.ok(!segmentos.includes(''), `${nome}: sem segmento vazio`)
+}
+for (const [nome, segmentos] of [['colecaoCorrecoes', CAMINHOS.colecaoCorrecoes()]]) {
+  assert.equal(segmentos.length % 2, 1, `${nome}: coleção precisa de nº ímpar, tem ${segmentos.length}`)
+}
+// os três precisam compartilhar o mesmo pai
+for (const [, s] of docs) {
+  assert.deepEqual(s.slice(0, 2), ['correcoes', 'fase4'], 'mesmo pai correcoes/fase4')
+}
+assert.deepEqual(CAMINHOS.distribuicao(), ['correcoes', 'fase4', 'distribuicao', 'atual'], 'caminho da distribuição')
+assert.deepEqual(CAMINHOS.correcoes('eq9'), ['correcoes', 'fase4', 'correcoes', 'eq9'])
+assert.deepEqual(CAMINHOS.vereditos('eq9'), ['correcoes', 'fase4', 'vereditos', 'eq9'])
+
 console.log(
   `ok — ${CRITERIOS_COM_ID.length} critérios / ${PESO_TOTAL} pontos, ${CORRETORES.length} corretores, ` +
   `carga ${minCarga}..${maxCarga}, 3ª correção em ≥ 20`

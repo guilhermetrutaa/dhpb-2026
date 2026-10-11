@@ -10,6 +10,15 @@ import { ehPublica } from '@/lib/eliminacaoFases'
 export const FASE_ALVO = 'fase4'
 export const DIVULGACAO_20 = 20
 
+// Caminhos da coleção nova, como array de segmentos — para o check validar a
+// paridade que o Firestore exige (doc = par, coleção = ímpar).
+export const CAMINHOS = {
+  distribuicao: () => ['correcoes', FASE_ALVO, 'distribuicao', 'atual'],
+  correcoes: (equipeId) => ['correcoes', FASE_ALVO, 'correcoes', equipeId],
+  vereditos: (equipeId) => ['correcoes', FASE_ALVO, 'vereditos', equipeId],
+  colecaoCorrecoes: () => ['correcoes', FASE_ALVO, 'correcoes'],
+}
+
 /** Os 7 corretores. `campus` é o que eles NÃO podem corrigir. */
 export const CORRETORES = [
   { id: 'glayds', nome: 'Glayds', campus: 'Campina Grande' },
