@@ -17,17 +17,18 @@ import { auth, db } from '@/lib/firebase'
 import {
   CAMINHOS,
   COLUNAS,
-  CORRETORES,
   FASE_ALVO,
+  campusDaEquipe,
   colunaDe,
-  escolherTerceiro,
+  criteriosDaCorrecao,
+  decidirVeredito,
   explicarErro,
   identificarCorretor,
-  normalizar,
-  notaFinal,
-  precisaTerceira,
+  indiceEscolasPorId,
+  mesclarCorrecao,
+  zeradosDaCorrecao,
 } from '@/lib/correcao'
-import { acrescentarTerceiro, carregarDistribuicao, carregarVeredito, gravarNota, salvarVeredito } from '@/lib/correcao-firestore'
+import { acrescentarTerceiro, carregarVeredito, gravarNota, ouvirDistribuicao, salvarCorrecao, salvarVeredito } from '@/lib/correcao-firestore'
 import { BLOCOS, CRITERIOS_DO_BLOCO, NIVEIS, PESO_TOTAL, notaDe, pendentes, somar } from '@/lib/criterios'
 import { respostaTarefaDaFase } from '@/lib/bonificarRecorte13'
 import PortfolioWall from '@/app/tarefas/portfolio-artistico/PortfolioWall'
@@ -43,6 +44,34 @@ import {
 
 const poppins = Poppins({ subsets: ['latin'], weight: ['400', '500', '600', '700'] })
 const CHAVE_SESSAO = 'correcao-authenticated'
+// Rascunho no navegador (spec 046). O Firestore só recebe o clique em "Enviar": o
+// autosave a cada 800 ms gastava ~12-18 mil escritas num dia contra o teto Spark de 20 mil.
+const chaveRascunho = (equipeId, corretorId) => `correcao-rascunho:${equipeId}:${corretorId}`
+
+function lerRascunho(equipeId, corretorId) {
+  try {
+    const bruto = localStorage.getItem(chaveRascunho(equipeId, corretorId))
+    return bruto ? JSON.parse(bruto) : null
+  } catch {
+    return null
+  }
+}
+
+function gravarRascunho(equipeId, corretorId, dados) {
+  try {
+    localStorage.setItem(chaveRascunho(equipeId, corretorId), JSON.stringify(dados))
+  } catch {
+    /* cota cheia ou modo privado: seguir sem rascunho, o envio continua funcionando */
+  }
+}
+
+function apagarRascunho(equipeId, corretorId) {
+  try {
+    localStorage.removeItem(chaveRascunho(equipeId, corretorId))
+  } catch {
+    /* idem */
+  }
+}
 
 function isLocalDevHost() {
   if (typeof window === 'undefined') return false
@@ -325,45 +354,50 @@ function LinhaCriterio({ criterio, valor, zerado, aoMarcar, aoAlternarZero }) {
   )
 }
 
-function Painel({ equipe, correcao, aoSalvar, aoFechar }) {
-  const [criterios, setCriterios] = useState(() => correcao?.criterios || {})
-  const [zerados, setZerados] = useState(() => new Set(correcao?.zerados || []))
+/**
+ * 47 critérios à esquerda. O rascunho mora no `localStorage` (spec 046) e só vira
+ * escrita no Firestore no clique de "Enviar Correção".
+ * Precedência ao abrir: rascunho local → o que já foi enviado por este corretor.
+ */
+function Painel({ equipe, correcao, corretorId, aoSalvar, aoFechar }) {
+  const [criterios, setCriterios] = useState(() => {
+    const meu = lerRascunho(equipe.id, corretorId)
+    if (meu?.criterios) return meu.criterios
+    return criteriosDaCorrecao(correcao, corretorId) || {}
+  })
+  const [zerados, setZerados] = useState(() => {
+    const meu = lerRascunho(equipe.id, corretorId)
+    if (meu?.zerados) return new Set(meu.zerados)
+    return new Set(zeradosDaCorrecao(correcao, corretorId))
+  })
   const [situacao, setSituacao] = useState('')
   const timer = useRef(null)
 
   const nota = useMemo(() => somar(criterios, zerados), [criterios, zerados])
   const faltando = useMemo(() => pendentes(criterios), [criterios])
 
-  const agendar = useCallback(
-    (proximos, proximosZerados) => {
-      if (timer.current) clearTimeout(timer.current)
-      setSituacao('salvando…')
-      timer.current = setTimeout(async () => {
-        try {
-          await aoSalvar({ criterios: proximos, zerados: [...proximosZerados], nota: somar(proximos, proximosZerados) })
-          setSituacao('salvo')
-        } catch {
-          setSituacao('falha ao salvar')
-        }
-      }, 800)
-    },
-    [aoSalvar]
-  )
+  useEffect(() => {
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = setTimeout(() => {
+      gravarRascunho(equipe.id, corretorId, { criterios, zerados: [...zerados] })
+      setSituacao('rascunho salvo')
+    }, 800)
+    return () => clearTimeout(timer.current)
+  }, [criterios, zerados, equipe.id, corretorId])
 
   useEffect(() => () => timer.current && clearTimeout(timer.current), [])
 
   function marcar(id, nivel) {
-    const proximos = { ...criterios, [id]: nivel }
-    setCriterios(proximos)
-    agendar(proximos, zerados)
+    setCriterios((atual) => ({ ...atual, [id]: nivel }))
   }
 
   function alternarZero(id) {
-    const proximos = new Set(zerados)
-    if (proximos.has(id)) proximos.delete(id)
-    else proximos.add(id)
-    setZerados(proximos)
-    agendar(criterios, proximos)
+    setZerados((atual) => {
+      const proximos = new Set(atual)
+      if (proximos.has(id)) proximos.delete(id)
+      else proximos.add(id)
+      return proximos
+    })
   }
 
   const pontosDoBloco = (bloco) => {
@@ -437,7 +471,16 @@ function Painel({ equipe, correcao, aoSalvar, aoFechar }) {
         <button
           type="button"
           disabled={faltando.length > 0}
-          onClick={() => aoSalvar({ criterios, zerados: [...zerados], nota, enviar: true })}
+          onClick={async () => {
+            setSituacao('enviando…')
+            try {
+              await aoSalvar({ criterios, zerados: [...zerados], nota, enviar: true })
+              apagarRascunho(equipe.id, corretorId)
+              setSituacao('enviado')
+            } catch {
+              setSituacao('falha ao enviar')
+            }
+          }}
           className="shrink-0 px-6 py-3 bg-[#82181A] text-white font-bold uppercase tracking-wider rounded-none hover:bg-[#631214] border-2 border-[#540f11] transition-none disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Enviar Correção
@@ -451,53 +494,100 @@ function Painel({ equipe, correcao, aoSalvar, aoFechar }) {
 // Board
 // ---------------------------------------------------------------------------
 
+/**
+ * Fila do corretor logado. Opção A da spec 046: só existe a aba dele — `corretor.id` é a
+ * aba, não um estado que o professor troca. Antes havia um `<nav>` com as 7 abas
+ * editáveis por qualquer conta e o `autor` gravado era a string da aba, então uma nota
+ * podia ser registrada em nome do colega.
+ */
 function Board({ sessao, corretor, sim }) {
-  const [abaAtiva, setAbaAtiva] = useState(null)
-  const [equipes, setEquipes] = useState([])
+  const [lista, setLista] = useState([])
   const [notasFs, setNotasFs] = useState({})
   const [distribuicao, setDistribuicao] = useState(null)
+  const [escolasPorId, setEscolasPorId] = useState({})
   const [aberta, setAberta] = useState(null)
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
   const [aviso, setAviso] = useState('')
 
-  const aba = abaAtiva || CORRETORES[0].id
+  const aba = corretor?.id
+
+  // O campus é a fonte única da spec 044 (`escolas-pb.json` por `escolaId`). Antes a 3ª
+  // correção comparava o município oficial com `equipe.cidade` do cadastro e o filtro de
+  // campus valia para um lado só.
+  useEffect(() => {
+    if (sim) return
+    let vivo = true
+    fetch('/escolas-pb.json')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((escolas) => {
+        if (vivo) setEscolasPorId(indiceEscolasPorId(escolas))
+      })
+      .catch(() => {})
+    return () => {
+      vivo = false
+    }
+  }, [sim])
 
   useEffect(() => {
+    if (sim) {
+      let vivo = true
+      ;(async () => {
+        if (!vivo) return
+        setDistribuicao(MOCK_DISTRIBUICAO)
+        setLista(
+          MOCK_EQUIPES.filter((e) => (MOCK_DISTRIBUICAO.atribuido[e.id] || []).includes(aba))
+            .map((e) => ({
+              id: e.id,
+              nome: e.nome,
+              escola: e.escola,
+              cidade: e.cidade,
+              coluna: e.coluna,
+              notaFinal: mockRespostaTarefa(e.id)?.peso || null,
+              portfolio: mockRespostaTarefa(e.id)?.portfolio || {},
+              design: mockRespostaTarefa(e.id)?.design || 'rosa',
+            }))
+            .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+        )
+        setCarregando(false)
+      })()
+      return () => {
+        vivo = false
+      }
+    }
+    // Assina o documento da distribuição: quando o sistema nomeia o 3º corretor, a fila
+    // dele se atualiza sozinha — sem F5. Um doc, uma query: nada de listener de coleção.
+    return ouvirDistribuicao(setDistribuicao, (err) => {
+      console.error('[correcao] falha ao assinar a distribuição:', err)
+      setErro(explicarErro(err))
+      setCarregando(false)
+    })
+  }, [aba, sim])
+
+  const equipes = useMemo(
+    () => lista.map((e) => ({ ...e, campus: campusDaEquipe(e, escolasPorId) })),
+    [lista, escolasPorId]
+  )
+
+  useEffect(() => {
+    if (sim || !aba) return
     let vivo = true
     async function carregar() {
+      if (!distribuicao) {
+        setLista([])
+        setCarregando(false)
+        return
+      }
       setCarregando(true)
       setErro('')
       try {
-        if (isLocalDevHost()) {
-          setDistribuicao(MOCK_DISTRIBUICAO)
-          const lista = MOCK_EQUIPES.map((e) => ({
-            id: e.id,
-            nome: e.nome,
-            escola: e.escola,
-            cidade: e.cidade,
-            coluna: e.coluna,
-            campus: e.campus,
-            notaFinal: mockRespostaTarefa(e.id)?.peso || null,
-            portfolio: mockRespostaTarefa(e.id)?.portfolio || {},
-            design: mockRespostaTarefa(e.id)?.design || 'rosa',
-          })).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
-          setEquipes(lista)
-          setCarregando(false)
-          return
-        }
-
-        const dist = await carregarDistribuicao()
-        if (!vivo) return
-        setDistribuicao(dist)
-
-        const atrib = dist?.atribuido || {}
+        const atrib = distribuicao?.atribuido || {}
         const ids = Object.entries(atrib)
           .filter(([, corretores]) => Array.isArray(corretores) && corretores.includes(aba))
           .map(([equipeId]) => equipeId)
 
         if (!ids.length) {
-          setEquipes([])
+          setLista([])
           setCarregando(false)
           return
         }
@@ -505,25 +595,25 @@ function Board({ sessao, corretor, sim }) {
         const snaps = await Promise.all(ids.map((id) => getDoc(doc(db, 'equipes', id)).then((s) => [id, s])))
         if (!vivo) return
 
-        const lista = []
+        const montada = []
         for (const [id, snap] of snaps) {
           if (!snap.exists()) continue
           const dados = snap.data()
           const resposta = respostaTarefaDaFase(dados, FASE_ALVO)
-          lista.push({
+          montada.push({
             id,
             nome: dados.nome || id,
             escola: dados.escola || '—',
             cidade: dados.cidade || '',
+            escolaId: dados.escolaId,
             coluna: colunaDe(dados),
-            campus: normalizar(dados.cidade || ''),
             notaFinal: resposta?.peso || null,
             portfolio: resposta?.portfolio || {},
             design: resposta?.design || 'rosa',
           })
         }
-        lista.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
-        setEquipes(lista)
+        montada.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+        setLista(montada)
         setCarregando(false)
       } catch (err) {
         if (!vivo) return
@@ -536,13 +626,16 @@ function Board({ sessao, corretor, sim }) {
     return () => {
       vivo = false
     }
-  }, [aba])
+  }, [aba, distribuicao, sim])
 
-useEffect(() => {
-    if (isLocalDevHost()) return
+  useEffect(() => {
+    if (sim) return
     if (!equipes.length) return
     let vivo = true
 
+    // Cache de EXIBIÇÃO: traz as correções que têm o meu nome em `enviados`. O
+    // fechamento do veredito NÃO depende daqui (precisa de todas as notas da equipe, não
+    // só das minhas) — é por isso que o par fechava antes só para "aguardando-par".
     getDocs(
       query(
         collection(db, ...CAMINHOS.colecaoCorrecoes()),
@@ -565,17 +658,17 @@ useEffect(() => {
     return () => {
       vivo = false
     }
-  }, [aba, equipes])
+  }, [aba, equipes, sim])
 
   const notas = useMemo(() => {
-    if (!isLocalDevHost()) return notasFs
+    if (!sim) return notasFs
     const mapa = {}
     for (const e of equipes) {
       const c = MOCK_CORRECOES[e.id]
       if (c && (c.enviados || []).includes(aba)) mapa[e.id] = c
     }
     return mapa
-  }, [notasFs, equipes, aba])
+  }, [notasFs, equipes, aba, sim])
 
   const semNome = !!sessao && !corretor
 
@@ -586,88 +679,73 @@ useEffect(() => {
     })
   }
 
+  /**
+   * Fecha (ou deixa esperando) o veredito da equipe. `decidirVeredito` é puro e está
+   * testado; aqui só entram as leituras e as escritas.
+   */
   const fecharVeredito = useCallback(
-    async (equipe, notasAposEnvio) => {
-      const sim = isLocalDevHost()
+    async (equipe, correcao) => {
       const veredito = sim ? MOCK_VEREDITOS[equipe.id] : await carregarVeredito(equipe.id)
-      const distribuidos = distribuicao?.atribuido?.[equipe.id] || []
-      const atrib = Array.from(new Set([...distribuidos, ...(veredito?.atribuido || [])]))
-      const registrados = atrib.filter((cid) => typeof notasAposEnvio[cid] === 'number')
-      const valores = registrados.map((cid) => notasAposEnvio[cid])
-      const pares = registrados.map((cid, i) => ({ corretorId: cid, nota: valores[i] }))
+      const designados = Array.from(
+        new Set([...(distribuicao?.atribuido?.[equipe.id] || []), ...(veredito?.atribuido || [])])
+      )
+      const decisao = decidirVeredito({
+        atrib: designados,
+        notas: correcao?.notas || {},
+        campus: equipe.campus,
+        carga: distribuicao?.carga || {},
+      })
 
-      const gravar = async (equipeId, dados) => {
-        if (sim) {
-          MOCK_VEREDITOS[equipeId] = { ...dados, equipeId }
-          return null
-        }
-        return salvarVeredito(equipeId, dados)
-      }
-
-      if (registrados.length < 2) {
-        await gravar(equipe.id, { status: 'aguardando-par', atribuido: atrib, notas: pares })
+      if (decisao.status !== 'fechado') {
+        if (decisao.terceiraNome) await acrescentarTerceiro(equipe.id, decisao.terceira)
+        if (!sim) await salvarVeredito(equipe.id, decisao)
+        else MOCK_VEREDITOS[equipe.id] = { ...decisao, equipeId: equipe.id }
+        setAviso(
+          decisao.status === 'aguardando-par'
+            ? `${equipe.nome}: sua nota foi enviada. O veredito fecha quando o outro corretor enviar a dele.`
+            : decisao.terceiraNome
+              ? `Divergência de ${decisao.divergencia} pontos em ${equipe.nome}: ${decisao.terceiraNome} fará a 3ª correção.`
+              : `${equipe.nome}: a 3ª correção já foi pedida. O veredito fecha quando ela enviar a nota.`
+        )
         return
       }
 
-      if (precisaTerceira(valores) && registrados.length === 2) {
-        const terceiro = escolherTerceiro({
-          campus: equipe.campus,
-          jaAtribuidos: registrados,
-          carga: distribuicao?.carga || {},
-        })
-        if (terceiro) {
-          if (!sim) await acrescentarTerceiro(equipe.id, terceiro.id)
-          await gravar(equipe.id, {
-            status: 'aguardando-terceira',
-            atribuido: [...registrados, terceiro.id],
-            terceira: terceiro.id,
-            notas: pares,
-          })
-          setAviso(
-            `Divergência de ${Math.abs(valores[0] - valores[1])} pontos em ${equipe.nome}: ${terceiro.nome} fará a 3ª correção.`
-          )
-          return
-        }
-      }
-
-      const final = notaFinal(valores)
-      const r = sim ? { delta: final } : await gravarNota(equipe.id, FASE_ALVO, final, aba)
-      await gravar(equipe.id, {
-        status: 'fechado',
-        atribuido: registrados,
-        notas: pares,
-        notaFinal: final,
-        delta: r?.delta ?? 0,
-      })
-      setEquipes((lista) => lista.map((e) => (e.id === equipe.id ? { ...e, notaFinal: final } : e)))
-      setAviso(`Nota final de ${equipe.nome}: ${final}.`)
+      const autor = sessao?.email || sessao?.uid || 'corretor'
+      const r = sim ? { delta: decisao.notaFinal } : await gravarNota(equipe.id, FASE_ALVO, decisao.notaFinal, autor)
+      const registro = { ...decisao, delta: r?.delta ?? 0 }
+      if (!sim) await salvarVeredito(equipe.id, registro)
+      else MOCK_VEREDITOS[equipe.id] = { ...registro, equipeId: equipe.id }
+      setLista((atual) => atual.map((e) => (e.id === equipe.id ? { ...e, notaFinal: decisao.notaFinal } : e)))
+      setAviso(`Nota final de ${equipe.nome}: ${decisao.notaFinal}.`)
     },
-    [aba, distribuicao]
+    [distribuicao, sessao, sim]
   )
 
   const salvar = useCallback(
     async (equipe, dados) => {
-      const atual = notas[equipe.id] || {}
-      const enviados = dados.enviar
-        ? Array.from(new Set([...(atual.enviados || []), aba]))
-        : atual.enviados || []
+      const autorUid = sessao?.email || ''
+      const mesclado = sim
+        ? mesclarCorrecao(MOCK_CORRECOES[equipe.id], {
+            equipeId: equipe.id,
+            corretorId: aba,
+            nota: dados.nota,
+            criterios: dados.criterios,
+            zerados: dados.zerados,
+            autorUid,
+          })
+        : await salvarCorrecao(equipe.id, {
+            corretorId: aba,
+            nota: dados.nota,
+            criterios: dados.criterios,
+            zerados: dados.zerados,
+            autorUid,
+          })
+      if (sim) MOCK_CORRECOES[equipe.id] = mesclado
+      setNotasFs((n) => ({ ...n, [equipe.id]: mesclado }))
 
-      const registro = {
-        equipeId: equipe.id,
-        enviados,
-        notas: { ...(atual.notas || {}), [aba]: dados.nota },
-        criterios: dados.criterios,
-        zerados: dados.zerados,
-        atualizadoEm: new Date().toISOString(),
-      }
-      if (!isLocalDevHost()) {
-        await setDoc(doc(db, ...CAMINHOS.correcoes(equipe.id)), registro, { merge: true })
-      }
-      setNotasFs((n) => ({ ...n, [equipe.id]: registro }))
-
-      if (dados.enviar) await fecharVeredito(equipe, registro.notas)
+      await fecharVeredito(equipe, mesclado)
     },
-    [aba, notas, fecharVeredito]
+    [aba, sessao, fecharVeredito, sim]
   )
 
   const corrigir = useCallback(
@@ -738,31 +816,19 @@ useEffect(() => {
 
             {!semNome && (
               <>
-                {/* Abas dos professores */}
-                <nav className="px-5 sm:px-7 pt-5 flex overflow-x-auto border-b border-[#333] bg-[#141414]">
-                  {CORRETORES.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => {
-                        setAbaAtiva(c.id)
-                        setAberta(null)
-                        setAviso('')
-                      }}
-                      className={`px-5 py-3 text-xs font-bold uppercase whitespace-nowrap cursor-pointer rounded-none border-t-2 border-l border-r transition-none -mb-[1px] ${
-                        aba === c.id
-                          ? 'bg-[#111] border-t-[#82181A] border-l-[#333] border-r-[#333] border-b-transparent text-white'
-                          : 'bg-[#1a1a1a] border-transparent border-b-[#333] text-neutral-500 hover:text-neutral-300 hover:bg-[#222]'
-                      }`}
-                    >
-                      {c.nome}
-                      {corretor?.id === c.id && (
-                        <span className="ml-2 text-[9px] bg-[#333] text-neutral-300 px-1.5 py-0.5 rounded-none border border-[#444]">VOCÊ</span>
-                      )}
-                    </button>
-                  ))}
-                  {/* Preenchimento do resto da borda */}
-                  <div className="flex-1 border-b border-[#333]"></div>
+                {/* Identidade do corretor. Opção A: sem abas, cada um só corrige o que é dele. */}
+                <nav className="px-5 sm:px-7 pt-5 flex items-center justify-between gap-4 border-b border-[#333] bg-[#141414]">
+                  <div className="flex items-baseline gap-3 min-w-0">
+                    <span className="px-5 py-3 -mb-px border-t-2 border-x border-t-[#82181A] border-x-[#333] border-b border-b-transparent bg-[#111] text-xs font-bold uppercase tracking-wide text-white">
+                      {corretor.nome}
+                    </span>
+                    <span className="text-xs text-neutral-500 truncate">
+                      campus que você não corrige: {corretor.campus}
+                    </span>
+                  </div>
+                  <span className="shrink-0 text-xs text-neutral-500 tabular-nums">
+                    {equipes.length} portfólio(s) na sua fila
+                  </span>
                 </nav>
 
                 {erro && (
@@ -841,6 +907,7 @@ useEffect(() => {
               key={aberta.id}
               equipe={aberta}
               correcao={notas[aberta.id]}
+              corretorId={aba}
               aoSalvar={corrigir}
               aoFechar={() => setAberta(null)}
             />

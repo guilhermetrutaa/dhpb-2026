@@ -57,8 +57,11 @@ Este documento consolida as regras de negócio identificadas no código-fonte, s
   * **7 corretores** com campus proibido: Glayds (Campina Grande), Leonardo (Picuí), Maxsuel (Monteiro), Lício (Cabedelo), Stênio, Fabrício e Cristina (João Pessoa). Ninguém corrige portfólio do próprio campus.
   * **Distribuição:** determinística (mesma entrada → mesmo resultado), 2 corretores por portfólio, equilibrada por menor carga. Equipes só entram com `status: 'entregue'`; a equipe de teste fica fora.
   * **3ª correção:** disparada quando as 2 notas divergem **20 pontos ou mais**. O sistema designa sozinho um 3º corretor (mesma regra de campus, nunca um dos dois primeiros).
-  * **Veredito:** com 2 notas, média simples. Com 3, **descarta a menor e tira a média das 2 maiores** (80, 55 e 70 → 75). Fecha automático, sem passo manual.
+  * **Veredito:** com 2 notas, média simples. Com 3, **descarta a menor e tira a média das 2 maiores** (80, 55 e 70 → 75). Fecha automático, sem passo manual. Com o 3º já designado e ainda sem nota, o sistema **espera** — não fecha com as 2.
   * A nota final vira o `peso` da resposta e soma em `ni`/`di`/`df` por transação; idempotente (nota igual não grava).
+  * **Campus (spec 046):** a distribuição e a 3ª correção usam a mesma fonte — município oficial de `escolas-pb.json` por `escolaId`, com `cidade` como reserva. Sem município conhecido, sem restrição, e o admin vê o aviso antes de confirmar.
+  * **Acesso (spec 046):** o nome do cadastro define o corretor e **também a aba**. Cada professor só vê e só escreve a fila dele; não existe aba de colega na tela. A nota é gravada com o email da conta logada (`autorUid`), não com o nome da aba.
+  * **Rascunho (spec 046):** fica no `localStorage` do próprio navegador, chaveado por equipe + corretor, e só vai ao Firestore no clique em "Enviar Correção". Trocar de computador perde o rascunho não enviado; o que já foi enviado está no banco.
 * **Eliminação e aprovação (Admin Ranking):** o admin gera preview e grava `aprovadoAte`.
   * Fase 1 → 2: $N_1 \ge 25{,}00$; sem teto de vagas.
   * Fase 2 → 3: $N_2 \ge 50{,}00$; sem teto de vagas.

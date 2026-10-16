@@ -25,7 +25,7 @@ import {
   itemNotaFixaFase3,
   montarRespostaNotaFixa,
 } from '@/lib/fixarNotaTarefaFase3'
-import { CORRETORES, FASE_ALVO, distribuir, normalizar } from '@/lib/correcao'
+import { CORRETORES, FASE_ALVO, campusDaEquipe, distribuir, indiceEscolasPorId } from '@/lib/correcao'
 import { salvarDistribuicao } from '@/lib/correcao-firestore'
 import { nivelIndex } from '@/lib/eliminacaoFases'
 
@@ -1004,18 +1004,18 @@ function TabEquipes() {
     try {
       const ctx = await carregarContextoRecorte13(edicaoRecalcId)
       const semCidade = new Set()
-      // O campus vem do município em escolas-pb.json; sem ele não há restrição,
-      // mas avisamos para o admin conferir antes de confirmar.
+      // Campus pela MESMA função que a 3ª correção usa (`campusDaEquipe`): município
+      // oficial em escolas-pb.json por `escolaId`, com `cidade` de reserva. Sem ele não há
+      // restrição de campus, mas avisamos para o admin conferir antes de confirmar.
       let res = await fetch('/escolas-pb.json')
       const escolas = res.ok ? await res.json() : []
-      const porId = Object.fromEntries(escolas.map((e) => [String(e.id), e]))
+      const porId = indiceEscolasPorId(escolas)
 
       const campusPorEquipe = {}
       const equipesComResposta = ctx.equipes.filter((eq) => {
         const r = respostaTarefaDaFase(eq, FASE_ALVO)
         if (!r || r.status !== 'entregue') return false
-        const escola = porId[String(eq.escolaId)]
-        const municipio = normalizar(escola?.municipio || eq.cidade || '')
+        const municipio = campusDaEquipe(eq, porId)
         if (!municipio) semCidade.add(eq.nome || eq.id)
         campusPorEquipe[eq.id] = municipio
         return true

@@ -104,10 +104,22 @@ export function colunaDe(equipe) {
   return COLUNA_POR_REDE_MODALIDADE[chaveRedeModalidade(equipe)] || 'pubMedio'
 }
 
-/** Município da escola da equipe, via `public/escolas-pb.json` indexado por id (INEP). */
+/** `public/escolas-pb.json` indexado por `escolaId` (INEP). Fonte única do campus. */
+export function indiceEscolasPorId(escolas) {
+  return Object.fromEntries((escolas || []).map((e) => [String(e.id), e]))
+}
+
+/**
+ * Município da escola da equipe. FONTE ÚNICA do campus (spec 046): a distribuição
+ * (admin) e a 3ª correção (`/correcao`) têm de chamar ISTO, senão uma delas passa a
+ * comparar o município oficial com o campo `cidade` digitado no cadastro e a
+ * restrição "ninguém corrige o próprio campus" enfraquece exatamente onde mais importa.
+ * Sem município conhecido devolve string vazia, ou seja, sem restrição (o admin avisa
+ * antes de confirmar a distribuição).
+ */
 export function campusDaEquipe(equipe, escolasPorId) {
   const escola = escolasPorId?.[String(equipe?.escolaId ?? '')]
-  const municipio = escola?.municipio || equipe?.campus
+  const municipio = escola?.municipio || equipe?.cidade || ''
   return municipio ? normalizar(municipio) : ''
 }
 
@@ -171,6 +183,106 @@ export function notaFinal(notas) {
 /** 3º corretor: elegível (fora do campus e fora dos 2 primeiros), menor carga. */
 export function escolherTerceiro({ campus = '', jaAtribuidos = [], carga = {} }) {
   return escolher(CORRETORES, { campus, jaAtribuidos, carga })
+}
+
+// ---------------------------------------------------------------------------
+// Estado da correção (spec 046)
+// ---------------------------------------------------------------------------
+
+/**
+ * Junta a correção de um corretor ao doc da equipe. PURO, sem I/O; quem escreve é
+ * `salvarCorrecao`, dentro da transação.
+ *
+ * O merge do Firestore SOMA mapas, mas SUBSTITUI arrays. Era por isso que `enviados`
+ * perdia o primeiro corretor a cada envio e que `criterios` (que não tinha dono) era
+ * sobrescrito pelo segundo: o registro da banca se perdia e a coluna "Corrigidas" voltava
+ * para a fila depois do reload. Aqui os dois são mesclados à mão e cada corretor ganha a
+ * sua própria divisória de 47 respostas.
+ *
+ * Doc sem `criteriosPorCorretor` é da spec 044 (ou não existe): entra limpo. O layout
+ * antigo tinha um `criterios` sem dono e `enviados` sobrescrito a cada envio, então não
+ * dá para confiar em nenhuma nota que estiver nele; eram só dados de teste.
+ */
+export function mesclarCorrecao(atual, { equipeId, corretorId, nota, criterios = {}, zerados = [], autorUid = '', em = null }) {
+  const base = atual && typeof atual === 'object' && !Array.isArray(atual) && atual.criteriosPorCorretor ? atual : {}
+  return {
+    equipeId: base.equipeId || equipeId,
+    enviados: Array.from(new Set([...(base.enviados || []), corretorId])),
+    notas: { ...(base.notas || {}), [corretorId]: nota },
+    criteriosPorCorretor: { ...(base.criteriosPorCorretor || {}), [corretorId]: criterios },
+    zeradosPorCorretor: { ...(base.zeradosPorCorretor || {}), [corretorId]: [...zerados] },
+    autorUid: autorUid || base.autorUid || '',
+    atualizadoEm: em || new Date().toISOString(),
+  }
+}
+
+/**
+ * Critérios de um corretor dentro do doc da equipe: a divisória dele, e nada mais. O
+ * layout antigo da spec 044 (um `criterios` solto, sem dono) não é lido.
+ */
+export function criteriosDaCorrecao(doc, corretorId) {
+  const meus = doc?.criteriosPorCorretor?.[corretorId]
+  return meus && Object.keys(meus).length ? meus : null
+}
+
+export function zeradosDaCorrecao(doc, corretorId) {
+  const meus = doc?.zeradosPorCorretor?.[corretorId]
+  return Array.isArray(meus) ? meus : []
+}
+
+/**
+ * Decide o veredito de um portfólio. PURO, sem I/O.
+ *
+ * `atrib` são TODOS os corretores designados para a equipe (2, ou 3 depois da 3ª
+ * correção); `notas` são as notas já gravadas. Só conta quem é de `atrib` e tem nota
+ * numérica. Foi exatamente o descasamento entre as duas listas que travava o sistema em
+ * `aguardando-par` para sempre na spec 044: o board só enxerga as correções que têm o
+ * nome dele em `enviados`, então o 2º corretor nunca via a nota do 1º.
+ */
+export function decidirVeredito({ atrib = [], notas = {}, campus = '', carga = {} } = {}) {
+  const designados = Array.isArray(atrib) ? atrib : []
+  const fechados = designados.filter((id) => typeof notas[id] === 'number')
+  const pares = fechados.map((corretorId) => ({ corretorId, nota: notas[corretorId] }))
+  const valores = pares.map((p) => p.nota)
+  const esperando = designados.filter((id) => typeof notas[id] !== 'number')
+
+  // 3º já designado e ainda sem nota: tem de ESPERAR. Fechar aqui usaria a média de 2
+  // justamente no caso em que a 3ª correção foi exigida.
+  if (designados.length >= 3 && fechados.length < 3) {
+    return {
+      status: 'aguardando-terceira',
+      atribuido: [...designados],
+      terceira: esperando.length ? esperando[esperando.length - 1] : null,
+      notas: pares,
+    }
+  }
+
+  if (pares.length < 2) return { status: 'aguardando-par', atribuido: [...designados], notas: pares }
+
+  // `designados.length === 2` impede escalar um 4º corretor quando o 3º já está
+  // designado e ainda não respondeu; `escolherTerceiro` só exclui quem já enviou.
+  const terceiro =
+    pares.length === 2 && designados.length === 2 && precisaTerceira(valores)
+      ? escolherTerceiro({ campus, jaAtribuidos: fechados, carga })
+      : null
+
+  if (terceiro) {
+    return {
+      status: 'aguardando-terceira',
+      atribuido: [...fechados, terceiro.id],
+      terceira: terceiro.id,
+      terceiraNome: terceiro.nome,
+      divergencia: Math.abs(valores[0] - valores[1]),
+      notas: pares,
+    }
+  }
+
+  return {
+    status: 'fechado',
+    atribuido: [...fechados],
+    notas: pares,
+    notaFinal: notaFinal(valores),
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -323,4 +435,74 @@ if (process.env.NODE_ENV !== 'production') {
   // 11. o mapa `tarefa` de outra fase não é tocado
   const outraFase = { ...equipe, respostas: { [`tarefa_${FASE_ALVO}`]: { status: 'entregue', faseId: 'fase3', peso: 0 } } }
   if (prepararGravacao(outraFase, fase, 75, 'admin').atualizaLegado) throw new Error('Mapa legado de outra fase não pode ser sobrescrito.')
+
+  // 12. mesclagem: o 2º corretor não pode apagar o 1º
+  const em = '2026-01-01T00:00:00.000Z'
+  const umCorrecao = mesclarCorrecao(null, { equipeId: 'eq1', corretorId: 'glayds', nota: 80, criterios: { c1: 'ct' }, zerados: ['c2'], autorUid: 'glayds@x', em })
+  if (umCorrecao.enviados.join() !== 'glayds' || umCorrecao.notas.glayds !== 80) throw new Error('Primeiro envio tem de registrar o corretor.')
+  const doisCorrecoes = mesclarCorrecao(umCorrecao, { equipeId: 'eq1', corretorId: 'stenio', nota: 55, criterios: { c1: 'dt' }, zerados: [], em })
+  if (doisCorrecoes.enviados.join() !== 'glayds,stenio') throw new Error('enviados tem de SOMAR, não substituir (merge do Firestore troca array).')
+  if (doisCorrecoes.notas.glayds !== 80 || doisCorrecoes.notas.stenio !== 55) throw new Error('As duas notas têm de sobreviver ao merge.')
+  if (doisCorrecoes.criteriosPorCorretor.glayds.c1 !== 'ct' || doisCorrecoes.criteriosPorCorretor.stenio.c1 !== 'dt') {
+    throw new Error('Cada corretor tem de ter as suas 47 respostas.')
+  }
+  if (doisCorrecoes.zeradosPorCorretor.glayds.join() !== 'c2' || doisCorrecoes.zeradosPorCorretor.stenio.join() !== '') {
+    throw new Error('Os itens zerados por IA também são por corretor.')
+  }
+  const soLeve = mesclarCorrecao(doisCorrecoes, { equipeId: 'eq1', corretorId: 'stenio', nota: 60, em })
+  if (soLeve.enviados.join() !== 'glayds,stenio' || soLeve.criteriosPorCorretor.glayds.c1 !== 'ct') {
+    throw new Error('Reenvio do mesmo corretor não pode duplicar enviados nem perder o colega.')
+  }
+
+  // 13. leitura das respostas: só a divisória do próprio corretor
+  if (criteriosDaCorrecao(null, 'glayds') !== null) throw new Error('Doc ausente não tem critérios.')
+  if (criteriosDaCorrecao(doisCorrecoes, 'maxsuel') !== null) throw new Error('Corretor que não mandou não tem respostas.')
+  if (criteriosDaCorrecao(doisCorrecoes, 'glayds').c1 !== 'ct') throw new Error('Cada um abre com as suas 47 respostas.')
+  if (criteriosDaCorrecao(doisCorrecoes, 'stenio').c1 !== 'dt') throw new Error('As do colega não podem vazar para a minha tela.')
+  if (zeradosDaCorrecao(doisCorrecoes, 'glayds').join() !== 'c2') throw new Error('Os IA zerados são os meus.')
+  if (zeradosDaCorrecao(doisCorrecoes, 'stenio').length !== 0) throw new Error('IA zerado do colega não é o meu.')
+
+  // 14. doc da spec 044 é descartado inteiro, nota de teste junto
+  const daSpec044 = { equipeId: 'eq1', enviados: ['stenio'], notas: { stenio: 40 }, criterios: { c1: 'dt' }, zerados: ['c1'] }
+  const limpo = mesclarCorrecao(daSpec044, { equipeId: 'eq1', corretorId: 'glayds', nota: 80, criterios: { c1: 'ct' }, em })
+  if (limpo.enviados.join() !== 'glayds') throw new Error('Layout antigo: a lista de quem corrigiu tem de recomeçar.')
+  if (limpo.notas.stenio !== undefined) throw new Error('Layout antigo: a nota de teste não pode sobreviver.')
+  if (Object.hasOwn(limpo, 'criterios')) throw new Error('Layout antigo: o campo sem dono tem de sumir.')
+  if (Object.hasOwn(limpo, 'zerados')) throw new Error('Layout antigo: o campo sem dono tem de sumir.')
+  if (mesclarCorrecao(doisCorrecoes, { equipeId: 'eq1', corretorId: 'glayds', nota: 80, em }).notas.stenio !== 55) {
+    throw new Error('Doc já da spec 046 tem de ser preservado inteiro.')
+  }
+
+  // 15. o par fecha (o bug da spec 044: o 2º corretor via só 1 nota e travava aqui)
+  const vereditoPar = decidirVeredito({ atrib: ['glayds', 'stenio'], notas: { glayds: 80, stenio: 55 }, campus: '', carga: {} })
+  if (vereditoPar.status !== 'aguardando-terceira') throw new Error('80 e 55 divergem 25: tem de pedir a 3ª correção.')
+  if (vereditoPar.terceira === 'glayds' || vereditoPar.terceira === 'stenio') throw new Error('O 3º não pode ser um dos dois primeiros.')
+  if (!vereditoPar.atribuido.includes(vereditoPar.terceira) || vereditoPar.atribuido.length !== 3) throw new Error('O 3º tem de entrar na lista de designados.')
+
+  const semPar = decidirVeredito({ atrib: ['glayds', 'stenio'], notas: { glayds: 80 }, campus: '' })
+  if (semPar.status !== 'aguardando-par') throw new Error('Uma nota só é aguardando-par.')
+
+  const perto = decidirVeredito({ atrib: ['glayds', 'stenio'], notas: { glayds: 90, stenio: 75 }, campus: '' })
+  if (perto.status !== 'fechado' || perto.notaFinal !== 82.5) throw new Error('Divergência de 15 fecha direto na média (82,5).')
+
+  const tresNotas = decidirVeredito({ atrib: ['glayds', 'stenio', 'maxsuel'], notas: { glayds: 80, stenio: 55, maxsuel: 70 }, campus: '' })
+  if (tresNotas.status !== 'fechado' || tresNotas.notaFinal !== 75) throw new Error('Com 3 notas: descarta a menor e mede as 2 maiores → 75.')
+
+  // 16. 3º já designado não escala um 4º e não fecha com 2 notas
+  const aguardando = decidirVeredito({ atrib: ['glayds', 'stenio', 'maxsuel'], notas: { glayds: 80, stenio: 55 }, campus: '' })
+  if (aguardando.status !== 'aguardando-terceira' || aguardando.atribuido.length !== 3 || aguardando.terceira !== 'maxsuel') {
+    throw new Error('Com o 3º já designado, tem de esperar por ele, não escalar um 4º nem fechar com 2.')
+  }
+
+  // 17. a 3ª correção respeita o campus da equipe
+  const jp = decidirVeredito({ atrib: ['glayds', 'stenio'], notas: { glayds: 80, stenio: 55 }, campus: 'joao pessoa', carga: {} })
+  if (['stenio', 'fabricio', 'cristina'].includes(jp.terceira)) throw new Error('3ª correção não pode cair em quem é do campus da equipe.')
+
+  // 18. campus: município oficial vence o `cidade` digitado no cadastro
+  const escolas = indiceEscolasPorId([{ id: '1', municipio: 'João Pessoa' }, { id: '2', municipio: 'Picuí' }])
+  if (campusDaEquipe({ escolaId: '1', cidade: 'Recife' }, escolas) !== 'joao pessoa') throw new Error('O município da escola manda no campus.')
+  if (campusDaEquipe({ escolaId: '2' }, escolas) !== 'picui') throw new Error('Campus por município oficial.')
+  if (campusDaEquipe({ escolaId: '99', cidade: 'Campina Grande' }, escolas) !== 'campina grande') throw new Error('Sem escola no índice, cai no cidade.')
+  if (campusDaEquipe({ escolaId: '99' }, escolas) !== '') throw new Error('Sem município conhecido, sem restrição.')
+  if (Object.keys(escolas).length !== 2) throw new Error('Índice de escolas por id.')
 }

@@ -6,12 +6,13 @@ import {
   doc,
   getDoc,
   increment,
+  onSnapshot,
   runTransaction,
   setDoc,
   writeBatch,
 } from 'firebase/firestore'
 
-import { CAMINHOS, FASE_ALVO, prepararGravacao } from '@/lib/correcao'
+import { CAMINHOS, FASE_ALVO, mesclarCorrecao, prepararGravacao } from '@/lib/correcao'
 
 // Firestore: `doc()` exige número PAR de segmentos, `collection()` ímpar.
 // Caminho com 3 segmentos estoura `invalid-argument` antes de qualquer rede —
@@ -19,9 +20,36 @@ import { CAMINHOS, FASE_ALVO, prepararGravacao } from '@/lib/correcao'
 const refDistribuicao = () => doc(db, ...CAMINHOS.distribuicao())
 const refVeredito = (equipeId) => doc(db, ...CAMINHOS.vereditos(equipeId))
 
-export async function carregarDistribuicao() {
-  const snap = await getDoc(refDistribuicao())
-  return snap.exists() ? snap.data() : null
+/**
+ * Assina a distribuição. Um DOCUMENTO, uma query — o 3º corretor nomeado pelo sistema
+ * passa a ver o portfólio na hora, sem recarregar a página. Sem listener de coleção,
+ * que é o que a constitution proíbe.
+ */
+export function ouvirDistribuicao(proximo, aoErrar) {
+  return onSnapshot(refDistribuicao(), (snap) => proximo(snap.exists() ? snap.data() : null), aoErrar)
+}
+
+/**
+ * Grava a correção de UM corretor no doc da equipe e devolve o doc já mesclado.
+ *
+ * O merge do Firestore SOMA mapas mas SUBSTITUI arrays, então `enviados` e as 47
+ * respostas eram sobrescritos a cada envio — o segundo corretor apagava o registro do
+ * primeiro e a coluna "Corrigidas" voltava para a fila depois do reload. A mesclagem
+ * fica em `mesclarCorrecao` (puro, testado) e roda DENTRO da transação: relê o doc e
+ * devolve o estado completo, que é o que o fechamento do veredito precisa. Fecha
+ * também a corrida de dois corretores enviando no mesmo instante.
+ *
+ * `dados` = { corretorId, nota, criterios, zerados, autorUid }
+ */
+export async function salvarCorrecao(equipeId, dados) {
+  const ref = doc(db, ...CAMINHOS.correcoes(equipeId))
+  let mesclado = null
+  await runTransaction(db, async (transaction) => {
+    const snap = await transaction.get(ref)
+    mesclado = mesclarCorrecao(snap.exists() ? snap.data() : null, { equipeId, ...dados })
+    transaction.set(ref, mesclado)
+  })
+  return mesclado
 }
 
 /**
@@ -44,6 +72,11 @@ export async function salvarDistribuicao({ atribuido, carga }) {
 /**
  * Acrescenta o 3º corretor na distribuição da equipe. Sem isso a aba dele não
  * listaria o portfólio e o veredito nunca fecharia (o par ficaria com 2 notas).
+ *
+ * A Distribution é enviada como UM campo só (`atribuido`), e não como
+ * `atribuido.{equipeId}`. É proposital: assim as regras do Firestore conseguem
+ * aceitar `affectedKeys().hasOnly(['atribuido'])` e proibir o corretor de mexer em
+ * `versao`, `carga` e `geradoEm`, que são do admin.
  */
 export async function acrescentarTerceiro(equipeId, terceiroId) {
   const ref = refDistribuicao()
@@ -53,7 +86,7 @@ export async function acrescentarTerceiro(equipeId, terceiroId) {
     const atribuido = snap.data().atribuido || {}
     const atual = atribuido[equipeId] || []
     if (atual.includes(terceiroId)) return
-    transaction.update(ref, { [`atribuido.${equipeId}`]: [...atual, terceiroId] })
+    transaction.update(ref, { atribuido: { ...atribuido, [equipeId]: [...atual, terceiroId] } })
   })
 }
 

@@ -160,18 +160,20 @@ Documento: `membro-index/{base64(email)_edicaoId}`
 
 ---
 
-### 2.5. Coleção `correcoes` (spec 044)
+### 2.5. Coleção `correcoes` (spec 044, revisada na 046)
 Banco **principal**. Guarda a correção da tarefa Portfólio Artístico (fase 4). Criada pela página `/correcao`; o admin gera a distribuição em `/admin/dashboard` (aba Equipes → "Simular distribuição da correção").
 
 | Caminho | Campos | Descrição |
 |---|---|---|
-| `correcoes/fase4/distribuicao` | `versao`, `atribuido` (`{ [equipeId]: [corretorId, …] }`), `carga` (`{ [corretorId]: n }`), `geradoEm` | Doc único. 2 corretores por equipe; 3 quando houve 3ª correção. Idempotente: regerar sobrescreve `atribuido` |
-| `correcoes/fase4/correcoes/{equipeId}` | `equipeId`, `enviados` (array de `corretorId` que já enviaram), `notas` (`{ [corretorId]: 0–100 }`), `criterios` (`{ [criterioId]: nivel }`), `zerados` (ids de critério zerados por IA), `atualizadoEm` | **Um doc por equipe**, não por corretor. `notas` traz as notas de todo mundo daquele portfólio, então a query da aba (`where('enviados','array-contains', uid)` + `limit`) já entrega o estado do par |
-| `correcoes/fase4/vereditos/{equipeId}` | `status` (`aguardando-par` \| `aguardando-terceira` \| `fechado`), `atribuido`, `terceira`, `notas` (`[{ corretorId, nota }]`), `notaFinal`, `delta`, `atualizadoEm` | Resultado da banca. `notaFinal` é a nota gravada no `peso` da resposta |
+| `correcoes/fase4/distribuicao/atual` | `versao`, `atribuido` (`{ [equipeId]: [corretorId, …] }`), `carga` (`{ [corretorId]: n }`), `geradoEm` | Doc único. 2 corretores por equipe; 3 quando houve 3ª correção. Idempotente: regerar sobrescreve `atribuido` |
+| `correcoes/fase4/correcoes/{equipeId}` | `equipeId`, `enviados` (array de `corretorId` que já enviaram), `notas` (`{ [corretorId]: 0–100 }`), `criteriosPorCorretor` (`{ [corretorId]: { [criterioId]: nivel } }`), `zeradosPorCorretor` (`{ [corretorId]: [criterioId] }`), `autorUid` (email da conta do **último** envio), `atualizadoEm` | **Um doc por equipe**, não por corretor. Escrito por `runTransaction` com `mesclarCorrecao` e `set` **sem merge** (o doc inteiro), porque o merge do Firestore soma mapas mas **substitui arrays** — era por isso que `enviados` e os 47 critérios eram sobrescritos a cada envio e o segundo corretor apagava o registro do primeiro. A query da aba (`where('enviados','array-contains', corretorId)` + `limit`) é só cache de exibição; o fechamento do veredito lê o doc inteiro dentro da transação, senão o 2º corretor não enxerga a nota do 1º e o par nunca fecha. Doc sem `criteriosPorCorretor` é resquitado da spec 044 (só teste) e reescrito do zero |
+| `correcoes/fase4/vereditos/{equipeId}` | `status` (`aguardando-par` \| `aguardando-terceira` \| `fechado`), `atribuido`, `terceira`, `terceiraNome`, `divergencia`, `notas` (`[{ corretorId, nota }]`), `notaFinal`, `delta`, `atualizadoEm` | Resultado da banca, decidido por `decidirVeredito` (função pura). `notaFinal` é a nota gravada no `peso` da resposta |
 
-Leituras da `/correcao`: 1 `getDoc` da distribuição, 1 `getDoc` por equipe do corretor e 1 query filtrada das correções. Sem full scan e sem `collectionGroup`.
+Leituras da `/correcao`: 1 `onSnapshot` da distribuição (documento único, para o 3º corretor nomeado ver a fila sem F5), 1 `getDoc` por equipe da fila e 1 query filtrada das correções. Sem full scan, sem `collectionGroup` e sem listener de coleção.
 
-Conta do corretor: `users/{uid}` com `tipo: 'corretor'`, `nomeCompleto` e `email`. `nomeCompleto` é o que casa o acesso com um dos 7 corretores (`identificarCorretor` na página); a sessão revalida no Firebase Auth, não confia em `localStorage`.
+Escritas: 1 transação por envio (`salvarCorrecao`), 1 `setDoc` por veredito e, quando fecha, 1 transação em `equipes/{id}` (`gravarNota`, spec 044). O rascunho fica no `localStorage` (`correcao-rascunho:{equipeId}:{corretorId}`) e não vai ao banco até o clique em "Enviar".
+
+Conta do corretor: `users/{uid}` com `tipo: 'corretor'`, `nomeCompleto` e `email`. `nomeCompleto` é o que casa o acesso com um dos 7 corretores (`identificarCorretor` na página) e **é a aba**: o professor só vê e só escreve o que é dele (spec 046). A sessão revalida no Firebase Auth, não confia em `localStorage`.
 
 ---
 
