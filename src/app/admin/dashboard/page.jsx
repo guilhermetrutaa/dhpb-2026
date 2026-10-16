@@ -27,6 +27,7 @@ import {
 } from '@/lib/fixarNotaTarefaFase3'
 import { CORRETORES, FASE_ALVO, distribuir, normalizar } from '@/lib/correcao'
 import { salvarDistribuicao } from '@/lib/correcao-firestore'
+import { nivelIndex } from '@/lib/eliminacaoFases'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -114,6 +115,37 @@ function listarEquipesItemC(docs, edicaoId, faseId, questaoId) {
   }
   lista.sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR'))
   return lista
+}
+
+const NIVEL_APROVACAO_FASE_4 = 'fase4'
+
+function resolverFase4(fases, edicaoId) {
+  if (!edicaoId) return null
+  const daEdicao = fases.filter((f) => f.edicaoId === edicaoId)
+  const fase = daEdicao[3]
+  if (!fase) return null
+  if (!String(fase.tarefaUrl || '').toLowerCase().includes('portfolio-artistico')) return null
+  return fase
+}
+
+function contarEntregasTarefaFase4(docs, edicaoId, faseId) {
+  const entregues = []
+  const naoEntregues = []
+
+  for (const d of docs) {
+    if (d.id === EQUIPE_EXCLUIDA_RESUMO_ID) continue
+    const data = d.data()
+    if (data.edicaoId !== edicaoId) continue
+    if (nivelIndex(data.aprovadoAte) < nivelIndex(NIVEL_APROVACAO_FASE_4)) continue
+
+    const resposta = respostaTarefaDaFase(data, faseId)
+    const item = { id: d.id, nome: data.nome || d.id }
+    if (resposta && resposta.status === 'entregue') entregues.push(item)
+    else naoEntregues.push(item)
+  }
+
+  const ordenar = (lista) => lista.sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR'))
+  return { total: entregues.length + naoEntregues.length, entregues: ordenar(entregues), naoEntregues: ordenar(naoEntregues) }
 }
 
 function listarMembros(data) {
@@ -226,6 +258,7 @@ function TabEquipes() {
   const [mostrarFerramentas, setMostrarFerramentas] = useState(false)
   const [fasesCopia, setFasesCopia] = useState([])
   const [faseCopiaKey, setFaseCopiaKey] = useState('')
+  const [contagemTarefaFase4, setContagemTarefaFase4] = useState(null)
 
   const [lastVisible, setLastVisible] = useState(null)
   const [temMais, setTemMais] = useState(true)
@@ -269,6 +302,7 @@ function TabEquipes() {
           faseId: f.id,
           nome: f.data().nome || f.id,
           status: f.data().status || '',
+          tarefaUrl: f.data().tarefaUrl || '',
         }))
       }))
       const fasesList = fasesPorEdicao.flat()
@@ -1245,6 +1279,44 @@ function TabEquipes() {
     }
   }
 
+  const faseTarefa4 = resolverFase4(fasesCopia, faseCopia?.edicaoId)
+
+  const handleContarTarefaFase4 = async () => {
+    if (!faseTarefa4) {
+      alert('Fase 4 (Portfólio Artístico) não encontrada nesta edição. Verifique as fases cadastradas por data de início.')
+      return
+    }
+    setCopiando(true)
+    try {
+      const nomeFase = faseTarefa4.nome || 'Fase 4'
+      const docs = await garantirScanEquipes()
+      aplicarStatsDoScan(docs)
+      const { total, entregues, naoEntregues } = contarEntregasTarefaFase4(docs, faseTarefa4.edicaoId, faseTarefa4.faseId)
+      setContagemTarefaFase4({ total, entregues: entregues.length })
+
+      const cabecalho = [
+        `Tarefa da ${nomeFase} — DHPB`,
+        '',
+        `Equipes aprovadas para a fase: ${total}`,
+        `Entregaram a tarefa: ${entregues.length}`,
+        `Não entregaram: ${naoEntregues.length}`,
+      ].join('\n')
+
+      const listaEntregues = entregues.length === 0
+        ? 'Nenhuma equipe entregou a tarefa desta fase.'
+        : `Entregaram (${entregues.length}):\n${entregues.map((eq) => eq.nome).join('\n')}`
+      const listaNaoEntregues = naoEntregues.length === 0
+        ? ''
+        : `\n\nNão entregaram (${naoEntregues.length}):\n${naoEntregues.map((eq) => eq.nome).join('\n')}`
+
+      await copiarTexto(`${cabecalho}\n\n${listaEntregues}${listaNaoEntregues}`, `Tarefa da ${nomeFase}: ${entregues.length} de ${total} entregue(s).`)
+    } catch (err) {
+      alert('Erro ao contar as entregas da tarefa: ' + err.message)
+    } finally {
+      setCopiando(false)
+    }
+  }
+
   if (carregando) return <p className='text-neutral-400 text-sm text-center py-10'>Carregando...</p>
   if (equipes.length === 0) return <p className='text-neutral-400 text-sm text-center py-10'>Nenhuma equipe cadastrada.</p>
 
@@ -1316,6 +1388,18 @@ function TabEquipes() {
               title={`Conta as equipes completas da Fase 2 que entregaram a alternativa C na questão ${NUMERO_QUESTAO_ITEM_C} e copia a contagem com os nomes`}
             >
               {copiando ? 'Copiando...' : `Contar item C (Fase 2 · Q${NUMERO_QUESTAO_ITEM_C})`}
+            </button>
+            <button
+              onClick={handleContarTarefaFase4}
+              disabled={copiando || !faseTarefa4}
+              className='flex items-center gap-1 text-xs bg-white text-[#82181A] px-3 py-1.5 rounded-md hover:bg-[#82181A]/10 transition-colors cursor-pointer font-bold shadow-sm border border-[#82181A] disabled:opacity-50 disabled:cursor-not-allowed'
+              title='Conta as equipes aprovadas para a Fase 4 (aprovadoAte a partir de fase3) que entregaram a tarefa e copia a contagem com os nomes de quem entregou e de quem não entregou'
+            >
+              {copiando
+                ? 'Copiando...'
+                : contagemTarefaFase4
+                  ? `Tarefa Fase 4: ${contagemTarefaFase4.entregues}/${contagemTarefaFase4.total}`
+                  : 'Contar tarefa Fase 4'}
             </button>
           </div>
         )}
