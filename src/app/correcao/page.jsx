@@ -17,6 +17,7 @@ import { auth, db } from '@/lib/firebase'
 import {
   CAMINHOS,
   COLUNAS,
+  CORRETORES,
   FASE_ALVO,
   campusDaEquipe,
   colunaDe,
@@ -28,7 +29,7 @@ import {
   mesclarCorrecao,
   zeradosDaCorrecao,
 } from '@/lib/correcao'
-import { acrescentarTerceiro, carregarVeredito, gravarNota, ouvirDistribuicao, salvarCorrecao, salvarVeredito } from '@/lib/correcao-firestore'
+import { acrescentarTerceiro, carregarVeredito, gravarNota, ouvirDistribuicao, ouvirNotificacoesCorrecao, salvarCorrecao, salvarVeredito } from '@/lib/correcao-firestore'
 import { BLOCOS, CRITERIOS_DO_BLOCO, NIVEIS, PESO_TOTAL, notaDe, pendentes, somar } from '@/lib/criterios'
 import { respostaTarefaDaFase } from '@/lib/bonificarRecorte13'
 import PortfolioWall from '@/app/tarefas/portfolio-artistico/PortfolioWall'
@@ -71,6 +72,12 @@ function apagarRascunho(equipeId, corretorId) {
   } catch {
     /* idem */
   }
+}
+
+function rascunhoIncompleto(equipeId, corretorId) {
+  if (typeof window === 'undefined') return false
+  const rascunho = lerRascunho(equipeId, corretorId)
+  return !!rascunho && pendentes(rascunho.criterios || {}).length > 0
 }
 
 function isLocalDevHost() {
@@ -282,7 +289,11 @@ function Card({ item, aoAbrir }) {
       type="button"
       onClick={() => aoAbrir(item)}
       // Interface sólida, plana, bordas retas
-      className="w-full text-left rounded-none bg-[#242424] border border-[#333] border-l-[4px] border-l-[#c9555f] hover:bg-[#2a2a2a] hover:border-l-[#e8757e] transition-none px-3 py-3 cursor-pointer"
+      className={`w-full text-left rounded-none bg-[#242424] border border-[#333] border-l-[4px] ${
+        item.rascunhoIncompleto
+          ? 'border-l-[#f59e0b] hover:border-l-[#fbbf24]'
+          : 'border-l-[#c9555f] hover:border-l-[#e8757e]'
+      } hover:bg-[#2a2a2a] transition-none px-3 py-3 cursor-pointer`}
     >
       <div className="flex items-start justify-between gap-2">
         <span className="text-sm font-bold text-white leading-tight">{item.nome}</span>
@@ -509,8 +520,23 @@ function Board({ sessao, corretor, sim }) {
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
   const [aviso, setAviso] = useState('')
+  const [notificacoes, setNotificacoes] = useState([])
+  const [notificacoesAbertas, setNotificacoesAbertas] = useState(false)
 
   const aba = corretor?.id
+
+  useEffect(() => {
+    if (!aba) return
+    if (sim) {
+      setNotificacoes(Object.values(MOCK_VEREDITOS).flatMap((v) => v.notificacoes || []))
+      return
+    }
+    return ouvirNotificacoesCorrecao(
+      aba,
+      (docs) => setNotificacoes(docs.flatMap((v) => v.notificacoes || [])),
+      (err) => console.error('[correcao] falha ao carregar notificações:', err)
+    )
+  }, [aba, sim])
 
   // O campus é a fonte única da spec 044 (`escolas-pb.json` por `escolaId`). Antes a 3ª
   // correção comparava o município oficial com `equipe.cidade` do cadastro e o filtro de
@@ -696,10 +722,38 @@ function Board({ sessao, corretor, sim }) {
         carga: distribuicao?.carga || {},
       })
 
+      const eventos = veredito?.notificacoes || []
+      const novosEventos = []
+      if (decisao.status === 'aguardando-par' && decisao.notas.length === 1 && !eventos.some((n) => n.tipo === 'segunda')) {
+        novosEventos.push({
+          equipeId: equipe.id,
+          equipeNome: equipe.nome,
+          tipo: 'segunda',
+          enviadoPor: aba,
+          para: designados.find((id) => id !== aba),
+          criadoEm: new Date().toISOString(),
+        })
+      }
+      if (decisao.terceiraNome && !eventos.some((n) => n.tipo === 'terceira')) {
+        novosEventos.push({
+          equipeId: equipe.id,
+          equipeNome: equipe.nome,
+          tipo: 'terceira',
+          enviadoPor: aba,
+          para: decisao.terceira,
+          criadoEm: new Date().toISOString(),
+        })
+      }
+      const todasNotificacoes = [...eventos, ...novosEventos]
+      const vereditoComNotificacoes = {
+        notificacoes: todasNotificacoes,
+        notificacaoDestinatarios: [...new Set(todasNotificacoes.flatMap((n) => [n.enviadoPor, n.para]).filter(Boolean))],
+      }
+
       if (decisao.status !== 'fechado') {
         if (decisao.terceiraNome) await acrescentarTerceiro(equipe.id, decisao.terceira)
-        if (!sim) await salvarVeredito(equipe.id, decisao)
-        else MOCK_VEREDITOS[equipe.id] = { ...decisao, equipeId: equipe.id }
+        if (!sim) await salvarVeredito(equipe.id, { ...decisao, ...vereditoComNotificacoes })
+        else MOCK_VEREDITOS[equipe.id] = { ...decisao, ...vereditoComNotificacoes, equipeId: equipe.id }
         setAviso(
           decisao.status === 'aguardando-par'
             ? `${equipe.nome}: sua nota foi enviada. O veredito fecha quando o outro corretor enviar a dele.`
@@ -713,12 +767,12 @@ function Board({ sessao, corretor, sim }) {
       const autor = sessao?.email || sessao?.uid || 'corretor'
       const r = sim ? { delta: decisao.notaFinal } : await gravarNota(equipe.id, distribuicao?.faseId || FASE_ALVO, decisao.notaFinal, autor)
       const registro = { ...decisao, delta: r?.delta ?? 0 }
-      if (!sim) await salvarVeredito(equipe.id, registro)
-      else MOCK_VEREDITOS[equipe.id] = { ...registro, equipeId: equipe.id }
+      if (!sim) await salvarVeredito(equipe.id, { ...registro, ...vereditoComNotificacoes })
+      else MOCK_VEREDITOS[equipe.id] = { ...registro, ...vereditoComNotificacoes, equipeId: equipe.id }
       setLista((atual) => atual.map((e) => (e.id === equipe.id ? { ...e, notaFinal: decisao.notaFinal } : e)))
       setAviso(`Nota final de ${equipe.nome}: ${decisao.notaFinal}.`)
     },
-    [distribuicao, sessao, sim]
+    [aba, distribuicao, sessao, sim]
   )
 
   const salvar = useCallback(
@@ -780,6 +834,22 @@ function Board({ sessao, corretor, sim }) {
                 </div>
                 <button
                   type="button"
+                  aria-label="Abrir notificações"
+                  aria-expanded={notificacoesAbertas}
+                  onClick={() => setNotificacoesAbertas((aberta) => !aberta)}
+                  className="relative shrink-0 p-2 text-[#ffc107] hover:text-[#ffda55] cursor-pointer"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" />
+                  </svg>
+                  {notificacoes.length > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-[#ffc107] text-black text-[10px] font-bold leading-4 text-center">
+                      {notificacoes.length}
+                    </span>
+                  )}
+                </button>
+                <button
+                  type="button"
                   onClick={async () => {
                     if (sim) return
                     localStorage.removeItem(CHAVE_SESSAO)
@@ -791,6 +861,26 @@ function Board({ sessao, corretor, sim }) {
                 </button>
               </div>
             </div>
+
+            {notificacoesAbertas && (
+              <section className="fixed z-[60] right-4 top-20 w-[min(24rem,calc(100vw-2rem))] max-h-[70vh] overflow-y-auto bg-[#1a1a1a] border border-[#555] shadow-xl text-white">
+                <h2 className="px-4 py-3 border-b border-[#444] text-sm font-bold uppercase text-[#ffc107]">Notificações</h2>
+                {notificacoes.length ? (
+                  <ul className="divide-y divide-[#333]">
+                    {[...notificacoes].sort((a, b) => String(b.criadoEm).localeCompare(String(a.criadoEm))).map((n, i) => {
+                      const nome = (id) => CORRETORES.find((c) => c.id === id)?.nome || id || '—'
+                      return (
+                        <li key={`${n.equipeId}-${n.tipo}-${i}`} className="px-4 py-3 text-sm leading-relaxed text-neutral-200">
+                          O portfólio <strong className="text-white">{n.equipeNome}</strong> foi enviado por {nome(n.enviadoPor)} para {nome(n.para)} fazer a {n.tipo === 'terceira' ? 'terceira' : 'segunda'} correção.
+                        </li>
+                      )
+                    })}
+                  </ul>
+                ) : (
+                  <p className="px-4 py-5 text-sm text-neutral-400">Nenhuma notificação por enquanto.</p>
+                )}
+              </section>
+            )}
 
             {sim && (
               <div className="mx-5 sm:mx-7 mt-5 bg-[#332a00] border-l-4 border-[#ffc107] text-[#ffc107] text-sm px-4 py-3 rounded-none flex items-center justify-between gap-4">
@@ -869,7 +959,11 @@ function Board({ sessao, corretor, sim }) {
                             {lista.map((e) => (
                               <Card
                                 key={e.id}
-                                item={{ ...e, minhaNota: notas[e.id]?.notas?.[aba] }}
+                                item={{
+                                  ...e,
+                                  minhaNota: notas[e.id]?.notas?.[aba],
+                                  rascunhoIncompleto: rascunhoIncompleto(e.id, aba),
+                                }}
                                 aoAbrir={setAberta}
                               />
                             ))}

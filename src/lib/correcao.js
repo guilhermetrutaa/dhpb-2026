@@ -16,6 +16,7 @@ export const CAMINHOS = {
   distribuicao: () => ['correcoes', FASE_ALVO, 'distribuicao', 'atual'],
   correcoes: (equipeId) => ['correcoes', FASE_ALVO, 'correcoes', equipeId],
   vereditos: (equipeId) => ['correcoes', FASE_ALVO, 'vereditos', equipeId],
+  colecaoVereditos: () => ['correcoes', FASE_ALVO, 'vereditos'],
   colecaoCorrecoes: () => ['correcoes', FASE_ALVO, 'correcoes'],
 }
 

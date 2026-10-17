@@ -3,12 +3,16 @@
 
 import { db } from '@/lib/firebase'
 import {
+  collection,
   doc,
   getDoc,
   increment,
+  limit,
   onSnapshot,
+  query,
   runTransaction,
   setDoc,
+  where,
   writeBatch,
 } from 'firebase/firestore'
 
@@ -27,6 +31,14 @@ const refVeredito = (equipeId) => doc(db, ...CAMINHOS.vereditos(equipeId))
  */
 export function ouvirDistribuicao(proximo, aoErrar) {
   return onSnapshot(refDistribuicao(), (snap) => proximo(snap.exists() ? snap.data() : null), aoErrar)
+}
+
+export function ouvirNotificacoesCorrecao(corretorId, proximo, aoErrar) {
+  const ref = collection(db, ...CAMINHOS.colecaoVereditos())
+  const q = corretorId === 'glayds'
+    ? query(ref, limit(500))
+    : query(ref, where('notificacaoDestinatarios', 'array-contains', corretorId), limit(500))
+  return onSnapshot(q, (snap) => proximo(snap.docs.map((d) => d.data())), aoErrar)
 }
 
 /**
