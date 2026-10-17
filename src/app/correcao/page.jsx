@@ -599,7 +599,7 @@ function Board({ sessao, corretor, sim }) {
         for (const [id, snap] of snaps) {
           if (!snap.exists()) continue
           const dados = snap.data()
-          const resposta = respostaTarefaDaFase(dados, FASE_ALVO)
+          const resposta = respostaTarefaDaFase(dados, distribuicao.faseId || FASE_ALVO)
           montada.push({
             id,
             nome: dados.nome || id,
@@ -711,7 +711,7 @@ function Board({ sessao, corretor, sim }) {
       }
 
       const autor = sessao?.email || sessao?.uid || 'corretor'
-      const r = sim ? { delta: decisao.notaFinal } : await gravarNota(equipe.id, FASE_ALVO, decisao.notaFinal, autor)
+      const r = sim ? { delta: decisao.notaFinal } : await gravarNota(equipe.id, distribuicao?.faseId || FASE_ALVO, decisao.notaFinal, autor)
       const registro = { ...decisao, delta: r?.delta ?? 0 }
       if (!sim) await salvarVeredito(equipe.id, registro)
       else MOCK_VEREDITOS[equipe.id] = { ...registro, equipeId: equipe.id }

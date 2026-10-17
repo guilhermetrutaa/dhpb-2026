@@ -138,14 +138,14 @@ function escolher(corretores, { campus = '', jaAtribuidos = [], carga = {} }) {
  * carga. Mesma entrada → mesma saída. Sem `Math.random`, sem estado global.
  * `campusPorEquipe` = { [equipeId]: 'joao pessoa' } (já normalizado).
  */
-export function distribuir(equipes, campusPorEquipe = {}) {
+export function distribuir(equipes, campusPorEquipe = {}, faseId = FASE_ALVO) {
   const carga = {}
   for (const c of CORRETORES) carga[c.id] = 0
   const atribuido = {}
 
   const elegiveis = (equipes || [])
     .filter((e) => e?.id && e.id !== EQUIPE_EXCLUIDA_RECALC_ID)
-    .filter((e) => respostaTarefaDaFase(e, FASE_ALVO)?.status === 'entregue')
+    .filter((e) => respostaTarefaDaFase(e, faseId)?.status === 'entregue')
     .slice()
     .sort((a, b) => String(a.nomeLower || a.nome || a.id).localeCompare(String(b.nomeLower || b.nome || b.id), 'pt-BR'))
 

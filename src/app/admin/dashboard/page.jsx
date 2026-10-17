@@ -1003,6 +1003,13 @@ function TabEquipes() {
     setPreviewDistribuicao(null)
     try {
       const ctx = await carregarContextoRecorte13(edicaoRecalcId)
+      const faseTarefa = ctx.fases.find((fase) =>
+        String(fase.tarefaUrl || '').toLowerCase().includes('portfolio-artistico')
+      )
+      if (!faseTarefa) {
+        alert('A tarefa Portfólio Artístico não foi encontrada nas fases desta edição.')
+        return
+      }
       const semCidade = new Set()
       // Campus pela MESMA função que a 3ª correção usa (`campusDaEquipe`): município
       // oficial em escolas-pb.json por `escolaId`, com `cidade` de reserva. Sem ele não há
@@ -1013,7 +1020,7 @@ function TabEquipes() {
 
       const campusPorEquipe = {}
       const equipesComResposta = ctx.equipes.filter((eq) => {
-        const r = respostaTarefaDaFase(eq, FASE_ALVO)
+        const r = respostaTarefaDaFase(eq, faseTarefa.id)
         if (!r || r.status !== 'entregue') return false
         const municipio = campusDaEquipe(eq, porId)
         if (!municipio) semCidade.add(eq.nome || eq.id)
@@ -1021,7 +1028,7 @@ function TabEquipes() {
         return true
       })
 
-      const dist = distribuir(equipesComResposta, campusPorEquipe)
+      const dist = distribuir(equipesComResposta, campusPorEquipe, faseTarefa.id)
       const porCorretor = CORRETORES.map((c) => `${c.nome}: ${dist.carga[c.id] || 0}`)
 
       const resumo = [
@@ -1033,7 +1040,7 @@ function TabEquipes() {
           : 'Todas as equipes com cidade conhecida (restrição de campus aplicada).',
       ].join('\n')
 
-      setPreviewDistribuicao({ ...dist, resumo, semCidade: [...semCidade] })
+      setPreviewDistribuicao({ ...dist, faseId: faseTarefa.id, resumo, semCidade: [...semCidade] })
       if (!equipesComResposta.length) {
         alert(`Nenhum portfólio entregue na fase 4 desta edição.\n\nEquipes lidas: ${ctx.equipes.length}.`)
         return
@@ -1070,6 +1077,7 @@ function TabEquipes() {
       await salvarDistribuicao({
         atribuido: previewDistribuicao.atribuido,
         carga: previewDistribuicao.carga,
+        faseId: previewDistribuicao.faseId,
       })
       alert('DISTRIBUIÇÃO GRAVADA.\n\nOs corretores já veem a fila na página /correcao.')
       setPreviewDistribuicao(null)

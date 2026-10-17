@@ -56,11 +56,12 @@ export async function salvarCorrecao(equipeId, dados) {
  * Grava a distribuição. Idempotente: regrava `atribuido` inteiro, não duplica.
  * `atribuido` = { [equipeId]: [corretorId, corretorId] }.
  */
-export async function salvarDistribuicao({ atribuido, carga }) {
+export async function salvarDistribuicao({ atribuido, carga, faseId = FASE_ALVO }) {
   const data = {
     versao: 1,
     atribuido: atribuido || {},
     carga: carga || {},
+    faseId,
     geradoEm: new Date().toISOString(),
   }
   const batch = writeBatch(db)
