@@ -60,6 +60,11 @@ Este documento registra problemas conhecidos, limitações técnicas e pontos de
 * **Limitação que sobrou:** `equipes/{equipeId}` continua `allow read, write: if isAutenticado()`, porque `questao` e as páginas de tarefa gravam resposta pelo navegador. Isso vale para os alunos também, então não foi a correção que abriu a porta, mas significa que nenhuma conta logada (inclusive um suposto corretor) está impedida de alterar `df` ou `aprovadoAte` por ali. Fechar isso exige amarrar escrita à participação (`membro-index`), que é bem maior que a correção da fase 4.
 * **Sintoma de regra faltando:** `permission-denied` na hora de fechar o veredito. A página traduz o erro (`explicarErro` em `src/lib/correcao.js`), mas o motivo continua sendo do console.
 
+### 1.13. Peso da fase 4 gravado na rubrica anterior continua na equipe
+* **Localização:** `equipes/{id}.respostas.tarefa_fase4.peso`, `pontuacoes.fase4.ni` / `.di`, `df`.
+* **Descrição:** a spec 047 ignora correção e veredito sem `rubrica: 'banners-2026-10'`. Não zera o `peso` que a banca antiga já fechou. O número só muda quando um veredito novo fecha (`gravarNota` aplica o delta).
+* **Impacto:** a fila do professor volta vazia; o ranking ainda mostra a nota antiga até a banca fechar de novo, ou até um reset explícito.
+
 ### 1.12. Nenhuma tela do admin mostra o andamento da correção da fase 4
 * **Localização:** `src/app/admin/dashboard/page.jsx` só tem a geração da distribuição; `correcoes/fase4/vereditos` não é lido em lugar nenhum do admin.
 * **Descrição:** não há como ver, no admin, quantos pares estão fechados, quantos aguardam o segundo corretor ou quantos estão parados na 3ª correção. Foi o que escondeu o bug da spec 044 por dias: o sistema seemed funcionar e o ranking simplesmente não subia.

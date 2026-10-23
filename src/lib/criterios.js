@@ -1,8 +1,11 @@
 // Critérios de correção da tarefa Portfólio Artístico (fase 4).
-// Fonte: public/Avaliação_dos portfólio_DHPB_EDITAVEL.xlsx (pesos das células E).
-// A fórmula do Excel é inconsistente e o total dele ignora o último bloco — aqui a
-// escala é a do PDF aplicada de forma uniforme: 100/75/50/25/0 de qualquer peso.
-// A soma dos pesos é 100 pontos.
+// Fonte: src/app/correcao/atualização Avaliação_dos_Banners_DHPB.xlsx (coluna E = nota máxima).
+// A escala continua a do PDF, uniforme: 100/75/50/25/0 de qualquer peso.
+// As fórmulas IF da planilha cobrem 8 linhas e não fecham uma escala — não entram.
+// A soma dos pesos é 100 pontos. 12 blocos, 47 critérios.
+
+// Trocar este id descarta correção, veredito e rascunho da rubrica anterior.
+export const RUBRICA = 'banners-2026-10'
 
 export const NIVEIS = [
   { id: 'ct', nome: 'Concordo Totalmente', fator: 1 },
@@ -14,7 +17,6 @@ export const NIVEIS = [
 
 export const NIVEL_POR_ID = Object.fromEntries(NIVEIS.map((n) => [n.id, n]))
 
-// 11 blocos, na ordem das linhas "COMANDO" do Excel. `rotulo` vai no cabeçalho do painel.
 export const BLOCOS = [
   { id: 'titulo', rotulo: 'Título e Identidade visual' },
   { id: 'imagemArtista', rotulo: 'Imagem do artista' },
@@ -23,7 +25,13 @@ export const BLOCOS = [
   { id: 'apresentacao', rotulo: 'Apresentação da identidade artística' },
   { id: 'obra2', rotulo: 'Obra 2: uma obra sob análise' },
   { id: 'analise', rotulo: 'Análise da obra 2' },
-  { id: 'referencias', rotulo: 'Referências' },
+  { id: 'reflexao', rotulo: 'Reflexão histórica' },
+  {
+    id: 'referencias',
+    rotulo: 'Referências',
+    instrucao:
+      'Em caso de uso de I.A., como “corretor ortográfico/gramatical”, para obter um texto final com escrita corrigida, o aplicativo utilizado deve ser indicado como um item da bibliografia.',
+  },
   { id: 'creditos', rotulo: 'Foto e créditos da equipe' },
   { id: 'gramatica', rotulo: 'Gramática e coerência' },
   { id: 'coesao', rotulo: 'Coesão e apresentação do portfólio' },
@@ -32,47 +40,49 @@ export const BLOCOS = [
 const C = (bloco, texto, peso) => ({ bloco, texto, peso })
 
 export const CRITERIOS = [
-  C('titulo', 'O título criado dialoga com o tema central da tarefa e está coerente com o todo do portfólio.', 2),
+  C('titulo', 'O título criado dialoga com o tema central da tarefa e esta coerente com o todo do portfólio.', 2),
   C('titulo', 'A identidade visual é criativa e está correlacionada com o conteúdo do texto produzido pela equipe.', 2),
-  C('titulo', 'O título e a identidade visual despertam o interesse do leitor para o conteúdo apresentado.', 2),
-  C('titulo', 'O título e a identidade visual estão formulados de maneira clara e criativa.', 2),
+  C('titulo', 'O Título e a identidade visual despertam o interesse do leitor para o conteúdo apresentado.', 2),
 
   C('imagemArtista', 'A equipe escolheu a imagem 1 que representa o artista escolhido.', 1),
   C('imagemArtista', 'Há o nome do artista e uma legenda para a imagem 1.', 1),
-  C('imagemArtista', 'A legenda apresenta os dados: autor(a), data, técnica, dimensões e localização sobre a representação.', 1),
+  C('imagemArtista', 'A legenda apresenta os dados: autor(a), data, técnica, dimensões, localização sobre a representação', 1),
   C('imagemArtista', 'A imagem selecionada dialoga com o portfólio, convidando o leitor a conhecer o perfil do artista.', 2),
 
-  C('trajetoria', 'O texto desta seção estabelece uma relação explícita entre a figura 1 e o tema central da atividade.', 2),
+  C('trajetoria', 'O texto desta seção estabelece uma relação explícita entre o documento (figura 1) e o tema central da atividade.', 2),
   C('trajetoria', 'A equipe apresentou uma biografia clara que permite compreender a trajetória do artista escolhido.', 2),
-  C('trajetoria', 'A equipe apresenta dados biográficos (nome, naturalidade, ano de nascimento etc.) — pontuação máxima com pelo menos quatro elementos.', 2),
-  C('trajetoria', 'A equipe apresenta a formação e as influências que o artista recebeu ao longo da carreira.', 2),
-  C('trajetoria', 'A contextualização trata das relações entre pessoas, grupos, instituições e experiências vividas.', 2),
+  C('trajetoria', 'A equipe apresenta dados biográficos (Nome, naturalidade, ano de nascimento, etc.) - o avaliador deve considerar pontuação máxima se o ítem contiver pelo menos quatro elementos biográficos', 2),
+  C('trajetoria', 'A equipe apresenta a formação e influências que o artista recebeu ao longo da carreira', 2),
+  C('trajetoria', 'A contextualização trata as relações entre pessoas, grupos, insittuições e experiências vividas', 2),
 
-  C('obra1', 'A equipe escolheu, para a obra 1, uma representação da identidade artística que é referência em relação à obra do artista.', 4),
-  C('obra1', 'Há o nome da obra e uma legenda para a obra 1.', 1),
-  C('obra1', 'A legenda apresenta os dados: autor(a), data, técnica, dimensões e localização sobre a representação.', 1),
-  C('obra1', 'A relação entre imagens, artista e legenda está bem articulada.', 2),
+  C('obra1', 'A equipe escolheu para a obra 1, uma representação da identidade artistica, que é referencia em relação a obra do artista', 4),
+  C('obra1', 'Há o nome da obra e uma legenda para a obra 1', 1),
+  C('obra1', 'A legenda apresenta os dados: autor(a), data, técnica, dimensões, localização sobre a representação', 1),
+  C('obra1', 'A relação entre imagens, artista e legenda estão bem articuladas', 2),
 
-  C('apresentacao', 'A apresentação estabelece uma relação explícita entre a obra 1 e o tema central da atividade.', 2.5),
-  C('apresentacao', 'A equipe apresentou uma contextualização histórica que permite compreender a relevância da obra escolhida.', 2.5),
-  C('apresentacao', 'A apresentação demonstra características da produção, de uma linguagem/estilo que permite a identificação do artista.', 2.5),
-  C('apresentacao', 'O texto permite perceber continuidades e/ou rupturas na obra do autor.', 2.5),
-  C('apresentacao', 'O texto permite a compreensão geral da obra do artista.', 5),
+  C('apresentacao', 'A apresentação estabelece uma relação explícita entre a Obra 1 e o tema central da atividade.', 2.5),
+  C('apresentacao', 'A equipe apresentou uma contextualização histórica que permite compreender a relevância do documento escolhido.', 2.5),
+  C('apresentacao', 'A apresentação demonstra caracteristicas da produção de uma linguagem/estilo que permite a identificação do artista', 2.5),
+  C('apresentacao', 'O texto permite perceber continuidades e/ou rupturas na obra do autor', 2.5),
+  C('apresentacao', 'o texto permite a compreensão geral da obra do artista', 5),
 
-  C('obra2', 'A escolha da obra 2 foi estratégica para a realização de uma análise estética e histórica.', 4),
-  C('obra2', 'Há o nome da obra e uma legenda para a obra 2.', 1),
-  C('obra2', 'A legenda apresenta os dados: autor(a), data, técnica, dimensões e localização sobre a representação.', 1),
-  C('obra2', 'A relação entre imagem, artista e legenda está bem articulada.', 2),
+  C('obra2', 'A escolha da obra 2 foi estratégica para a realização de uma análise estética e histórica', 4),
+  C('obra2', 'Há o nome da obra e uma legenda para a obra 2', 1),
+  C('obra2', 'A legenda apresenta os dados: autor(a), data, técnica, dimensões, localização sobre a representação', 1),
+  C('obra2', 'A relação entre imagem, artista e legenda estão bem articuladas', 2),
 
-  C('analise', 'O texto analítico reflete a relação entre a obra 2 e a identidade/estilo do artista escolhido.', 4),
-  C('analise', 'A análise demonstra como a combinação dos elementos formais da obra gera significados consistentes.', 4),
+  C('analise', 'O texto analítico reflete a relação entre a obra 2 e a identidade/estilo do artista escolhido', 4),
+  C('analise', 'A análise demonstra como a combinação dos elementos formais da obra gera significados consistentes', 4),
   C('analise', 'O texto identifica elementos históricos que problematizam a relação entre a obra e seu contexto.', 4),
-  C('analise', 'Há uma interpretação consistente da obra que articula questões, ideias e/ou sentidos da obra.', 4),
+  C('analise', 'Há uma interpretação consistente da obra que articula questões, ideias e ou sentidos da obra.', 4),
   C('analise', 'O texto evita generalizações e estereótipos sobre a obra, o artista e a arte paraibana.', 4),
+
+  C('reflexao', 'O texto analisa a importância do(a) artista e de sua obra, considerando suas contribuições e seu impacto no campo artístico e na história da arte.', 2),
+  C('reflexao', 'A reflexão retoma e articula as informações apresentadas ao longo do portfólio, construindo uma conclusão clara, coerente e consistente, que evidencie a importância do(a) artista e de sua obra.', 2),
 
   C('referencias', 'A equipe apresentou até 5 referências bibliográficas, conforme solicitado.', 1),
   C('referencias', 'Todas as referências estão formatadas de acordo com a ABNT NBR 6023:2025.', 1),
-  C('referencias', 'A equipe utilizou referenciais qualificados (livros, revistas, sites, produção acadêmica) na produção do portfólio.', 1),
+  C('referencias', 'A equipe utilizou referenciais qualificados (livros, revistas, sites, produção acadêmica) na produção do portifólio.', 1),
   C('referencias', 'Todas as referências apresentadas são pertinentes e efetivamente utilizadas na produção do texto.', 2),
 
   C('creditos', 'A seção contém uma foto da equipe.', 1),
@@ -80,18 +90,17 @@ export const CRITERIOS = [
   C('creditos', 'Na foto apresentada constam todos os integrantes da equipe (é obrigatório o professor aparecer na foto).', 1),
   C('creditos', 'A disposição dos créditos está organizada de acordo com os itens solicitados.', 2),
 
-  C('gramatica', 'NÃO há erros de ortografia e/ou gramática.', 2),
-  C('gramatica', 'O texto está bem escrito dentro de uma norma padrão e adequada a uma produção acadêmica.', 2),
-  C('gramatica', 'NÃO aparecem frases ou termos ofensivos, pornográficos, que façam apologia a qualquer forma de violência ou preconceito.', 2),
-  C('gramatica', 'O portfólio demonstra uma relação clara e lógica entre o texto e as imagens, reforçando a proposta da tarefa.', 2),
+  C('gramatica', 'O texto está bem escrito dentro de uma norma padrão e adequada a uma produção acadêmica e não apresenta erros de ortografia graves.', 2),
+  C('gramatica', 'NÃO aparecem frases ou termos ofensivos, pornográficos, que faz apologia a qualquer forma de violência ou preconceito.', 2),
+  C('gramatica', 'O portfólio demonstra uma relação clara e lógica entre o texto e imagens, reforçando a proposta da tarefa.', 2),
 
-  C('coesao', 'As partes do portfólio apresentam coesão que permita que seja lido como partes de um todo.', 2),
-  C('coesao', 'Há preocupação estética com a proposta, buscando comunicar-se também pela composição (imagens, organização, equilíbrio etc.) do portfólio.', 2),
-  C('coesao', 'As estratégias argumentativas evitam repetições, vícios de linguagem e possuem traços de criatividade e autoria.', 2),
+  C('coesao', 'As partes do portólio apresentam coesão que permita que seja lido como partes de um todo', 2),
+  C('coesao', 'Há preocupação estética com a proposta, buscando comunicar-se também através da composição (imagens, organizaçao, equilibrio, etc) do portfólio', 2),
+  C('coesao', 'As estratégias argumentativas evitam repetições, vicios de linguagem e possuem traços de criatividade e autoria', 2),
   C('coesao', 'O portfólio consegue apresentar o artista e permitir uma compreensão histórica de sua obra.', 2),
 ]
 
-// id estável: o índice. Ordena, survives reordenamento do array, e cabe em path do Firestore.
+// id estável dentro desta rubrica: o índice. Outra rubrica não reaproveita estes ids.
 export const CRITERIOS_COM_ID = CRITERIOS.map((c, i) => ({ ...c, id: `c${i + 1}` }))
 export const CRITERIO_POR_ID = Object.fromEntries(CRITERIOS_COM_ID.map((c) => [c.id, c]))
 export const PESO_TOTAL = CRITERIOS.reduce((s, c) => s + c.peso, 0)
@@ -130,16 +139,19 @@ if (process.env.NODE_ENV !== 'production') {
   if (CRITERIOS_COM_ID.length !== 47) {
     throw new Error(`São 47 critérios, temos ${CRITERIOS_COM_ID.length}.`)
   }
+  if (BLOCOS.length !== 12) {
+    throw new Error(`São 12 blocos, temos ${BLOCOS.length}.`)
+  }
   if (notaDe('c1', 'ct') !== 2 || notaDe('c1', 'cp') !== 1.5 || notaDe('c1', 'n') !== 1 || notaDe('c1', 'dp') !== 0.5 || notaDe('c1', 'dt') !== 0) {
     throw new Error('Escala do peso 2 errada: 2 / 1,5 / 1 / 0,5 / 0.')
   }
   if (notaDe('c5', 'ct') !== 1 || notaDe('c5', 'cp') !== 0.75 || notaDe('c5', 'dt') !== 0) {
     throw new Error('Escala do peso 1 errada: 1 / 0,75 / 0.')
   }
-  if (notaDe('c14', 'ct') !== 4 || notaDe('c14', 'n') !== 2 || notaDe('c14', 'dp') !== 1) {
+  if (notaDe('c13', 'ct') !== 4 || notaDe('c13', 'n') !== 2 || notaDe('c13', 'dp') !== 1) {
     throw new Error('Escala do peso 4 errada: 4 / 3 / 2 / 1 / 0.')
   }
-  if (notaDe('c22', 'ct') !== 5 || notaDe('c22', 'cp') !== 3.75 || notaDe('c22', 'dp') !== 1.25) {
+  if (notaDe('c21', 'ct') !== 5 || notaDe('c21', 'cp') !== 3.75 || notaDe('c21', 'dp') !== 1.25) {
     throw new Error('Escala do peso 5 errada: 5 / 3,75 / 2,5 / 1,25 / 0.')
   }
   if (notaDe('c1', 'ct', true) !== 0) {
@@ -161,8 +173,13 @@ if (process.env.NODE_ENV !== 'production') {
   if (pendentes(tudoCt).length !== 0) throw new Error('Tudo respondido não pode ter pendente.')
   if (pendentes({ c1: 'ct' }).length !== 46) throw new Error('Um só respondido tem de deixar 46 pendentes.')
   // 2,5 × 0,75 = 1,875 → 1,88 por critério; 4 deles somam 7,52 e não 7,5.
-  if (notaDe('c20', 'cp') !== 1.88 || somaRepetida(1.88, 4) !== 7.52) {
+  if (notaDe('c17', 'cp') !== 1.88 || somaRepetida(1.88, 4) !== 7.52) {
     throw new Error('Peso 2,5 no parcial tem de arredondar para 1,88.')
+  }
+  const pesos = {}
+  for (const c of CRITERIOS_COM_ID) pesos[c.bloco] = Math.round(((pesos[c.bloco] || 0) + c.peso) * 100) / 100
+  if (pesos.titulo !== 6 || pesos.reflexao !== 4 || pesos.gramatica !== 6) {
+    throw new Error(`Subtotais da planilha nova: título 6, reflexão 4, gramática 6. Veio ${pesos.titulo} / ${pesos.reflexao} / ${pesos.gramatica}.`)
   }
 }
 

@@ -23,6 +23,7 @@ import {
   colunaDe,
   criteriosDaCorrecao,
   decidirVeredito,
+  docDaRubrica,
   explicarErro,
   identificarCorretor,
   indiceEscolasPorId,
@@ -30,7 +31,7 @@ import {
   zeradosDaCorrecao,
 } from '@/lib/correcao'
 import { acrescentarTerceiro, carregarVeredito, gravarNota, ouvirDistribuicao, ouvirNotificacoesCorrecao, salvarCorrecao, salvarVeredito } from '@/lib/correcao-firestore'
-import { BLOCOS, CRITERIOS_DO_BLOCO, NIVEIS, PESO_TOTAL, notaDe, pendentes, somar } from '@/lib/criterios'
+import { BLOCOS, CRITERIOS_DO_BLOCO, NIVEIS, PESO_TOTAL, RUBRICA, notaDe, pendentes, somar } from '@/lib/criterios'
 import { respostaTarefaDaFase } from '@/lib/bonificarRecorte13'
 import PortfolioWall from '@/app/tarefas/portfolio-artistico/PortfolioWall'
 import { FUNDO_SRC } from '@/app/tarefas/viagem-no-tempo/config'
@@ -47,7 +48,7 @@ const poppins = Poppins({ subsets: ['latin'], weight: ['400', '500', '600', '700
 const CHAVE_SESSAO = 'correcao-authenticated'
 // Rascunho no navegador (spec 046). O Firestore só recebe o clique em "Enviar": o
 // autosave a cada 800 ms gastava ~12-18 mil escritas num dia contra o teto Spark de 20 mil.
-const chaveRascunho = (equipeId, corretorId) => `correcao-rascunho:${equipeId}:${corretorId}`
+const chaveRascunho = (equipeId, corretorId) => `correcao-rascunho:${RUBRICA}:${equipeId}:${corretorId}`
 
 function lerRascunho(equipeId, corretorId) {
   try {
@@ -452,6 +453,9 @@ function Painel({ equipe, correcao, corretorId, aoSalvar, aoFechar }) {
                   {pontosDoBloco(bloco.id)} pts{faltamNoBloco > 0 && ` · ${faltamNoBloco} restam`}
                 </span>
               </div>
+              {bloco.instrucao && (
+                <p className="text-sm text-neutral-700 mb-4">{bloco.instrucao}</p>
+              )}
               <ul className="space-y-4">
                 {itens.map((c) => (
                   <LinhaCriterio
@@ -528,12 +532,12 @@ function Board({ sessao, corretor, sim }) {
   useEffect(() => {
     if (!aba) return
     if (sim) {
-      setNotificacoes(Object.values(MOCK_VEREDITOS).flatMap((v) => v.notificacoes || []))
+      setNotificacoes(Object.values(MOCK_VEREDITOS).filter((v) => docDaRubrica(v)).flatMap((v) => v.notificacoes || []))
       return
     }
     return ouvirNotificacoesCorrecao(
       aba,
-      (docs) => setNotificacoes(docs.flatMap((v) => v.notificacoes || [])),
+      (docs) => setNotificacoes(docs.filter((v) => docDaRubrica(v)).flatMap((v) => v.notificacoes || [])),
       (err) => console.error('[correcao] falha ao carregar notificações:', err)
     )
   }, [aba, sim])
@@ -569,7 +573,7 @@ function Board({ sessao, corretor, sim }) {
               escola: e.escola,
               cidade: e.cidade,
               coluna: e.coluna,
-              notaFinal: mockRespostaTarefa(e.id)?.peso || null,
+              notaFinal: docDaRubrica(MOCK_VEREDITOS[e.id])?.notaFinal || null,
               portfolio: mockRespostaTarefa(e.id)?.portfolio || {},
               design: mockRespostaTarefa(e.id)?.design || 'rosa',
             }))
@@ -674,7 +678,8 @@ function Board({ sessao, corretor, sim }) {
         const mapa = {}
         for (const d of snap.docs) {
           const dados = d.data()
-          if (dados.equipeId) mapa[dados.equipeId] = dados
+          const vigente = docDaRubrica(dados)
+          if (vigente?.equipeId) mapa[vigente.equipeId] = vigente
         }
         setNotasFs(mapa)
       })
@@ -690,7 +695,7 @@ function Board({ sessao, corretor, sim }) {
     if (!sim) return notasFs
     const mapa = {}
     for (const e of equipes) {
-      const c = MOCK_CORRECOES[e.id]
+      const c = docDaRubrica(MOCK_CORRECOES[e.id])
       if (c && (c.enviados || []).includes(aba)) mapa[e.id] = c
     }
     return mapa
@@ -711,7 +716,8 @@ function Board({ sessao, corretor, sim }) {
    */
   const fecharVeredito = useCallback(
     async (equipe, correcao) => {
-      const veredito = sim ? MOCK_VEREDITOS[equipe.id] : await carregarVeredito(equipe.id)
+      const bruto = sim ? MOCK_VEREDITOS[equipe.id] : await carregarVeredito(equipe.id)
+      const veredito = docDaRubrica(bruto)
       const designados = Array.from(
         new Set([...(distribuicao?.atribuido?.[equipe.id] || []), ...(veredito?.atribuido || [])])
       )
@@ -753,7 +759,7 @@ function Board({ sessao, corretor, sim }) {
       if (decisao.status !== 'fechado') {
         if (decisao.terceiraNome) await acrescentarTerceiro(equipe.id, decisao.terceira)
         if (!sim) await salvarVeredito(equipe.id, { ...decisao, ...vereditoComNotificacoes })
-        else MOCK_VEREDITOS[equipe.id] = { ...decisao, ...vereditoComNotificacoes, equipeId: equipe.id }
+        else MOCK_VEREDITOS[equipe.id] = { ...decisao, ...vereditoComNotificacoes, equipeId: equipe.id, rubrica: RUBRICA }
         setAviso(
           decisao.status === 'aguardando-par'
             ? `${equipe.nome}: sua nota foi enviada. O veredito fecha quando o outro corretor enviar a dele.`
@@ -768,7 +774,7 @@ function Board({ sessao, corretor, sim }) {
       const r = sim ? { delta: decisao.notaFinal } : await gravarNota(equipe.id, distribuicao?.faseId || FASE_ALVO, decisao.notaFinal, autor)
       const registro = { ...decisao, delta: r?.delta ?? 0 }
       if (!sim) await salvarVeredito(equipe.id, { ...registro, ...vereditoComNotificacoes })
-      else MOCK_VEREDITOS[equipe.id] = { ...registro, ...vereditoComNotificacoes, equipeId: equipe.id }
+      else MOCK_VEREDITOS[equipe.id] = { ...registro, ...vereditoComNotificacoes, equipeId: equipe.id, rubrica: RUBRICA }
       setLista((atual) => atual.map((e) => (e.id === equipe.id ? { ...e, notaFinal: decisao.notaFinal } : e)))
       setAviso(`Nota final de ${equipe.nome}: ${decisao.notaFinal}.`)
     },

@@ -16,6 +16,7 @@ import {
   writeBatch,
 } from 'firebase/firestore'
 
+import { RUBRICA } from '@/lib/criterios'
 import { CAMINHOS, FASE_ALVO, mesclarCorrecao, prepararGravacao } from '@/lib/correcao'
 
 // Firestore: `doc()` exige número PAR de segmentos, `collection()` ímpar.
@@ -111,7 +112,7 @@ export async function carregarVeredito(equipeId) {
 export async function salvarVeredito(equipeId, dados) {
   await setDoc(
     refVeredito(equipeId),
-    { ...dados, equipeId, atualizadoEm: new Date().toISOString() },
+    { ...dados, rubrica: RUBRICA, equipeId, atualizadoEm: new Date().toISOString() },
     { merge: true }
   )
 }

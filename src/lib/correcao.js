@@ -5,6 +5,7 @@
 
 import { EQUIPE_EXCLUIDA_RECALC_ID, round2 } from '@/lib/recalcularPontuacao'
 import { respostaTarefaDaFase } from '@/lib/bonificarRecorte13'
+import { RUBRICA } from '@/lib/criterios'
 import { ehPublica } from '@/lib/eliminacaoFases'
 
 export const FASE_ALVO = 'fase4'
@@ -200,14 +201,20 @@ export function escolherTerceiro({ campus = '', jaAtribuidos = [], carga = {} })
  * para a fila depois do reload. Aqui os dois são mesclados à mão e cada corretor ganha a
  * sua própria divisória de 47 respostas.
  *
- * Doc sem `criteriosPorCorretor` é da spec 044 (ou não existe): entra limpo. O layout
- * antigo tinha um `criterios` sem dono e `enviados` sobrescrito a cada envio, então não
- * dá para confiar em nenhuma nota que estiver nele; eram só dados de teste.
+ * Doc sem `criteriosPorCorretor`, ou de outra `rubrica`, entra limpo. A rubrica
+ * `banners-2026-10` mudou o sentido dos ids `c1`…`c47`; nota antiga não pode
+ * colar no critério novo.
  */
+export function docDaRubrica(doc) {
+  return doc && doc.rubrica === RUBRICA ? doc : null
+}
+
 export function mesclarCorrecao(atual, { equipeId, corretorId, nota, criterios = {}, zerados = [], autorUid = '', em = null }) {
-  const base = atual && typeof atual === 'object' && !Array.isArray(atual) && atual.criteriosPorCorretor ? atual : {}
+  const vigente = docDaRubrica(atual)
+  const base = vigente?.criteriosPorCorretor ? vigente : {}
   return {
     equipeId: base.equipeId || equipeId,
+    rubrica: RUBRICA,
     enviados: Array.from(new Set([...(base.enviados || []), corretorId])),
     notas: { ...(base.notas || {}), [corretorId]: nota },
     criteriosPorCorretor: { ...(base.criteriosPorCorretor || {}), [corretorId]: criterios },
@@ -222,12 +229,12 @@ export function mesclarCorrecao(atual, { equipeId, corretorId, nota, criterios =
  * layout antigo da spec 044 (um `criterios` solto, sem dono) não é lido.
  */
 export function criteriosDaCorrecao(doc, corretorId) {
-  const meus = doc?.criteriosPorCorretor?.[corretorId]
+  const meus = docDaRubrica(doc)?.criteriosPorCorretor?.[corretorId]
   return meus && Object.keys(meus).length ? meus : null
 }
 
 export function zeradosDaCorrecao(doc, corretorId) {
-  const meus = doc?.zeradosPorCorretor?.[corretorId]
+  const meus = docDaRubrica(doc)?.zeradosPorCorretor?.[corretorId]
   return Array.isArray(meus) ? meus : []
 }
 
@@ -472,6 +479,24 @@ if (process.env.NODE_ENV !== 'production') {
   if (Object.hasOwn(limpo, 'zerados')) throw new Error('Layout antigo: o campo sem dono tem de sumir.')
   if (mesclarCorrecao(doisCorrecoes, { equipeId: 'eq1', corretorId: 'glayds', nota: 80, em }).notas.stenio !== 55) {
     throw new Error('Doc já da spec 046 tem de ser preservado inteiro.')
+  }
+  if (doisCorrecoes.rubrica !== RUBRICA) throw new Error('Correção nova tem de carimbar a rubrica vigente.')
+
+  const rubricaVelha = {
+    rubrica: 'anterior',
+    equipeId: 'eq1',
+    enviados: ['glayds'],
+    notas: { glayds: 10 },
+    criteriosPorCorretor: { glayds: { c1: 'dt' } },
+    zeradosPorCorretor: { glayds: ['c2'] },
+  }
+  const refeita = mesclarCorrecao(rubricaVelha, { equipeId: 'eq1', corretorId: 'stenio', nota: 55, criterios: { c1: 'ct' }, em })
+  if (refeita.enviados.join() !== 'stenio' || refeita.notas.glayds !== undefined) {
+    throw new Error('Rubrica anterior tem de ser descartada por inteiro.')
+  }
+  if (criteriosDaCorrecao(rubricaVelha, 'glayds') !== null) throw new Error('Rubrica anterior não abre no painel.')
+  if (docDaRubrica(rubricaVelha) !== null || docDaRubrica(refeita) !== refeita) {
+    throw new Error('docDaRubrica só devolve a rubrica vigente.')
   }
 
   // 15. o par fecha (o bug da spec 044: o 2º corretor via só 1 nota e travava aqui)
