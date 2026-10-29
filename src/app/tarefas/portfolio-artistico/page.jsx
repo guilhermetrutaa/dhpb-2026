@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Poppins } from 'next/font/google'
@@ -10,6 +10,7 @@ import { useAuth } from '@/context/AuthContext'
 import { db } from '@/lib/firebase'
 import { optimizeCloudinaryUrl } from '@/lib/cloudinary'
 import PortfolioWall from './PortfolioWall'
+import { FolhaPdf, baixarPortfolioPdf } from './portfolioPdf'
 import {
   IMG_TIPOS,
   MIN_CHARS,
@@ -268,6 +269,8 @@ function TarefaContent() {
   const [previa, setPrevia] = useState(false)
   const [enviando, setEnviando] = useState({})
   const [errosImg, setErrosImg] = useState({})
+  const [baixando, setBaixando] = useState(false)
+  const folhaRef = useRef(null)
 
   const resumoHref = `/resumo-fase?faseId=${faseId || ''}&edicaoId=${edicaoId || ''}&equipeId=${equipeId || ''}`
   const locked = status === 'entregue' || fase?.status === 'correcao'
@@ -466,6 +469,24 @@ function TarefaContent() {
     }
   }
 
+  const baixarPdf = async () => {
+    if (!folhaRef.current || baixando) return
+    setBaixando(true)
+    setMensagem('')
+    try {
+      const imgs = [...folhaRef.current.querySelectorAll('img')]
+      await Promise.all(imgs.map((img) => (img.complete ? null : new Promise((res) => { img.onload = img.onerror = res }))))
+      const nome = `Portfolio_${(nomeEquipe || 'equipe').replace(/\s+/g, '_')}.pdf`
+      await baixarPortfolioPdf(folhaRef.current, nome)
+      setMensagem('PDF baixado.')
+    } catch (err) {
+      console.error('[pdf-portfolio]', err)
+      setMensagem('Não foi possível gerar o PDF.')
+    } finally {
+      setBaixando(false)
+    }
+  }
+
   const entregar = () => {
     if (locked) return
     const aviso = faltantes.length
@@ -496,6 +517,12 @@ function TarefaContent() {
 
   const botaoSecundario = 'cursor-pointer border-2 border-[#82181A] px-5 py-2.5 text-sm font-semibold text-[#82181A] transition-colors hover:bg-[#82181A] hover:text-white disabled:cursor-not-allowed disabled:opacity-50'
   const botaoPrimario = 'cursor-pointer bg-[#82181A] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#631214] disabled:cursor-not-allowed disabled:opacity-50'
+  const podeBaixar = locked || localPreview
+  const botaoPdf = podeBaixar && (
+    <button type="button" onClick={baixarPdf} disabled={baixando} className={botaoSecundario}>
+      {baixando ? 'Gerando PDF...' : 'Baixar portfólio em PDF'}
+    </button>
+  )
 
   return (
     <div className={poppins.className}>
@@ -607,6 +634,7 @@ function TarefaContent() {
                   {salvando ? 'Salvando...' : 'Salvar rascunho'}
                 </button>
               )}
+              {botaoPdf}
               <button type="button" onClick={() => setPrevia(true)} className={botaoPrimario}>
                 {locked ? 'Ver portfólio' : 'Visualizar portfólio'}
               </button>
@@ -629,6 +657,12 @@ function TarefaContent() {
           </div>
         </main>
       </div>
+
+      {podeBaixar && (
+        <div className="pointer-events-none fixed top-0 left-[-10000px] w-[800px]" aria-hidden>
+          <FolhaPdf portfolio={portfolio} temaId={design} nomeEquipe={nomeEquipe} folhaRef={folhaRef} />
+        </div>
+      )}
 
       {previa && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-neutral-900/95 backdrop-blur-sm" role="dialog" aria-label="Prévia do portfólio">
@@ -658,6 +692,11 @@ function TarefaContent() {
             )}
             <div className="flex flex-wrap items-center gap-3">
               {mensagem && <span className="text-xs text-white/80">{mensagem}</span>}
+              {design && podeBaixar && (
+                <button type="button" onClick={baixarPdf} disabled={baixando} className="cursor-pointer border border-white/70 px-4 py-2 text-sm font-semibold transition-colors hover:bg-white hover:text-black disabled:opacity-50">
+                  {baixando ? 'Gerando PDF...' : 'Baixar portfólio em PDF'}
+                </button>
+              )}
               {!locked && design && (
                 <>
                   <button type="button" onClick={() => salvar('rascunho')} disabled={salvando} className="cursor-pointer border border-white/70 px-4 py-2 text-sm font-semibold transition-colors hover:bg-white hover:text-black disabled:opacity-50">
