@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Poppins } from 'next/font/google'
 import { useRouter } from 'next/navigation'
-import { collection, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, orderBy, query, getDocs, getDocsFromServer, getCountFromServer, limit, startAfter, documentId, writeBatch, setDoc, where, runTransaction, increment } from 'firebase/firestore'
+import { collection, addDoc, deleteDoc, doc, updateDoc, serverTimestamp, orderBy, query, getDoc, getDocs, getDocsFromServer, getCountFromServer, limit, startAfter, documentId, writeBatch, setDoc, where, runTransaction, increment } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { db, auth } from '@/lib/firebase'
 import Image from 'next/image'
@@ -25,8 +25,8 @@ import {
   itemNotaFixaFase3,
   montarRespostaNotaFixa,
 } from '@/lib/fixarNotaTarefaFase3'
-import { CORRETORES, FASE_ALVO, campusDaEquipe, distribuir, indiceEscolasPorId } from '@/lib/correcao'
-import { salvarDistribuicao } from '@/lib/correcao-firestore'
+import { CAMINHOS, CORRETORES, FASE_ALVO, campusDaEquipe, distribuir, indiceEscolasPorId, vereditosParaRegravar } from '@/lib/correcao'
+import { gravarNota, salvarDistribuicao } from '@/lib/correcao-firestore'
 import { nivelIndex } from '@/lib/eliminacaoFases'
 
 const poppins = Poppins({
@@ -1088,6 +1088,57 @@ function TabEquipes() {
     }
   }
 
+  const handleRegravarNotasFase4 = async () => {
+    if (!window.confirm(
+      'Isto grava no ranking a nota final dos vereditos já fechados da fase 4.\n\n' +
+      'Nota igual ao peso atual não muda. Veredito aberto ou de rubrica antiga fica de fora. Tem certeza?'
+    )) return
+    setCarregando(true)
+    try {
+      const distSnap = await getDoc(doc(db, ...CAMINHOS.distribuicao()))
+      const faseId = distSnap.data()?.faseId
+      if (!faseId) {
+        alert('Distribuição sem fase. Simule e confirme a distribuição da correção antes.')
+        return
+      }
+      // ponytail: teto 500. Se a coleção passar disso, paginar com startAfter.
+      const vSnap = await getDocs(query(collection(db, ...CAMINHOS.colecaoVereditos()), limit(500)))
+      const itens = vereditosParaRegravar(vSnap.docs.map((d) => ({ ...d.data(), id: d.id })))
+      if (itens.length) {
+        const eqSnap = await getDoc(doc(db, 'equipes', itens[0].equipeId))
+        const edicaoId = eqSnap.data()?.edicaoId
+        const faseSnap = edicaoId ? await getDoc(doc(db, 'edicoes', edicaoId, 'fases', faseId)) : null
+        if (!(Number(faseSnap?.data()?.peso) > 0)) {
+          alert('A fase 4 está sem peso. Cadastre o peso 8 na fase e repita. Nenhuma nota foi gravada.')
+          return
+        }
+      }
+      let gravadas = 0
+      let iguais = 0
+      const erros = []
+      for (const item of itens) {
+        try {
+          const r = await gravarNota(item.equipeId, faseId, item.nota, 'admin')
+          if (r.mudou) gravadas++
+          else iguais++
+        } catch (err) {
+          erros.push(`${item.equipeId}: ${err.message}`)
+        }
+      }
+      alert([
+        `Regravação: ${gravadas} nota(s) entraram no ranking.`,
+        `Já iguais: ${iguais}.`,
+        `Fora (abertos, rubrica antiga ou sem nota): ${vSnap.size - itens.length}.`,
+        erros.length ? `Erros (${erros.length}):\n${erros.slice(0, 8).join('\n')}` : '',
+        vSnap.size === 500 ? 'ATENÇÃO: leu o teto de 500 vereditos. Pode ter ficado algum de fora.' : '',
+      ].filter(Boolean).join('\n'))
+    } catch (err) {
+      alert('Erro na regravação: ' + err.message)
+    } finally {
+      setCarregando(false)
+    }
+  }
+
   const handleRecalcularCompletas = async () => {
     if (!window.confirm('Custo de ~650 leituras e gravações. O sistema fará a contagem exata e atualizará todas as equipes com a tag de completa. Tem certeza?')) return
     setCarregando(true)
@@ -1408,6 +1459,14 @@ function TabEquipes() {
                 : contagemTarefaFase4
                   ? `Tarefa Fase 4: ${contagemTarefaFase4.entregues}/${contagemTarefaFase4.total}`
                   : 'Contar tarefa Fase 4'}
+            </button>
+            <button
+              onClick={handleRegravarNotasFase4}
+              disabled={carregando}
+              className='flex items-center gap-1 text-xs bg-orange-100 text-orange-700 px-3 py-1.5 rounded-md hover:bg-orange-200 transition-colors cursor-pointer font-bold shadow-sm border border-orange-300 disabled:opacity-50'
+              title='Copia a nota final dos vereditos fechados para Ni/Di/Df. Nota já gravada não muda.'
+            >
+              Regravar notas da fase 4
             </button>
           </div>
         )}

@@ -16,8 +16,10 @@ import {
   writeBatch,
 } from 'firebase/firestore'
 
+import { respostaTarefaDaFase } from '@/lib/bonificarRecorte13'
 import { RUBRICA } from '@/lib/criterios'
 import { CAMINHOS, FASE_ALVO, mesclarCorrecao, prepararGravacao } from '@/lib/correcao'
+import { round2 } from '@/lib/recalcularPontuacao'
 
 // Firestore: `doc()` exige número PAR de segmentos, `collection()` ímpar.
 // Caminho com 3 segmentos estoura `invalid-argument` antes de qualquer rede —
@@ -133,11 +135,22 @@ export async function gravarNota(equipeId, faseId, nota, autor) {
 
     const faseSnap = await transaction.get(doc(db, 'edicoes', equipe.edicaoId, 'fases', faseId))
     if (!faseSnap.exists()) throw new Error('Fase não encontrada.')
+    const faseData = faseSnap.data()
+    if (!(Number(faseData?.peso) > 0)) {
+      throw new Error('Fase sem peso. Cadastre o peso da fase 4 (8) e repita. Nenhuma nota foi gravada.')
+    }
 
-    const plano = prepararGravacao(equipe, faseSnap.data(), nota, autor)
+    // O id da fase vive no caminho do doc (`addDoc`), não nos campos. Sem ele a
+    // resposta vira `tarefa_undefined` e a nota fecha sem entrar no ranking.
+    const plano = prepararGravacao(equipe, { ...faseData, id: faseId }, nota, autor)
     if (!plano) {
-      resultado = { mudou: false, delta: 0 }
-      return
+      const resposta = respostaTarefaDaFase(equipe, faseId)
+      const pesoAtual = round2(resposta?.peso || 0)
+      if (resposta?.status === 'entregue' && round2(nota - pesoAtual) === 0) {
+        resultado = { mudou: false, delta: 0 }
+        return
+      }
+      throw new Error('Portfólio entregue desta fase não encontrado. A nota não entrou no ranking.')
     }
 
     transaction.set(doc(equipeRef, 'respostas', plano.respostaId), plano.resposta, { merge: true })

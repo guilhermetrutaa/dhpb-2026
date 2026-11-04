@@ -209,6 +209,21 @@ export function docDaRubrica(doc) {
   return doc && doc.rubrica === RUBRICA ? doc : null
 }
 
+/** Vereditos fechados da rubrica vigente, prontos para `gravarNota`. Os outros ficam de fora. */
+export function vereditosParaRegravar(docs) {
+  const itens = []
+  for (const doc of docs || []) {
+    const v = docDaRubrica(doc)
+    if (!v || v.status !== 'fechado') continue
+    const nota = Number(v.notaFinal)
+    if (!Number.isFinite(nota)) continue
+    const equipeId = v.equipeId || doc.id
+    if (!equipeId) continue
+    itens.push({ equipeId, nota })
+  }
+  return itens
+}
+
 export function mesclarCorrecao(atual, { equipeId, corretorId, nota, criterios = {}, zerados = [], autorUid = '', em = null }) {
   const vigente = docDaRubrica(atual)
   const base = vigente?.criteriosPorCorretor ? vigente : {}
@@ -434,6 +449,21 @@ if (process.env.NODE_ENV !== 'production') {
   if (prepararGravacao(equipe, fase, 90, 'admin').deltaDi !== 360) throw new Error('Peso 0 → 90 a di 360.')
   if (prepararGravacao(eq('eq1', 'a', 'federal', 'medio', 'rascunho'), fase, 75, 'admin') !== null) {
     throw new Error('Rascunho não grava.')
+  }
+  const docSemId = { peso: 8, nome: 'Fase 4' }
+  if (prepararGravacao(equipe, docSemId, 75, 'admin') !== null) throw new Error('Doc da fase sem id não acha a resposta.')
+  const comId = prepararGravacao(equipe, { ...docSemId, id: FASE_ALVO }, 75, 'admin')
+  if (!comId || comId.respostaId !== `tarefa_${FASE_ALVO}` || comId.deltaDi !== 600) {
+    throw new Error('Id da fase tem de vir do caminho do doc. Peso 8 → di 600.')
+  }
+  const regrava = vereditosParaRegravar([
+    { id: 'eq1', rubrica: RUBRICA, status: 'fechado', notaFinal: 80, equipeId: 'eq1' },
+    { id: 'eq2', rubrica: RUBRICA, status: 'aguardando-par', notaFinal: 70, equipeId: 'eq2' },
+    { id: 'eq3', rubrica: 'antiga', status: 'fechado', notaFinal: 90, equipeId: 'eq3' },
+    { id: 'eq4', rubrica: RUBRICA, status: 'fechado', equipeId: 'eq4' },
+  ])
+  if (regrava.length !== 1 || regrava[0].equipeId !== 'eq1' || regrava[0].nota !== 80) {
+    throw new Error('Regravação só pega veredito fechado da rubrica vigente com nota.')
   }
 
   // 10. montarResponse preserva o portfólio
