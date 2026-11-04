@@ -34,6 +34,7 @@ import { acrescentarTerceiro, carregarVeredito, gravarNota, ouvirDistribuicao, o
 import { BLOCOS, CRITERIOS_DO_BLOCO, NIVEIS, PESO_TOTAL, RUBRICA, notaDe, pendentes, somar } from '@/lib/criterios'
 import { respostaTarefaDaFase } from '@/lib/bonificarRecorte13'
 import PortfolioWall from '@/app/tarefas/portfolio-artistico/PortfolioWall'
+import { FolhaPdf, baixarPortfolioPdf } from '@/app/tarefas/portfolio-artistico/portfolioPdf'
 import { FUNDO_SRC } from '@/app/tarefas/viagem-no-tempo/config'
 import {
   MOCK_CORRECOES,
@@ -366,6 +367,42 @@ function LinhaCriterio({ criterio, valor, zerado, aoMarcar, aoAlternarZero }) {
   )
 }
 
+function BotaoPdfPortfolio({ equipe }) {
+  const folhaRef = useRef(null)
+  const [baixando, setBaixando] = useState(false)
+
+  async function baixar() {
+    if (!folhaRef.current || baixando) return
+    setBaixando(true)
+    try {
+      const imgs = [...folhaRef.current.querySelectorAll('img')]
+      await Promise.all(imgs.map((img) => (img.complete ? null : new Promise((res) => { img.onload = img.onerror = res }))))
+      const nome = `Portfolio_${(equipe.nome || 'equipe').replace(/\s+/g, '_')}.pdf`
+      await baixarPortfolioPdf(folhaRef.current, nome)
+    } catch (err) {
+      console.error('[pdf-correcao]', err)
+    } finally {
+      setBaixando(false)
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={baixar}
+        disabled={baixando}
+        className="shrink-0 bg-white border border-[#82181A] text-[#82181A] hover:bg-[#82181A] hover:text-white cursor-pointer text-xs font-bold uppercase px-3 py-2 rounded-none transition-none disabled:opacity-50"
+      >
+        {baixando ? 'Gerando PDF...' : 'Baixar PDF'}
+      </button>
+      <div className="pointer-events-none fixed top-0 left-[-10000px] w-[800px]" aria-hidden>
+        <FolhaPdf portfolio={equipe.portfolio} temaId={equipe.design} nomeEquipe={equipe.nome} folhaRef={folhaRef} />
+      </div>
+    </>
+  )
+}
+
 /**
  * 47 critérios à esquerda. O rascunho mora no `localStorage` (spec 046) e só vira
  * escrita no Firestore no clique de "Enviar Correção".
@@ -427,14 +464,17 @@ function Painel({ equipe, correcao, corretorId, aoSalvar, aoFechar }) {
             {equipe.cidade ? ` · ${equipe.cidade}` : ''}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={aoFechar}
-          aria-label="Fechar"
-          className="shrink-0 bg-neutral-200 border border-neutral-300 text-neutral-700 hover:bg-neutral-800 hover:text-white cursor-pointer text-xl font-bold leading-none px-3 py-1 rounded-none transition-none"
-        >
-          ✕
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <BotaoPdfPortfolio equipe={equipe} />
+          <button
+            type="button"
+            onClick={aoFechar}
+            aria-label="Fechar"
+            className="shrink-0 bg-neutral-200 border border-neutral-300 text-neutral-700 hover:bg-neutral-800 hover:text-white cursor-pointer text-xl font-bold leading-none px-3 py-1 rounded-none transition-none"
+          >
+            ✕
+          </button>
+        </div>
       </header>
 
       <div className="flex-1 overflow-y-auto px-5 py-5 space-y-8">
