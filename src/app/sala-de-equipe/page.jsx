@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, Suspense } from 'react'
+import React, { useState, useEffect, useRef, Suspense } from 'react'
 import Image from 'next/image'
 import { Poppins } from 'next/font/google'
 import { doc, getDoc, getDocs, collection, query, orderBy, onSnapshot, updateDoc } from 'firebase/firestore'
@@ -18,6 +18,42 @@ const poppins = Poppins({
 function formatNota(valor) {
   if (valor === undefined || valor === null) return '—'
   return Number(valor).toFixed(2)
+}
+
+// Confete de comemoração (CSS puro, sem dependência). Dura ~6s e some.
+function Confetti() {
+  const pecas = useRef(
+    Array.from({ length: 90 }, (_, i) => ({
+      left: Math.random() * 100,
+      delay: Math.random() * 0.8,
+      duration: 2.8 + Math.random() * 2.4,
+      size: 6 + Math.random() * 8,
+      cor: ['#82181A', '#f5c518', '#009a22', '#2563eb', '#f5dddd'][i % 5],
+      rot: Math.random() * 360,
+    }))
+  ).current
+
+  return (
+    <div aria-hidden className='pointer-events-none fixed inset-0 z-50 overflow-hidden'>
+      <style>{`@keyframes dhpb-confetti-fall{0%{transform:translateY(-12vh) rotate(0);opacity:1}100%{transform:translateY(112vh) rotate(720deg);opacity:0}}`}</style>
+      {pecas.map((p, i) => (
+        <span
+          key={i}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: `${p.left}%`,
+            width: `${p.size}px`,
+            height: `${p.size}px`,
+            background: p.cor,
+            borderRadius: i % 3 === 0 ? '50%' : '2px',
+            animation: `dhpb-confetti-fall ${p.duration}s linear ${p.delay}s forwards`,
+            transform: `rotate(${p.rot}deg)`,
+          }}
+        />
+      ))}
+    </div>
+  )
 }
 
 function NotasDetalhe({ fases, equipe }) {
@@ -72,10 +108,27 @@ function SalaEquipeContent() {
   const [questionarioPendente, setQuestionarioPendente] = useState(null)
   const [verificandoQuestionario, setVerificandoQuestionario] = useState(true)
   const [confirmandoPresenca, setConfirmandoPresenca] = useState(false)
+  const [showConfetti, setShowConfetti] = useState(false)
+  const confettiDisparado = useRef(false)
 
   useEffect(() => {
     if (!loading && !authUser) router.push('/login')
   }, [loading, authUser, router])
+
+  // Comemoração (confete) ao abrir a sala já classificada para a final, uma vez.
+  useEffect(() => {
+    if (carregando || !equipe || confettiDisparado.current) return
+    const bloco = decidirEncaminhamento({
+      fase4Status: fases.slice(0, 4)[3]?.status,
+      aprovadoAte: equipe?.aprovadoAte,
+      publicado: resultadoPublicado,
+    })
+    if (bloco !== 'finalista') return
+    confettiDisparado.current = true
+    setShowConfetti(true)
+    const t = setTimeout(() => setShowConfetti(false), 6000)
+    return () => clearTimeout(t)
+  }, [carregando, equipe, fases, resultadoPublicado])
 
   useEffect(() => {
     if (!authUser || !equipeId) return
@@ -255,6 +308,7 @@ function SalaEquipeContent() {
 
   return (
     <div className={poppins.className}>
+      {showConfetti && <Confetti />}
       {questionarioPendente && equipe && (
         <ModalQuestionarioEquipe
           authUser={authUser}

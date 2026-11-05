@@ -187,7 +187,7 @@ function FinalContent() {
                         <ul className='mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm text-neutral-600'>
                           {(eq.membros || []).filter(m => m.status === 'ativo').map((m, i) => (
                             <li key={m.uid || i}>
-                              {m.nome} <span className='text-neutral-400'>— {m.papel?.replace(/_/g, ' ')}</span>
+                              {m.nome}{m.email ? <span className='text-neutral-500'> · {m.email}</span> : null} <span className='text-neutral-400'>— {m.papel?.replace(/_/g, ' ')}</span>
                             </li>
                           ))}
                         </ul>
