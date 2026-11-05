@@ -31,7 +31,6 @@ function NotasDetalhe({ fases, equipe }) {
               <th className='px-4 py-3 text-left font-semibold'>Fase</th>
               <th className='px-4 py-3 text-center font-semibold'>Nota (Ni)</th>
               <th className='px-4 py-3 text-center font-semibold'>Desempenho (Di)</th>
-              <th className='px-4 py-3 text-center font-semibold'>Nota de corte</th>
             </tr>
           </thead>
           <tbody>
@@ -42,14 +41,13 @@ function NotasDetalhe({ fases, equipe }) {
                   <td className='px-4 py-3'>{f.nome || `Fase ${i + 1}`}</td>
                   <td className='px-4 py-3 text-center'>{formatNota(p.ni)}</td>
                   <td className='px-4 py-3 text-center'>{formatNota(p.di)}</td>
-                  <td className='px-4 py-3 text-center'>{formatNota(f.notaCorte)}</td>
                 </tr>
               )
             })}
           </tbody>
           <tfoot>
             <tr className='font-bold text-[#82181A]'>
-              <td className='px-4 py-3 text-right' colSpan={3}>Desempenho Final (Df)</td>
+              <td className='px-4 py-3 text-right' colSpan={2}>Desempenho Final (Df)</td>
               <td className='px-4 py-3 text-center'>{formatNota(equipe.df)}</td>
             </tr>
           </tfoot>
