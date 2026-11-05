@@ -15,7 +15,9 @@ function FinalContent() {
   const [edicoes, setEdicoes] = useState([])
   const [edicaoId, setEdicaoId] = useState('')
   const [manualUrl, setManualUrl] = useState('')
+  const [publicado, setPublicado] = useState(false)
   const [enviando, setEnviando] = useState(false)
+  const [publicando, setPublicando] = useState(false)
   const [equipes, setEquipes] = useState([])
   const [carregando, setCarregando] = useState(false)
   const [msg, setMsg] = useState('')
@@ -38,6 +40,7 @@ function FinalContent() {
     try {
       const ed = edicoes.find(e => e.id === edId)
       setManualUrl(ed?.manualFinalistaUrl || '')
+      setPublicado(ed?.resultadoFinalPublicado === true)
       const eSnap = await getDocs(query(
         collection(db, 'equipes'),
         where('edicaoId', '==', edId),
@@ -83,6 +86,22 @@ function FinalContent() {
     }
   }
 
+  const handlePublicar = async (valor) => {
+    if (!edicaoId || publicando) return
+    setPublicando(true)
+    setMsg('')
+    try {
+      await updateDoc(doc(db, 'edicoes', edicaoId), { resultadoFinalPublicado: valor })
+      setPublicado(valor)
+      setEdicoes((prev) => prev.map((ed) => ed.id === edicaoId ? { ...ed, resultadoFinalPublicado: valor } : ed))
+      setMsg(valor ? 'Resultado publicado. As equipes passam a ver o encaminhamento.' : 'Resultado oculto. Nenhuma equipe vê o encaminhamento.')
+    } catch (err) {
+      setMsg('Erro ao atualizar a publicação: ' + (err?.message || 'desconhecido'))
+    } finally {
+      setPublicando(false)
+    }
+  }
+
   const confirmadas = equipes.filter(eq => eq.presencaFinalConfirmada).length
 
   if (!autenticado) return null
@@ -111,6 +130,21 @@ function FinalContent() {
 
           {edicaoId && (
             <>
+              <div className='bg-white rounded-2xl shadow-sm border border-neutral-200 p-6 space-y-3'>
+                <h2 className='text-sm font-bold text-[#82181A] uppercase tracking-wide'>Publicação do resultado</h2>
+                <p className='text-sm text-neutral-600'>
+                  {publicado ? 'As equipes estão vendo o encaminhamento da final.' : 'Oculto. Nenhuma equipe vê FINALISTA nem a mensagem de não classificação.'}
+                </p>
+                <button
+                  type='button'
+                  onClick={() => handlePublicar(!publicado)}
+                  disabled={publicando}
+                  className={`px-6 py-3 rounded-xl text-sm font-semibold cursor-pointer transition-all disabled:opacity-50 ${publicado ? 'border border-[#82181A] text-[#82181A] hover:bg-red-50' : 'bg-[#82181A] text-white hover:bg-[#631214]'}`}
+                >
+                  {publicando ? 'Salvando...' : publicado ? 'Ocultar resultado' : 'Publicar resultado da final'}
+                </button>
+              </div>
+
               <div className='bg-white rounded-2xl shadow-sm border border-neutral-200 p-6 space-y-4'>
                 <h2 className='text-sm font-bold text-[#82181A] uppercase tracking-wide'>Manual do finalista (PDF)</h2>
                 {manualUrl && (

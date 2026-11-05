@@ -49,6 +49,7 @@ Documento: `edicoes/{edicaoId}`
 | `nome` | string | Nome da edição (ex: `"4º DHPB - 2026"`) |
 | `status` | string | Status geral da edição (ex: `"ativa"`) |
 | `manualFinalistaUrl` | string (opcional) | Spec 050: URL do PDF do manual do finalista (Cloudinary), enviado em `/admin/final` |
+| `resultadoFinalPublicado` | boolean (opcional) | Spec 050: só `true` libera o encaminhamento (FINALISTA / não classificado) na Sala de Equipe. Ausente ou `false` = ninguém vê, mesmo com a Fase 4 `finalizada` |
 | `createdAt` | string (ISO) | Timestamp de criação |
 
 #### Subcoleção `edicoes/{edicaoId}/fases/{faseId}`

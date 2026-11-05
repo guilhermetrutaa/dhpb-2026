@@ -7,7 +7,8 @@ export const NIVEIS_APROVACAO = ['fase1', 'fase2', 'fase3', 'fase4', 'fase_final
  * Qual bloco a área vazia da Sala de Equipe deve mostrar.
  * @returns {'nenhum'|'finalista'|'nao-finalista'}
  */
-export function decidirEncaminhamento({ fase4Status, aprovadoAte }) {
+export function decidirEncaminhamento({ fase4Status, aprovadoAte, publicado }) {
+  if (!publicado) return 'nenhum'
   if (fase4Status !== 'finalizada') return 'nenhum'
   if (aprovadoAte === 'fase_final') return 'finalista'
   return 'nao-finalista'

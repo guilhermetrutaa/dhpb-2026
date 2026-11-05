@@ -68,6 +68,7 @@ function SalaEquipeContent() {
   const [equipe, setEquipe] = useState(null)
   const [edicaoNome, setEdicaoNome] = useState('')
   const [manualFinalistaUrl, setManualFinalistaUrl] = useState('')
+  const [resultadoPublicado, setResultadoPublicado] = useState(false)
   const [fases, setFases] = useState([])
   const [carregando, setCarregando] = useState(true)
   const [questionarioPendente, setQuestionarioPendente] = useState(null)
@@ -103,6 +104,7 @@ function SalaEquipeContent() {
       if (edSnap.exists()) {
         setEdicaoNome(edSnap.data().nome || '')
         setManualFinalistaUrl(edSnap.data().manualFinalistaUrl || '')
+        setResultadoPublicado(edSnap.data().resultadoFinalPublicado === true)
       }
       setFases(fSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
       setCarregando(false)
@@ -202,6 +204,8 @@ function SalaEquipeContent() {
 
   const handleConfirmarPresenca = async () => {
     if (!equipe || equipe.presencaFinalConfirmada || confirmandoPresenca) return
+    const segue = window.confirm('Essa ação é irrevogável. Ao confirmar a presença da equipe na final do DHPB, nenhum membro da equipe poderá revogar essa operação. Caso necessário, entre em contato conosco via email: dhpb@ifpb.edu.br')
+    if (!segue) return
     setConfirmandoPresenca(true)
     try {
       await updateDoc(doc(db, 'equipes', equipe.id), {
@@ -243,7 +247,7 @@ function SalaEquipeContent() {
 
   // Encaminhamento pós-encerramento da Fase 4 (spec 050)
   const fase4Finalizada = fasesVisiveis[3]?.status === 'finalizada'
-  const blocoFinal = decidirEncaminhamento({ fase4Status: fasesVisiveis[3]?.status, aprovadoAte: equipe?.aprovadoAte })
+  const blocoFinal = decidirEncaminhamento({ fase4Status: fasesVisiveis[3]?.status, aprovadoAte: equipe?.aprovadoAte, publicado: resultadoPublicado })
   const fasesDetalhe = equipe ? fasesDoDetalhamento(blocoFinal, fasesVisiveis, equipe.aprovadoAte) : []
 
   return (
@@ -362,7 +366,7 @@ function SalaEquipeContent() {
                       </button>
                     </div>
                     <p className="max-w-[720px] text-center text-xl font-medium text-black">
-                      Parabéns! Sua equipe teve um bom desempenho e está na final da quarta edição do DHPB.
+                      Parabéns! Sua equipe teve um ótimo desempenho e está na final da quarta edição do DHPB.
                     </p>
                     <NotasDetalhe fases={fasesDetalhe} equipe={equipe} />
                   </div>
@@ -377,7 +381,7 @@ function SalaEquipeContent() {
                   </div>
                 )}
 
-                {!fase4Finalizada && isEliminated && faseConcluidaNumero && (
+                {!(fase4Finalizada && resultadoPublicado) && isEliminated && faseConcluidaNumero && (
                   <div className="mt-16 flex justify-center">
                     <button 
                       onClick={() => router.push(`/certificado?equipeId=${equipe.id}&fase=${faseConcluidaNumero}`)}
