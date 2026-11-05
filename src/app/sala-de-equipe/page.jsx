@@ -173,7 +173,11 @@ function SalaEquipeContent() {
     }
 
     if (status === 'finalizada') {
+      // Resultado da última fase (Fase 4 -> final) fica oculto até a divulgação oficial.
+      const ehUltimaFase = index === fasesVisiveis.length - 1
+      const aguardando = { texto: 'Aguardando resultados...', classe: 'text-amber-600' }
       if (aprovadoAteIndex > index) {
+        if (ehUltimaFase && !resultadoPublicado) return aguardando
         return { texto: 'Participou e foi aprovada.', classe: 'text-[#009a22]' }
       }
       const ehFaseAtualDaEquipe = index === 0 ? aprovadoAteIndex <= 0 : aprovadoAteIndex === index
@@ -183,8 +187,9 @@ function SalaEquipeContent() {
       const proximaFase = fases[index + 1]
       const resultadoPendente = !proximaFase || !proximaFase.status || proximaFase.status === 'pendente'
       if (resultadoPendente) {
-        return { texto: 'Aguardando resultados...', classe: 'text-amber-600' }
+        return aguardando
       }
+      if (ehUltimaFase && !resultadoPublicado) return aguardando
       return { texto: 'Participou e não foi aprovada.', classe: 'text-red-600' }
     }
 
