@@ -207,7 +207,7 @@ function SalaEquipeContent() {
 
   const handleConfirmarPresenca = async () => {
     if (!equipe || equipe.presencaFinalConfirmada || confirmandoPresenca) return
-    const segue = window.confirm('Essa ação é irrevogável. Ao confirmar a presença da equipe na final do DHPB, nenhum membro da equipe poderá revogar essa operação. Caso necessário, entre em contato conosco via email: dhpb@ifpb.edu.br')
+    const segue = window.confirm('Essa ação é irrevogável. Ao confirmar a presença da equipe na final do DHPB, nenhum membro da equipe poderá revogar essa operação. Caso necessário, entre em contato conosco via email: dhpb@ifpb.edu.br\n\nO prazo para confirmar a presença na final é até o dia 11/11. Recomendamos que o professor orientador confirme a presença após a resolução de todos os trâmites necessários para a viagem e diálogo com a equipe. Pedimos que fiquem de olho em nosso instagram e em seus emails pois haverão atualizações.')
     if (!segue) return
     setConfirmandoPresenca(true)
     try {
