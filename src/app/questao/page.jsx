@@ -383,7 +383,7 @@ function QuestaoContent() {
       setFase({ id: snap.id, ...data })
       
       const st = data.status
-      if (st !== 'aberta' && st !== 'correcao') {
+      if (st !== 'aberta' && st !== 'correcao' && st !== 'finalizada') {
         router.push(userData?.tipo === 'professor' ? '/home-professor' : '/home')
         return
       }
@@ -515,7 +515,7 @@ function QuestaoContent() {
   }, [activeDocumentIndex])
 
   const handleSelectAlt = (altKey) => {
-    if (respostaStatus !== 'entregue' && fase?.status !== 'correcao') {
+    if (respostaStatus !== 'entregue' && fase?.status !== 'correcao' && fase?.status !== 'finalizada') {
       setSelectedAlt(altKey)
     }
   }
@@ -622,7 +622,7 @@ function QuestaoContent() {
     ? `/questao?questaoId=${qNextId}&faseId=${faseId}&edicaoId=${edicaoId}&equipeId=${equipeId}`
     : tarefaHref
   const activeDocument = activeDocumentIndex !== null ? questao?.documentos?.[activeDocumentIndex] : null
-  const lockedQuestion = respostaStatus === 'entregue' || fase?.status === 'correcao'
+  const lockedQuestion = respostaStatus === 'entregue' || fase?.status === 'correcao' || fase?.status === 'finalizada'
 
   if (loading || carregando || !authUser) {
     return (
@@ -709,7 +709,7 @@ function QuestaoContent() {
               })}
             </div>
 
-            {respostaStatus !== 'entregue' && fase?.status !== 'correcao' && (
+            {respostaStatus !== 'entregue' && fase?.status !== 'correcao' && fase?.status !== 'finalizada' && (
               <div className="mt-12 flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-24">
                 {rascunhoBloqueado > 0 ? (
                   <div className="flex min-w-[190px] items-center justify-center gap-2 rounded-full bg-[#F5E3E3] px-6 py-3 text-sm font-medium text-[#2F2F2F]">

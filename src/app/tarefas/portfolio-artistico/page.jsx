@@ -273,7 +273,7 @@ function TarefaContent() {
   const folhaRef = useRef(null)
 
   const resumoHref = `/resumo-fase?faseId=${faseId || ''}&edicaoId=${edicaoId || ''}&equipeId=${equipeId || ''}`
-  const locked = status === 'entregue' || fase?.status === 'correcao'
+  const locked = status === 'entregue' || fase?.status === 'correcao' || fase?.status === 'finalizada'
   const faltantes = contarFaltantes(portfolio)
   const questoes = [...(fase?.questoesIndex || fase?.questoes || [])].filter((q) => q.id).sort((a, b) => (a.numero || 0) - (b.numero || 0))
 
@@ -356,7 +356,7 @@ function TarefaContent() {
           return
         }
         const faseData = { id: faseSnap.id, ...faseSnap.data() }
-        if (faseData.status !== 'aberta' && faseData.status !== 'correcao') return router.push(home)
+        if (faseData.status !== 'aberta' && faseData.status !== 'correcao' && faseData.status !== 'finalizada') return router.push(home)
         setFase(faseData)
 
         const rSnap = await getDoc(doc(db, 'equipes', equipeId, 'respostas', `tarefa_${faseId}`))
@@ -647,7 +647,7 @@ function TarefaContent() {
               {status === 'entregue'
                 ? formatAudit(atualizadoEm, atualizadoPor, true) || 'Tarefa entregue.'
                 : locked
-                  ? 'Fase em correção: somente leitura.'
+                  ? (fase?.status === 'finalizada' ? 'Fase encerrada: somente leitura.' : 'Fase em correção: somente leitura.')
                   : formatAudit(atualizadoEm, atualizadoPor, false)}
             </div>
           )}

@@ -203,6 +203,7 @@ function SalaEquipeContent() {
     const status = fase.status || 'pendente'
     if (status === 'correcao') return true
     const aprovadoAteIndex = niveisAprovacao.indexOf(equipe.aprovadoAte || '')
+    if (status === 'finalizada') return aprovadoAteIndex >= index
     return status === 'aberta' && (index === 0 || aprovadoAteIndex >= index)
   }
 

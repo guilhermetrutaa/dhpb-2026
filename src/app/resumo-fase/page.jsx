@@ -41,7 +41,7 @@ function ResumoFaseContent() {
         setFase({ id: snap.id, ...data })
         
         const st = data.status
-        if (st !== 'aberta' && st !== 'correcao') {
+        if (st !== 'aberta' && st !== 'correcao' && st !== 'finalizada') {
           router.push(userData?.tipo === 'professor' ? '/home-professor' : '/home')
           return
         }
@@ -159,7 +159,7 @@ function ResumoFaseContent() {
               <h1 className='text-2xl text-[#82181A] font-medium sm:text-[2.5rem]'>Resumo {fase?.nome || 'Fase'}</h1>
               <h1 className='text-[1.1rem] text-[#82181A] font-medium'>Equipe: {equipeNome}</h1>
               <div className='pt-3'>
-                {fase?.status === 'correcao' && fase?.gabaritoPdfUrl ? (
+                {(fase?.status === 'correcao' || fase?.status === 'finalizada') && fase?.gabaritoPdfUrl ? (
                   <a href={fase.gabaritoPdfUrl} target="_blank" rel="noopener noreferrer"
                     className='flex gap-2 w-[14rem] h-[2.5rem] bg-[#002fbd] text-[#fff] justify-center items-center rounded-[5px] cursor-pointer hover:bg-[#00259a] transition-colors'>
                     <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708z"/></svg>
