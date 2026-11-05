@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react'
 import { Poppins } from 'next/font/google'
 import { useRouter } from 'next/navigation'
-import { collection, query, where, getDocs, doc, orderBy, writeBatch } from 'firebase/firestore'
+import { collection, query, where, getDocs, doc, orderBy, writeBatch, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import Image from 'next/image'
 import { compareRanking, gerarPreview, getRede } from '@/lib/eliminacaoFases'
@@ -160,6 +160,20 @@ function RankingContent() {
       const chunk = aprovados.slice(i, i + 400)
       chunk.forEach((eq) => batch.update(doc(db, 'equipes', eq.id), { aprovadoAte: aprovarPara }))
       await batch.commit()
+    }
+
+    // Nota de corte: menor nota da equipe classificada nesta fase (estilo SISU).
+    // Ni para fase2/fase3; Df para fase4/fase_final. Gravada na fase de origem.
+    const sourceIdx = { fase2: 0, fase3: 1, fase4: 2, fase_final: 3 }[aprovarPara]
+    const faseOrigemId = faseIds[sourceIdx]
+    if (faseOrigemId) {
+      const usaDf = aprovarPara === 'fase4' || aprovarPara === 'fase_final'
+      const metric = (eq) => usaDf ? Number(eq.df || 0) : Number(eq.pontuacao?.[faseOrigemId]?.ni || 0)
+      const noDestino = preview.filter((eq) => eq.status === 'ja_liberada' || (eq.status === 'aprovar' && marcadas[eq.id]))
+      if (noDestino.length > 0) {
+        const notaCorte = Math.min(...noDestino.map(metric))
+        await updateDoc(doc(db, 'edicoes', edicaoId, 'fases', faseOrigemId), { notaCorte })
+      }
     }
 
     setMsg(`${aprovados.length} equipe(s) aprovada(s) para ${aprovarPara.toUpperCase()}!`)

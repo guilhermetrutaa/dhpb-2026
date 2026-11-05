@@ -3,16 +3,61 @@
 import React, { useState, useEffect, Suspense } from 'react'
 import Image from 'next/image'
 import { Poppins } from 'next/font/google'
-import { doc, getDoc, getDocs, collection, query, orderBy, onSnapshot } from 'firebase/firestore'
+import { doc, getDoc, getDocs, collection, query, orderBy, onSnapshot, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter, useSearchParams } from 'next/navigation'
 import ModalQuestionarioEquipe from '@/components/ModalQuestionarioEquipe'
+import { decidirEncaminhamento, fasesDoDetalhamento } from '@/lib/encaminhamentoFinal'
 
 const poppins = Poppins({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
 })
+
+function formatNota(valor) {
+  if (valor === undefined || valor === null) return '—'
+  return Number(valor).toFixed(2)
+}
+
+function NotasDetalhe({ fases, equipe }) {
+  return (
+    <div className='w-full max-w-[720px]'>
+      <h3 className='mb-4 text-center text-lg font-semibold text-[#82181A]'>Detalhamento das notas</h3>
+      <div className='overflow-x-auto'>
+        <table className='w-full border-collapse text-sm'>
+          <thead>
+            <tr className='bg-[#f5dddd] text-black'>
+              <th className='px-4 py-3 text-left font-semibold'>Fase</th>
+              <th className='px-4 py-3 text-center font-semibold'>Nota (Ni)</th>
+              <th className='px-4 py-3 text-center font-semibold'>Desempenho (Di)</th>
+              <th className='px-4 py-3 text-center font-semibold'>Nota de corte</th>
+            </tr>
+          </thead>
+          <tbody>
+            {fases.map((f, i) => {
+              const p = equipe.pontuacoes?.[f.id] || {}
+              return (
+                <tr key={f.id || `fase-${i}`} className='border-b border-neutral-200'>
+                  <td className='px-4 py-3'>{f.nome || `Fase ${i + 1}`}</td>
+                  <td className='px-4 py-3 text-center'>{formatNota(p.ni)}</td>
+                  <td className='px-4 py-3 text-center'>{formatNota(p.di)}</td>
+                  <td className='px-4 py-3 text-center'>{formatNota(f.notaCorte)}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+          <tfoot>
+            <tr className='font-bold text-[#82181A]'>
+              <td className='px-4 py-3 text-right' colSpan={3}>Desempenho Final (Df)</td>
+              <td className='px-4 py-3 text-center'>{formatNota(equipe.df)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  )
+}
 
 function SalaEquipeContent() {
   const { authUser, userData, loading, logout } = useAuth()
@@ -22,10 +67,12 @@ function SalaEquipeContent() {
 
   const [equipe, setEquipe] = useState(null)
   const [edicaoNome, setEdicaoNome] = useState('')
+  const [manualFinalistaUrl, setManualFinalistaUrl] = useState('')
   const [fases, setFases] = useState([])
   const [carregando, setCarregando] = useState(true)
   const [questionarioPendente, setQuestionarioPendente] = useState(null)
   const [verificandoQuestionario, setVerificandoQuestionario] = useState(true)
+  const [confirmandoPresenca, setConfirmandoPresenca] = useState(false)
 
   useEffect(() => {
     if (!loading && !authUser) router.push('/login')
@@ -53,7 +100,10 @@ function SalaEquipeContent() {
         getDocs(query(collection(db, 'edicoes', equipe.edicaoId, 'fases'), orderBy('dataInicio', 'asc'))),
       ])
       if (!ativo) return
-      if (edSnap.exists()) setEdicaoNome(edSnap.data().nome || '')
+      if (edSnap.exists()) {
+        setEdicaoNome(edSnap.data().nome || '')
+        setManualFinalistaUrl(edSnap.data().manualFinalistaUrl || '')
+      }
       setFases(fSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
       setCarregando(false)
       setVerificandoQuestionario(false)
@@ -150,6 +200,22 @@ function SalaEquipeContent() {
     setQuestionarioPendente(false)
   }
 
+  const handleConfirmarPresenca = async () => {
+    if (!equipe || equipe.presencaFinalConfirmada || confirmandoPresenca) return
+    setConfirmandoPresenca(true)
+    try {
+      await updateDoc(doc(db, 'equipes', equipe.id), {
+        presencaFinalConfirmada: true,
+        presencaFinalConfirmadaEm: new Date().toISOString(),
+        presencaFinalConfirmadaPor: authUser.email || '',
+      })
+    } catch {
+      alert('Erro ao confirmar presença. Tente novamente.')
+    } finally {
+      setConfirmandoPresenca(false)
+    }
+  }
+
   // LOGICA DE CERTIFICADOS
   let faseConcluidaNumero = null
   let isEliminated = false
@@ -174,6 +240,11 @@ function SalaEquipeContent() {
       }
     }
   }
+
+  // Encaminhamento pós-encerramento da Fase 4 (spec 050)
+  const fase4Finalizada = fasesVisiveis[3]?.status === 'finalizada'
+  const blocoFinal = decidirEncaminhamento({ fase4Status: fasesVisiveis[3]?.status, aprovadoAte: equipe?.aprovadoAte })
+  const fasesDetalhe = equipe ? fasesDoDetalhamento(blocoFinal, fasesVisiveis, equipe.aprovadoAte) : []
 
   return (
     <div className={poppins.className}>
@@ -268,7 +339,45 @@ function SalaEquipeContent() {
                   </div>
                 )}
 
-                {isEliminated && faseConcluidaNumero && (
+                {blocoFinal === 'finalista' && (
+                  <div className="mt-16 flex flex-col items-center gap-8">
+                    <p className="text-4xl font-bold uppercase tracking-wide text-[#82181A] md:text-5xl">FINALISTA!</p>
+                    <div className="flex flex-col sm:flex-row gap-4">
+                      <a
+                        href={manualFinalistaUrl || undefined}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-disabled={!manualFinalistaUrl}
+                        className={`bg-[#82181A] text-white px-8 py-4 font-medium text-lg transition-colors flex items-center justify-center gap-3 ${manualFinalistaUrl ? 'cursor-pointer hover:bg-[#631214]' : 'opacity-50 pointer-events-none'}`}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg>
+                        Baixar manual do finalista
+                      </a>
+                      <button
+                        onClick={handleConfirmarPresenca}
+                        disabled={confirmandoPresenca || !!equipe.presencaFinalConfirmada}
+                        className={`border-2 border-[#82181A] px-8 py-4 font-medium text-lg transition-colors flex items-center justify-center gap-3 ${equipe.presencaFinalConfirmada ? 'bg-[#82181A] text-white cursor-default' : 'bg-white text-[#82181A] cursor-pointer hover:bg-[#f5dddd] disabled:opacity-50'}`}
+                      >
+                        {equipe.presencaFinalConfirmada ? 'Presença confirmada' : confirmandoPresenca ? 'Confirmando...' : 'Confirmar presença na final'}
+                      </button>
+                    </div>
+                    <p className="max-w-[720px] text-center text-xl font-medium text-black">
+                      Parabéns! Sua equipe teve um bom desempenho e está na final da quarta edição do DHPB.
+                    </p>
+                    <NotasDetalhe fases={fasesDetalhe} equipe={equipe} />
+                  </div>
+                )}
+
+                {blocoFinal === 'nao-finalista' && (
+                  <div className="mt-16 flex flex-col items-center gap-8">
+                    <p className="max-w-[720px] text-center text-xl font-medium text-black">
+                      Parabéns pelo desempenho. No entanto, sua equipe não se classificou para a final do DHPB.
+                    </p>
+                    <NotasDetalhe fases={fasesDetalhe} equipe={equipe} />
+                  </div>
+                )}
+
+                {!fase4Finalizada && isEliminated && faseConcluidaNumero && (
                   <div className="mt-16 flex justify-center">
                     <button 
                       onClick={() => router.push(`/certificado?equipeId=${equipe.id}&fase=${faseConcluidaNumero}`)}

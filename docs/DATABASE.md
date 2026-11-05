@@ -48,6 +48,7 @@ Documento: `edicoes/{edicaoId}`
 |---|---|---|
 | `nome` | string | Nome da edição (ex: `"4º DHPB - 2026"`) |
 | `status` | string | Status geral da edição (ex: `"ativa"`) |
+| `manualFinalistaUrl` | string (opcional) | Spec 050: URL do PDF do manual do finalista (Cloudinary), enviado em `/admin/final` |
 | `createdAt` | string (ISO) | Timestamp de criação |
 
 #### Subcoleção `edicoes/{edicaoId}/fases/{faseId}`
@@ -61,6 +62,7 @@ Documento representativo da Fase da Olimpíada (mantido leve):
 | `status` | string | `'pendente'`, `'aberta'`, `'finalizada'`, `'correcao'` |
 | `peso` | number | Peso da fase no $d_i$ (oficiais 4º DHPB: 1, 2, 4, 8, 16) |
 | `notaMaxima` | number | Teto da nota bruta $n_i$ (100). Não divide o $d_i$ |
+| `notaCorte` | number (opcional) | Spec 050: menor nota da equipe classificada ao avançar desta fase (estilo SISU). Gravada por `/admin/ranking` ao confirmar a transição. `ni` nas fases 1→2 e 2→3; `df` nas fases 3→4 e 4→final |
 | `provaPdfUrl` | string (opcional) | Link do caderno de prova em PDF |
 | `gabaritoPdfUrl` | string (opcional) | Link do gabarito em PDF |
 | `questoesIndex` | array | Lista leve com `[{ id: string, numero: number }]` para paginação rápida |
@@ -103,6 +105,9 @@ Documento: `equipes/{equipeId}`
 | `df` | number | Desempenho Final consolidado da equipe ($\sum n_i \times \text{peso}_i$, máximo 3100) |
 | `aprovadoAte` | string (opcional) | Qual fase a equipe está liberada (ex: `'fase1'`, `'fase2'`, `'fase3'`, `'fase4'`) |
 | `questionarioEquipe` | object (opcional) | Respostas do questionário coletivo da equipe |
+| `presencaFinalConfirmada` | boolean (opcional) | Spec 050: equipe finalista confirmou presença na final (gravado por membro ativo na Sala de Equipe) |
+| `presencaFinalConfirmadaEm` | string (ISO) (opcional) | Spec 050: momento da confirmação de presença |
+| `presencaFinalConfirmadaPor` | string (opcional) | Spec 050: e-mail do membro que confirmou a presença |
 | `ultimoNomeEditadoEm` | string (ISO) | Timestamp da última alteração de nome (cooldown de 25 dias) |
 | `createdAt` | string (ISO) | Data de criação |
 

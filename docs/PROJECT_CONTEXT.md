@@ -43,7 +43,8 @@ O **DHPB (Desafio em História da Paraíba)** é uma plataforma web para uma oli
 | **Correção da fase 4 (banca)** | `docs/BUSINESS_RULES.md` §1.4 e `specs/044-correcao-portfolio/` | `src/app/correcao/page.jsx`, `src/lib/criterios.js`, `src/lib/correcao.js`, `src/lib/correcao-firestore.js`, `src/app/tarefas/portfolio-artistico/PortfolioWall.jsx` |
 | **Equipes e Participantes** | `docs/BUSINESS_RULES.md` e `docs/DATABASE.md` | `src/app/criar-equipe/page.jsx`, `src/app/montagem-equipe/page.jsx`, `src/app/sala-de-equipe/page.jsx`, `src/app/cadastro-escola/page.jsx` |
 | **Autenticação e Permissões** | `docs/AUTHENTICATION.md` | `src/context/AuthContext.jsx`, `src/app/login/page.jsx`, `src/app/cadastro/page.jsx`, `src/app/recuperar-senha/page.jsx`, `src/app/admin/page.jsx`, `src/app/api/admin/auth/*` |
-| **Ranking, Medalhas e Certificados** | `docs/BUSINESS_RULES.md` | `src/app/admin/ranking/page.jsx`, `src/app/admin/medalhas/page.jsx`, `src/app/certificado/page.jsx`, `src/app/certificado-medalha/page.jsx` |
+| **Ranking, Medalhas e Certificados** | `docs/BUSINESS_RULES.md` | `src/app/admin/ranking/page.jsx`, `src/app/admin/medalhas/page.jsx`, `src/app/admin/final/page.jsx`, `src/app/certificado/page.jsx`, `src/app/certificado-medalha/page.jsx` |
+| **Encaminhamento pós-Fase 4 (final)** | `specs/050-finalizacao-fase4-encaminhamento/` | `src/app/sala-de-equipe/page.jsx`, `src/app/admin/final/page.jsx`, `src/lib/encaminhamentoFinal.js` |
 | **Chat e Suporte** | `docs/INTEGRATIONS.md` e `docs/DATABASE.md` | `src/components/support/*`, `src/hooks/useSupportChat.js`, `src/app/api/support/*`, `src/app/admin/suporte/page.jsx` |
 | **Upload de Mídias e Imagens** | `docs/INTEGRATIONS.md` e `docs/CODE_CONVENTIONS.md` | `src/lib/cloudinary.js`, `src/app/enviar-documento/page.jsx`, `src/app/admin/documentos/page.jsx` |
 | **Admin / dados / questionários** | `docs/DATABASE.md` e `docs/AUTHENTICATION.md` | `src/app/admin/dashboard/page.jsx`, `src/app/admin/firestore/page.jsx`, `src/app/admin/firestore/ops.js`, `src/app/admin/firestore/respostas-tab.jsx`, `src/app/admin/questionarios/page.jsx`, `src/app/api/admin/auth/*`, `src/lib/admin/main-auth-rest.js` |
@@ -93,6 +94,6 @@ Lock: `skills-lock.json`. Fonte: `npx skills add` (juliusbrussee/caveman, dietri
 
 ```bash
 npm run dev    # Inicia servidor local de desenvolvimento
-npm run build  # Compila e valida todas as 43 rotas estáticas/dinâmicas
+npm run build  # Compila e valida todas as rotas estáticas/dinâmicas
 npm run lint   # Checagem de regras ESLint
 ```
