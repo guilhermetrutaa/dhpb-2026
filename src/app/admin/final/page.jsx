@@ -9,14 +9,25 @@ import Image from 'next/image'
 
 const poppins = Poppins({ subsets: ['latin'], weight: ['400', '500', '600', '700'] })
 
+function arquivoPdf(file) {
+  const nome = (file.name || '').toLowerCase()
+  return file.type === 'application/pdf' || nome.endsWith('.pdf')
+}
+
+function arquivoWord(file) {
+  const nome = (file.name || '').toLowerCase()
+  return nome.endsWith('.doc') || nome.endsWith('.docx')
+}
+
 function FinalContent() {
   const router = useRouter()
   const [autenticado, setAutenticado] = useState(false)
   const [edicoes, setEdicoes] = useState([])
   const [edicaoId, setEdicaoId] = useState('')
   const [manualUrl, setManualUrl] = useState('')
+  const [autorizacaoUrl, setAutorizacaoUrl] = useState('')
   const [publicado, setPublicado] = useState(false)
-  const [enviando, setEnviando] = useState(false)
+  const [enviando, setEnviando] = useState('')
   const [publicando, setPublicando] = useState(false)
   const [equipes, setEquipes] = useState([])
   const [carregando, setCarregando] = useState(false)
@@ -40,6 +51,7 @@ function FinalContent() {
     try {
       const ed = edicoes.find(e => e.id === edId)
       setManualUrl(ed?.manualFinalistaUrl || '')
+      setAutorizacaoUrl(ed?.autorizacaoViagemUrl || '')
       setPublicado(ed?.resultadoFinalPublicado === true)
       const eSnap = await getDocs(query(
         collection(db, 'equipes'),
@@ -58,31 +70,32 @@ function FinalContent() {
 
   useEffect(() => { if (edicaoId) carregarDados(edicaoId) }, [edicaoId])
 
-  const handleUploadManual = async (e) => {
+  const enviarArquivo = async (e, { field, pasta, aceita, erroTipo, okMsg, setUrl }) => {
     const file = e.target.files?.[0]
     e.target.value = ''
-    if (!file || !edicaoId) return
-    if (file.type !== 'application/pdf') { setMsg('Envie um arquivo PDF.'); return }
-    setEnviando(true)
+    if (!file || !edicaoId || enviando) return
+    if (!aceita(file)) { setMsg(erroTipo); return }
+    setEnviando(field)
     setMsg('')
     try {
       const formData = new FormData()
       formData.append('file', file)
       formData.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET)
-      formData.append('folder', 'dhpb/manuais')
+      formData.append('folder', pasta)
       const res = await fetch(
         `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/auto/upload`,
         { method: 'POST', body: formData }
       )
       if (!res.ok) throw new Error('Falha no upload')
       const data = await res.json()
-      await updateDoc(doc(db, 'edicoes', edicaoId), { manualFinalistaUrl: data.secure_url })
-      setManualUrl(data.secure_url)
-      setMsg('Manual do finalista atualizado com sucesso!')
+      await updateDoc(doc(db, 'edicoes', edicaoId), { [field]: data.secure_url })
+      setUrl(data.secure_url)
+      setEdicoes((prev) => prev.map((ed) => ed.id === edicaoId ? { ...ed, [field]: data.secure_url } : ed))
+      setMsg(okMsg)
     } catch (err) {
-      setMsg('Erro ao enviar o manual: ' + (err?.message || 'desconhecido'))
+      setMsg('Erro ao enviar o arquivo: ' + (err?.message || 'desconhecido'))
     } finally {
-      setEnviando(false)
+      setEnviando('')
     }
   }
 
@@ -145,18 +158,61 @@ function FinalContent() {
                 </button>
               </div>
 
-              <div className='bg-white rounded-2xl shadow-sm border border-neutral-200 p-6 space-y-4'>
-                <h2 className='text-sm font-bold text-[#82181A] uppercase tracking-wide'>Manual do finalista (PDF)</h2>
-                {manualUrl && (
-                  <p className='text-sm text-neutral-600'>
-                    Manual atual:{' '}
-                    <a href={manualUrl} target="_blank" rel="noopener noreferrer" className='text-blue-600 font-semibold hover:underline'>abrir PDF</a>
-                  </p>
-                )}
-                <label className={`inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold cursor-pointer transition-all ${enviando ? 'bg-neutral-200 text-neutral-400' : 'bg-[#82181A] text-white hover:bg-[#631214]'}`}>
-                  {enviando ? 'Enviando...' : manualUrl ? 'Substituir manual' : 'Enviar manual'}
-                  <input type="file" accept="application/pdf" onChange={handleUploadManual} disabled={enviando} className='hidden' />
-                </label>
+              <div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
+                <div className='bg-white rounded-2xl shadow-sm border border-neutral-200 p-6 space-y-4'>
+                  <h2 className='text-sm font-bold text-[#82181A] uppercase tracking-wide'>Manual do finalista (PDF)</h2>
+                  {manualUrl && (
+                    <p className='text-sm text-neutral-600'>
+                      Manual atual:{' '}
+                      <a href={manualUrl} target="_blank" rel="noopener noreferrer" className='text-blue-600 font-semibold hover:underline'>abrir PDF</a>
+                    </p>
+                  )}
+                  <label className={`inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold cursor-pointer transition-all ${enviando ? 'bg-neutral-200 text-neutral-400' : 'bg-[#82181A] text-white hover:bg-[#631214]'}`}>
+                    {enviando === 'manualFinalistaUrl' ? 'Enviando...' : manualUrl ? 'Substituir manual' : 'Enviar manual'}
+                    <input
+                      type="file"
+                      accept="application/pdf,.pdf"
+                      onChange={(e) => enviarArquivo(e, {
+                        field: 'manualFinalistaUrl',
+                        pasta: 'dhpb/manuais',
+                        aceita: arquivoPdf,
+                        erroTipo: 'Envie um arquivo PDF.',
+                        okMsg: 'Manual do finalista atualizado com sucesso!',
+                        setUrl: setManualUrl,
+                      })}
+                      disabled={!!enviando}
+                      className='hidden'
+                    />
+                  </label>
+                </div>
+
+                <div className='bg-white rounded-2xl shadow-sm border border-neutral-200 p-6 space-y-4'>
+                  <h2 className='text-sm font-bold text-[#82181A] uppercase tracking-wide'>Autorização de viagem (Word)</h2>
+                  <p className='text-sm text-neutral-600'>Aparece na sala só depois que a equipe confirma a presença.</p>
+                  {autorizacaoUrl && (
+                    <p className='text-sm text-neutral-600'>
+                      Arquivo atual:{' '}
+                      <a href={autorizacaoUrl} target="_blank" rel="noopener noreferrer" className='text-blue-600 font-semibold hover:underline'>abrir Word</a>
+                    </p>
+                  )}
+                  <label className={`inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold cursor-pointer transition-all ${enviando ? 'bg-neutral-200 text-neutral-400' : 'bg-[#82181A] text-white hover:bg-[#631214]'}`}>
+                    {enviando === 'autorizacaoViagemUrl' ? 'Enviando...' : autorizacaoUrl ? 'Substituir autorização' : 'Enviar autorização'}
+                    <input
+                      type="file"
+                      accept=".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      onChange={(e) => enviarArquivo(e, {
+                        field: 'autorizacaoViagemUrl',
+                        pasta: 'dhpb/final',
+                        aceita: arquivoWord,
+                        erroTipo: 'Envie um arquivo Word (.doc ou .docx).',
+                        okMsg: 'Autorização de viagem atualizada com sucesso!',
+                        setUrl: setAutorizacaoUrl,
+                      })}
+                      disabled={!!enviando}
+                      className='hidden'
+                    />
+                  </label>
+                </div>
               </div>
 
               <div className='bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden'>

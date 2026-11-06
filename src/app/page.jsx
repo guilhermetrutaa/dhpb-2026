@@ -28,7 +28,7 @@ const Page = () => {
     <div className={poppins.className}>
       <div className='w-full min-h-screen bg-[#fff] text-[#000]'>
         <header className='flex flex-col lg:flex-row justify-around items-center pt-5 gap-6 px-4'>
-          <div>
+          <div className='shrink-0'>
             <Image
               src="/logo.svg"
               width={100}
@@ -38,12 +38,13 @@ const Page = () => {
           </div>
 
           <nav>
-            <ul className='flex flex-wrap justify-center gap-4 md:gap-6 text-sm md:text-base'>
+            <ul className='flex flex-wrap xl:flex-nowrap justify-center gap-3 md:gap-4 text-sm md:text-base'>
               <li className='hover:text-[#82181A] hover:underline transition-colors'><a href="/contato">Contato</a></li>
               <li className='hover:text-[#82181A] hover:underline transition-colors'><a href="/provas-antigas">Provas Antigas</a></li>
               <li className='hover:text-[#82181A] hover:underline transition-colors'><a href="/biblioteca">Biblioteca</a></li>
               <li className='hover:text-[#82181A] hover:underline transition-colors'><a href="/calendario">Calendário</a></li>
               <li className='hover:text-[#82181A] hover:underline transition-colors'><a href="/regulamento">Regulamento</a></li>
+              <li className='hover:text-[#82181A] hover:underline transition-colors'><a href="/sistema-de-pontuacao">Sistema de pontuação</a></li>
             </ul>
           </nav>
 

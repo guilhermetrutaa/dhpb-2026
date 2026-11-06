@@ -102,6 +102,7 @@ function SalaEquipeContent() {
   const [equipe, setEquipe] = useState(null)
   const [edicaoNome, setEdicaoNome] = useState('')
   const [manualFinalistaUrl, setManualFinalistaUrl] = useState('')
+  const [autorizacaoViagemUrl, setAutorizacaoViagemUrl] = useState('')
   const [resultadoPublicado, setResultadoPublicado] = useState(false)
   const [fases, setFases] = useState([])
   const [carregando, setCarregando] = useState(true)
@@ -155,6 +156,7 @@ function SalaEquipeContent() {
       if (edSnap.exists()) {
         setEdicaoNome(edSnap.data().nome || '')
         setManualFinalistaUrl(edSnap.data().manualFinalistaUrl || '')
+        setAutorizacaoViagemUrl(edSnap.data().autorizacaoViagemUrl || '')
         setResultadoPublicado(edSnap.data().resultadoFinalPublicado === true)
       }
       setFases(fSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
@@ -404,7 +406,7 @@ function SalaEquipeContent() {
                 {blocoFinal === 'finalista' && (
                   <div className="mt-16 flex flex-col items-center gap-8">
                     <p className="text-4xl font-bold uppercase tracking-wide text-[#82181A] md:text-5xl">FINALISTA!</p>
-                    <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-4">
                       <a
                         href={manualFinalistaUrl || undefined}
                         target="_blank"
@@ -422,6 +424,18 @@ function SalaEquipeContent() {
                       >
                         {equipe.presencaFinalConfirmada ? 'Presença confirmada' : confirmandoPresenca ? 'Confirmando...' : 'Confirmar presença na final'}
                       </button>
+                      {equipe.presencaFinalConfirmada && (
+                        <a
+                          href={autorizacaoViagemUrl || undefined}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-disabled={!autorizacaoViagemUrl}
+                          className={`bg-[#82181A] text-white px-8 py-4 font-medium text-lg transition-colors flex items-center justify-center gap-3 ${autorizacaoViagemUrl ? 'cursor-pointer hover:bg-[#631214]' : 'opacity-50 pointer-events-none'}`}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg>
+                          Baixar autorização de viagem
+                        </a>
+                      )}
                     </div>
                     <p className="max-w-[720px] text-center text-xl font-medium text-black">
                       Parabéns! Sua equipe teve um ótimo desempenho e está na final da quarta edição do DHPB.

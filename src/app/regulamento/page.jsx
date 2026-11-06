@@ -35,12 +35,13 @@ export default function Page() {
           </div>
 
           <nav>
-            <ul className='flex flex-wrap justify-center gap-4 md:gap-6 text-sm md:text-base'>
+            <ul className='flex flex-wrap xl:flex-nowrap justify-center gap-3 md:gap-4 text-sm md:text-base'>
               <li className='hover:text-[#82181A] hover:underline transition-colors'><Link href="/contato">Contato</Link></li>
               <li className='hover:text-[#82181A] hover:underline transition-colors'><Link href="/provas-antigas">Provas Antigas</Link></li>
               <li className='hover:text-[#82181A] hover:underline transition-colors'><Link href="/biblioteca">Biblioteca</Link></li>
               <li className='hover:text-[#82181A] hover:underline transition-colors'><a href="/calendario">Calendário</a></li>
               <li className='hover:text-[#82181A] hover:underline transition-colors'><Link href="/regulamento">Regulamento</Link></li>
+              <li className='hover:text-[#82181A] hover:underline transition-colors'><Link href="/sistema-de-pontuacao">Sistema de pontuação</Link></li>
             </ul>
           </nav>
 

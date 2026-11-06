@@ -49,6 +49,7 @@ Documento: `edicoes/{edicaoId}`
 | `nome` | string | Nome da edição (ex: `"4º DHPB - 2026"`) |
 | `status` | string | Status geral da edição (ex: `"ativa"`) |
 | `manualFinalistaUrl` | string (opcional) | Spec 050: URL do PDF do manual do finalista (Cloudinary), enviado em `/admin/final` |
+| `autorizacaoViagemUrl` | string (opcional) | Spec 051: URL do Word de autorização de viagem (Cloudinary), enviado em `/admin/final`. A Sala de Equipe mostra o download só com `presencaFinalConfirmada` |
 | `resultadoFinalPublicado` | boolean (opcional) | Spec 050: só `true` libera o encaminhamento (FINALISTA / não classificado) na Sala de Equipe. Ausente ou `false` = ninguém vê, mesmo com a Fase 4 `finalizada` |
 | `createdAt` | string (ISO) | Timestamp de criação |
 
