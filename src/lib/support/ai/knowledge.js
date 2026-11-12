@@ -188,7 +188,7 @@ O DHPB é uma olimpíada/desafio de conhecimento do IFPB sobre História da Para
 - A página mostra "Sala de prova da equipe NOME_DA_EQUIPE".
 - A sala mostra até 4 fases em uma linha do tempo.
 - Cada fase mostra nome e data de início/fim.
-- Status possíveis exibidos na sala: "Em andamento...", "Bloqueado.", "Aguardando abertura.", "Participou e foi aprovada.", "Participou e não foi aprovada." e "Indisponível."
+- Status possíveis exibidos na sala: "Em andamento...", "Bloqueado.", "Aguardando abertura.", "Aguardando resultados...", "Fase encerrada.", "Participou e foi aprovada.", "Participou e não foi aprovada." e "Indisponível."
 - A fase fica clicável quando o status da fase é aberta ou correção e a equipe está aprovada/liberada até aquela fase.
 - Ao clicar em uma fase acessível, o usuário vai para o Resumo da Fase.
 - Se não há fases cadastradas, a sala mostra "Ainda não há nenhuma fase cadastrada."

@@ -3,11 +3,14 @@
 import React, { useState, useEffect, Suspense } from 'react'
 import { Poppins } from 'next/font/google'
 import { useRouter } from 'next/navigation'
-import { collection, query, where, getDocs, doc, orderBy, updateDoc } from 'firebase/firestore'
+import { collection, query, where, getDocs, doc, orderBy, updateDoc, writeBatch } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
+import { htmlTamanhos, indiceTamanhos } from '@/lib/tamanhosCamisa'
+import { planejarConvocacao, VAGAS_FINAL } from '@/lib/convocacaoFinal'
 import Image from 'next/image'
 
 const poppins = Poppins({ subsets: ['latin'], weight: ['400', '500', '600', '700'] })
+const EQUIPE_EXCLUIDA_RANKING_ID = 'LhT2fV3JvyQhZU8PrSFl'
 
 function arquivoPdf(file) {
   const nome = (file.name || '').toLowerCase()
@@ -32,6 +35,9 @@ function FinalContent() {
   const [equipes, setEquipes] = useState([])
   const [carregando, setCarregando] = useState(false)
   const [msg, setMsg] = useState('')
+  const [plano, setPlano] = useState(null)
+  const [preparando, setPreparando] = useState(false)
+  const [gravando, setGravando] = useState(false)
 
   useEffect(() => {
     const admin = localStorage.getItem('admin-authenticated')
@@ -116,6 +122,69 @@ function FinalContent() {
   }
 
   const confirmadas = equipes.filter(eq => eq.presencaFinalConfirmada).length
+  const tamanhosConhecidos = indiceTamanhos(equipes)
+
+  const prepararConvocacao = async () => {
+    if (!edicaoId || preparando) return
+    setPreparando(true)
+    setPlano(null)
+    setMsg('')
+    try {
+      const [fSnap, eSnap] = await Promise.all([
+        getDocs(query(collection(db, 'edicoes', edicaoId, 'fases'), orderBy('dataInicio', 'asc'))),
+        getDocs(query(collection(db, 'equipes'), where('edicaoId', '==', edicaoId))),
+      ])
+      const faseIds = fSnap.docs.map((d) => d.id)
+      const lista = eSnap.docs.filter((d) => d.id !== EQUIPE_EXCLUIDA_RANKING_ID).map((d) => {
+        const team = { id: d.id, ...d.data() }
+        const pontuacao = {}
+        for (const id of faseIds) pontuacao[id] = { ni: team.pontuacoes?.[id]?.ni || 0 }
+        return { ...team, pontuacao, df: team.df || 0 }
+      })
+      setPlano(planejarConvocacao(lista, faseIds, VAGAS_FINAL))
+    } catch (e) {
+      setMsg('Erro ao preparar a lista: ' + e.message)
+    } finally {
+      setPreparando(false)
+    }
+  }
+
+  const gravarConvocacao = async () => {
+    if (!plano || gravando) return
+    const segue = window.confirm(`Tirar ${plano.saem.length} equipe(s) da final e convocar ${plano.sobem.length} da fase 4. Isso muda aprovadoAte e não desfaz sozinho.`)
+    if (!segue) return
+    setGravando(true)
+    setMsg('')
+    try {
+      const ops = [
+        ...plano.saem.map((eq) => ({ id: eq.id, aprovadoAte: 'fase4' })),
+        ...plano.sobem.map((eq) => ({ id: eq.id, aprovadoAte: 'fase_final' })),
+      ]
+      for (let i = 0; i < ops.length; i += 400) {
+        const batch = writeBatch(db)
+        ops.slice(i, i + 400).forEach((op) => batch.update(doc(db, 'equipes', op.id), { aprovadoAte: op.aprovadoAte }))
+        await batch.commit()
+      }
+      setMsg(`${plano.saem.length} saíram da final. ${plano.sobem.length} foram convocadas.`)
+      setPlano(null)
+      carregarDados(edicaoId)
+    } catch (e) {
+      setMsg('Erro ao gravar a convocação: ' + e.message)
+    } finally {
+      setGravando(false)
+    }
+  }
+
+  const baixarTamanhos = () => {
+    const blob = new Blob([htmlTamanhos(equipes)], { type: 'text/html;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'tamanhos-camisa-final.html'
+    a.click()
+    URL.revokeObjectURL(url)
+    setMsg('Arquivo tamanhos-camisa-final.html baixado. Abra no navegador.')
+  }
 
   if (!autenticado) return null
 
@@ -156,6 +225,34 @@ function FinalContent() {
                 >
                   {publicando ? 'Salvando...' : publicado ? 'Ocultar resultado' : 'Publicar resultado da final'}
                 </button>
+              </div>
+
+              <div className='bg-white rounded-2xl shadow-sm border border-neutral-200 p-6 space-y-4'>
+                <h2 className='text-sm font-bold text-[#82181A] uppercase tracking-wide'>Lista de espera — fechar {VAGAS_FINAL}</h2>
+                <p className='text-sm text-neutral-600'>Quem não confirmou presença sai da final. Entram as próximas equipes da fase 4, pela ordem do ranking, até completar {VAGAS_FINAL}. Nada é gravado antes da confirmação.</p>
+                <button type='button' onClick={prepararConvocacao} disabled={preparando || gravando} className='px-6 py-3 rounded-xl text-sm font-semibold cursor-pointer bg-[#82181A] text-white hover:bg-[#631214] disabled:opacity-50'>
+                  {preparando ? 'Preparando...' : 'Preparar lista'}
+                </button>
+                {plano && (
+                  <div className='space-y-3 text-sm'>
+                    <p>Confirmadas que ficam: <strong>{plano.ficam.length}</strong>. Faltam <strong>{plano.faltam}</strong>. A lista de espera tem <strong>{plano.sobem.length}</strong>.</p>
+                    <div>
+                      <p className='font-semibold text-red-700'>Saem ({plano.saem.length})</p>
+                      <ul className='mt-1 max-h-40 overflow-y-auto text-neutral-600'>
+                        {plano.saem.length === 0 ? <li>Nenhuma.</li> : plano.saem.map((eq) => <li key={eq.id}>{eq.nome} — {eq.escola}</li>)}
+                      </ul>
+                    </div>
+                    <div>
+                      <p className='font-semibold text-green-700'>Entram ({plano.sobem.length})</p>
+                      <ul className='mt-1 max-h-40 overflow-y-auto text-neutral-600'>
+                        {plano.sobem.length === 0 ? <li>Nenhuma.</li> : plano.sobem.map((eq) => <li key={eq.id}>{eq.nome} — {eq.escola}</li>)}
+                      </ul>
+                    </div>
+                    <button type='button' onClick={gravarConvocacao} disabled={gravando || (plano.saem.length === 0 && plano.sobem.length === 0)} className='px-6 py-3 rounded-xl text-sm font-semibold cursor-pointer border border-[#82181A] text-[#82181A] hover:bg-red-50 disabled:opacity-50'>
+                      {gravando ? 'Gravando...' : 'Gravar convocação'}
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
@@ -216,9 +313,12 @@ function FinalContent() {
               </div>
 
               <div className='bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden'>
-                <div className='p-6 border-b border-neutral-100 flex items-center justify-between'>
+                <div className='p-6 border-b border-neutral-100 flex items-center justify-between gap-3 flex-wrap'>
                   <h2 className='text-sm font-bold text-[#82181A] uppercase tracking-wide'>Finalistas ({equipes.length})</h2>
-                  <span className='text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-semibold'>{confirmadas} com presença confirmada</span>
+                  <div className='flex items-center gap-2 flex-wrap'>
+                    <span className='text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-semibold'>{confirmadas} com presença confirmada</span>
+                    <button type='button' onClick={baixarTamanhos} className='text-xs bg-[#82181A] text-white px-3 py-1 rounded-full font-semibold cursor-pointer hover:bg-[#631214]'>Baixar tamanhos</button>
+                  </div>
                 </div>
                 {msg && <p className='px-6 py-3 text-sm font-medium text-neutral-700'>{msg}</p>}
                 {carregando ? (
@@ -234,18 +334,29 @@ function FinalContent() {
                             <p className='font-bold text-base'>{eq.nome}</p>
                             <p className='text-sm text-neutral-500'>{eq.escola}</p>
                           </div>
-                          {eq.presencaFinalConfirmada ? (
-                            <span className='text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-semibold whitespace-nowrap'>Presença confirmada</span>
-                          ) : (
-                            <span className='text-xs bg-neutral-100 text-neutral-400 px-3 py-1 rounded-full font-semibold whitespace-nowrap'>Pendente</span>
-                          )}
+                          <div className='flex flex-wrap justify-end gap-2'>
+                            {eq.presencaFinalConfirmada ? (
+                              <span className='text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-semibold whitespace-nowrap'>Presença confirmada</span>
+                            ) : (
+                              <span className='text-xs bg-neutral-100 text-neutral-400 px-3 py-1 rounded-full font-semibold whitespace-nowrap'>Pendente</span>
+                            )}
+                            {eq.presencaFinalConfirmada && (
+                              eq.tamanhosCamisa
+                                ? <span className='text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-semibold whitespace-nowrap'>Tamanhos enviados</span>
+                                : <span className='text-xs bg-amber-100 text-amber-700 px-3 py-1 rounded-full font-semibold whitespace-nowrap'>Tamanhos pendentes</span>
+                            )}
+                          </div>
                         </div>
                         <ul className='mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm text-neutral-600'>
-                          {(eq.membros || []).filter(m => m.status === 'ativo').map((m, i) => (
-                            <li key={m.uid || i}>
-                              {m.nome}{m.email ? <span className='text-neutral-500'> · {m.email}</span> : null} <span className='text-neutral-400'>— {m.papel?.replace(/_/g, ' ')}</span>
-                            </li>
-                          ))}
+                          {(eq.membros || []).filter(m => m.status === 'ativo').map((m, i) => {
+                            const tamanho = tamanhosConhecidos[m.uid]
+                            return (
+                              <li key={m.uid || i}>
+                                {m.nome}{m.email ? <span className='text-neutral-500'> · {m.email}</span> : null} <span className='text-neutral-400'>— {m.papel?.replace(/_/g, ' ')}</span>
+                                {tamanho ? <span className='font-semibold text-[#82181A]'> · {tamanho}</span> : null}
+                              </li>
+                            )
+                          })}
                         </ul>
                       </div>
                     ))}

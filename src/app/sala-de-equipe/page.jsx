@@ -8,7 +8,9 @@ import { db } from '@/lib/firebase'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter, useSearchParams } from 'next/navigation'
 import ModalQuestionarioEquipe from '@/components/ModalQuestionarioEquipe'
+import ModalTamanhosCamisa from '@/components/ModalTamanhosCamisa'
 import { decidirEncaminhamento, fasesDoDetalhamento } from '@/lib/encaminhamentoFinal'
+import { presencaAberta, tamanhosAbertos } from '@/lib/prazoFinal'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -109,12 +111,19 @@ function SalaEquipeContent() {
   const [questionarioPendente, setQuestionarioPendente] = useState(null)
   const [verificandoQuestionario, setVerificandoQuestionario] = useState(true)
   const [confirmandoPresenca, setConfirmandoPresenca] = useState(false)
+  const [tamanhosAberto, setTamanhosAberto] = useState(false)
+  const [agora, setAgora] = useState(() => Date.now())
   const [showConfetti, setShowConfetti] = useState(false)
   const confettiDisparado = useRef(false)
 
   useEffect(() => {
     if (!loading && !authUser) router.push('/login')
   }, [loading, authUser, router])
+
+  useEffect(() => {
+    const id = setInterval(() => setAgora(Date.now()), 15000)
+    return () => clearInterval(id)
+  }, [])
 
   // Comemoração (confete) ao abrir a sala já classificada para a final, uma vez.
   useEffect(() => {
@@ -238,12 +247,12 @@ function SalaEquipeContent() {
       if (!ehFaseAtualDaEquipe) {
         return { texto: `Equipe eliminada na Fase ${Math.max(aprovadoAteIndex, 0) + 1}.`, classe: 'text-red-600' }
       }
+      if (ehUltimaFase) return { texto: 'Fase encerrada.', classe: 'text-neutral-600' }
       const proximaFase = fases[index + 1]
       const resultadoPendente = !proximaFase || !proximaFase.status || proximaFase.status === 'pendente'
       if (resultadoPendente) {
         return aguardando
       }
-      if (ehUltimaFase && !resultadoPublicado) return aguardando
       return { texto: 'Participou e não foi aprovada.', classe: 'text-red-600' }
     }
 
@@ -262,7 +271,7 @@ function SalaEquipeContent() {
   }
 
   const handleConfirmarPresenca = async () => {
-    if (!equipe || equipe.presencaFinalConfirmada || confirmandoPresenca) return
+    if (!equipe || equipe.presencaFinalConfirmada || confirmandoPresenca || !presencaAberta()) return
     const segue = window.confirm('Essa ação é irrevogável. Ao confirmar a presença da equipe na final do DHPB, nenhum membro da equipe poderá revogar essa operação. Caso necessário, entre em contato conosco via email: dhpb@ifpb.edu.br\n\nO prazo para confirmar a presença na final é até o dia 11/11. Recomendamos que o professor orientador confirme a presença após a resolução de todos os trâmites necessários para a viagem e diálogo com a equipe. Pedimos que fiquem de olho em nosso instagram e em seus emails pois haverão atualizações.')
     if (!segue) return
     setConfirmandoPresenca(true)
@@ -320,6 +329,15 @@ function SalaEquipeContent() {
           equipeId={equipeId}
           onComplete={handleQuestionarioComplete}
           onClose={() => setQuestionarioPendente(false)}
+        />
+      )}
+      {tamanhosAberto && equipe && !equipe.tamanhosCamisa && (
+        <ModalTamanhosCamisa
+          authUser={authUser}
+          userData={userData}
+          equipe={equipe}
+          onComplete={() => setTamanhosAberto(false)}
+          onClose={() => setTamanhosAberto(false)}
         />
       )}
 
@@ -419,10 +437,10 @@ function SalaEquipeContent() {
                       </a>
                       <button
                         onClick={handleConfirmarPresenca}
-                        disabled={confirmandoPresenca || !!equipe.presencaFinalConfirmada}
-                        className={`border-2 border-[#82181A] px-8 py-4 font-medium text-lg transition-colors flex items-center justify-center gap-3 ${equipe.presencaFinalConfirmada ? 'bg-[#82181A] text-white cursor-default' : 'bg-white text-[#82181A] cursor-pointer hover:bg-[#f5dddd] disabled:opacity-50'}`}
+                        disabled={confirmandoPresenca || !!equipe.presencaFinalConfirmada || !presencaAberta(agora)}
+                        className={`border-2 border-[#82181A] px-8 py-4 font-medium text-lg transition-colors flex items-center justify-center gap-3 ${equipe.presencaFinalConfirmada || !presencaAberta(agora) ? 'bg-[#82181A] text-white cursor-default' : 'bg-white text-[#82181A] cursor-pointer hover:bg-[#f5dddd] disabled:opacity-50'}`}
                       >
-                        {equipe.presencaFinalConfirmada ? 'Presença confirmada' : confirmandoPresenca ? 'Confirmando...' : 'Confirmar presença na final'}
+                        {equipe.presencaFinalConfirmada ? 'Presença confirmada' : !presencaAberta(agora) ? 'Prazo encerrado' : confirmandoPresenca ? 'Confirmando...' : 'Confirmar presença na final'}
                       </button>
                       {equipe.presencaFinalConfirmada && (
                         <a
@@ -435,6 +453,16 @@ function SalaEquipeContent() {
                           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg>
                           Baixar autorização de viagem
                         </a>
+                      )}
+                      {equipe.presencaFinalConfirmada && tamanhosAbertos(agora) && (
+                        <button
+                          type="button"
+                          onClick={() => setTamanhosAberto(true)}
+                          disabled={!!equipe.tamanhosCamisa}
+                          className={`border-2 border-[#82181A] px-8 py-4 font-medium text-lg transition-colors flex items-center justify-center gap-3 ${equipe.tamanhosCamisa ? 'bg-[#82181A] text-white cursor-default' : 'bg-white text-[#82181A] cursor-pointer hover:bg-[#f5dddd]'}`}
+                        >
+                          {equipe.tamanhosCamisa ? 'Tamanhos enviados' : 'Informar tamanhos das camisas'}
+                        </button>
                       )}
                     </div>
                     <p className="max-w-[720px] text-center text-xl font-medium text-black">
