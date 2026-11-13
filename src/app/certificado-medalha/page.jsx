@@ -88,6 +88,8 @@ const CertificadoContent = () => {
             const canvas = await html2canvas(certificadoRef.current, {
                 scale: 2,
                 useCORS: true,
+                windowWidth: 1400,
+                onclone: (_, el) => { el.style.width = '1400px'; el.style.maxWidth = 'none' },
             })
             const imgData = canvas.toDataURL('image/jpeg', 1.0)
 
@@ -123,23 +125,23 @@ const CertificadoContent = () => {
             <section
                 ref={certificadoRef}
                 style={{ backgroundImage: "url(/certificado-fundo.svg)" }}
-                className="relative aspect-[2000/1414] w-full max-w-[1400px] overflow-hidden bg-[#fff8eb] bg-cover bg-center shadow-xl print:max-w-none print:shadow-none"
+                className="@container relative aspect-[2000/1414] w-full max-w-[1400px] overflow-hidden bg-[#fff8eb] bg-cover bg-center shadow-xl print:max-w-none print:shadow-none"
             >
-                <h1 className="absolute left-[7.1%] top-[10.3%] text-[clamp(2.15rem,3.55vw,4.55rem)] font-bold leading-none">
+                <h1 className="absolute left-[7.1%] top-[10.3%] text-[3.55cqw] font-bold leading-none">
                     Certificado
                 </h1>
 
-                <p className="absolute left-[7.1%] top-[20.2%] w-[68%] text-[clamp(0.72rem,1.02vw,1.28rem)] leading-[1.34]">
+                <p className="absolute left-[7.1%] top-[20.2%] w-[68%] text-[1.02cqw] leading-[1.34]">
                     A Comissão Organizadora do 4º Desafio em História da Paraíba - DHPB 2026,
                     composta por docentes do Instituto Federal de Educação, Ciência e Tecnologia
                     da Paraíba - IFPB, certifica que
                 </p>
 
-                <h2 className="absolute left-[7.1%] top-[28.8%] text-[clamp(1.55rem,2.78vw,3.55rem)] font-bold leading-none uppercase">
+                <h2 className="absolute left-[7.1%] top-[28.8%] text-[2.78cqw] font-bold leading-none uppercase">
                     {nomeParticipante}
                 </h2>
 
-                <div className="absolute left-[7.1%] top-[38.5%] grid w-[72%] grid-cols-[1.08fr_0.8fr] gap-x-[10%] text-[clamp(0.72rem,1.02vw,1.28rem)] leading-[1.45]">
+                <div className="absolute left-[7.1%] top-[38.5%] grid w-[72%] grid-cols-[1.08fr_0.8fr] gap-x-[10%] text-[1.02cqw] leading-[1.45]">
                     <div>
                         <p><strong>Equipe:</strong> {equipe.nome}</p>
                         <p><strong>Orientada por:</strong> {nomeOrientadora}</p>
@@ -152,14 +154,14 @@ const CertificadoContent = () => {
                     </div>
                 </div>
 
-                <p className="absolute left-[7.1%] top-[50.8%] w-[74%] text-[clamp(0.72rem,1vw,1.25rem)] leading-[1.34]">
+                <p className="absolute left-[7.1%] top-[50.8%] w-[74%] text-[1cqw] leading-[1.34]">
                     participou do <strong>4º Desafio em História da Paraíba</strong>, realizado
                     de 10 de setembro a 10 de dezembro de 2026.
                     <br />
                     Por seu desempenho, conquistou <strong>{nomeMedalha}</strong>
                 </p>
 
-                <p className="absolute left-[7.1%] top-[60.8%] text-[clamp(0.72rem,1vw,1.25rem)] leading-none">
+                <p className="absolute left-[7.1%] top-[60.8%] text-[1cqw] leading-none">
                     Campina Grande, {dataExtenso}.
                 </p>
             </section>
