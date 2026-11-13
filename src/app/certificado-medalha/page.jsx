@@ -122,9 +122,9 @@ const CertificadoContent = () => {
 
             <section
                 ref={certificadoRef}
-                style={{ backgroundImage: "url(/certificado-fundo.svg)" }}
-                className="@container relative aspect-[2000/1414] w-full max-w-[1400px] overflow-hidden bg-[#fff8eb] bg-cover bg-center shadow-xl print:max-w-none print:shadow-none"
+                className="@container relative aspect-[2000/1414] w-full max-w-[1400px] overflow-hidden bg-[#fff8eb] shadow-xl print:max-w-none print:shadow-none"
             >
+                <img src="/certificado-fundo.svg" alt="" aria-hidden className="absolute inset-0 h-full w-full" />
                 <h1 className="absolute left-[7.1%] top-[10.3%] text-[3.55cqw] font-bold leading-none">
                     Certificado
                 </h1>

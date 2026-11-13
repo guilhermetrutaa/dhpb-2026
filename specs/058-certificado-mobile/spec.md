@@ -27,6 +27,7 @@ Não altera: textos, carga horária, dados lidos, rota, Sala de Equipe, PDF do p
 |---|---|---|
 | Fonte do certificado | `clamp(rem, vw, rem)` | `cqw` (proporcional à largura do certificado) |
 | PDF gerado no celular | Captura na largura da tela, textos sobrepostos | Captura da tela com `scale = 2800 / largura`: PDF sempre com 2800px, igual à tela |
+| Fundo (assinaturas e logos) | `background-image` no `<section>`: o `html2canvas` reduz ao tamanho CSS (`resizeImage`) antes de escalar, borrando no celular | `<img>` absoluto como primeiro filho: desenhado direto na resolução final |
 
 Uma cópia forçada em 1400px (`windowWidth` + `onclone`) foi testada e quebrava no Chrome Android (fonte inflada na cópia larga). Por isso a captura usa o certificado da tela.
 
@@ -48,6 +49,7 @@ Uma cópia forçada em 1400px (`windowWidth` + `onclone`) foi testada e quebrava
 - [x] Em ~360px de largura, os textos do certificado não se sobrepõem
 - [x] No desktop, o layout fica praticamente igual ao anterior
 - [x] PDF baixado no celular sai igual à tela, com 2800px de largura
+- [x] Assinaturas e logos do fundo nítidos no PDF baixado no celular
 - [x] Cota Spark: nenhuma query nova
 - [x] `npm run build` código 0
 - [x] Docs em `/docs`: sem mudança (rota e schema iguais)
