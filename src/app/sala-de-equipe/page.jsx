@@ -314,9 +314,20 @@ function SalaEquipeContent() {
   }
 
   // Encaminhamento pós-encerramento da Fase 4 (spec 050)
-  const fase4Finalizada = fasesVisiveis[3]?.status === 'finalizada'
   const blocoFinal = decidirEncaminhamento({ fase4Status: fasesVisiveis[3]?.status, aprovadoAte: equipe?.aprovadoAte, publicado: resultadoPublicado })
   const fasesDetalhe = equipe ? fasesDoDetalhamento(blocoFinal, fasesVisiveis, equipe.aprovadoAte) : []
+  const numeroCertificado = blocoFinal === 'nao-finalista'
+    ? faseConcluidaNumero || niveisAprovacao.indexOf(equipe?.aprovadoAte || 'fase1') + 1
+    : isEliminated && faseConcluidaNumero
+  const botaoCertificado = equipe && numeroCertificado ? (
+    <button 
+      onClick={() => router.push(`/certificado?equipeId=${equipe.id}&fase=${numeroCertificado}`)}
+      className="bg-[#fff] text-[#82181A] border-2 border-[#82181A] px-8 py-4 font-medium text-lg  transition-colors flex items-center gap-3 cursor-pointer"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg>
+      Baixar Certificado de Participação (Fase {numeroCertificado})
+    </button>
+  ) : null
 
   return (
     <div className={poppins.className}>
@@ -483,20 +494,13 @@ function SalaEquipeContent() {
                     <p className="max-w-[720px] text-center text-xl font-medium text-black">
                       Parabéns pelo desempenho. No entanto, sua equipe não se classificou para a final do DHPB.
                     </p>
+                    {botaoCertificado}
                     <NotasDetalhe fases={fasesDetalhe} equipe={equipe} />
                   </div>
                 )}
 
-                {!(fase4Finalizada && resultadoPublicado) && isEliminated && faseConcluidaNumero && (
-                  <div className="mt-16 flex justify-center">
-                    <button 
-                      onClick={() => router.push(`/certificado?equipeId=${equipe.id}&fase=${faseConcluidaNumero}`)}
-                      className="bg-[#fff] text-[#82181A] border-2 border-[#82181A] px-8 py-4 font-medium text-lg  transition-colors flex items-center gap-3 cursor-pointer"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg>
-                      Baixar Certificado de Participação (Fase {faseConcluidaNumero})
-                    </button>
-                  </div>
+                {blocoFinal !== 'nao-finalista' && botaoCertificado && (
+                  <div className="mt-16 flex justify-center">{botaoCertificado}</div>
                 )}
 
                 {isFinalist && premiacaoFinal && premiacaoFinal !== 'pendente' && (
