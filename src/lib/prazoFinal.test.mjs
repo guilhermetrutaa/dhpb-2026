@@ -1,6 +1,6 @@
 // Check mínimo (spec 055). Rodar: node src/lib/prazoFinal.test.mjs
 import assert from 'node:assert'
-import { FIM_PRESENCA_MS, INICIO_TAMANHOS_MS, presencaAberta, tamanhosAbertos } from './prazoFinal.js'
+import { FIM_PRESENCA_MS, INICIO_TAMANHOS_MS, INICIO_PRESENCA_EXTRA_MS, presencaAberta, tamanhosAbertos, podeConfirmarPresenca } from './prazoFinal.js'
 import { planejarConvocacao } from './convocacaoFinal.js'
 
 assert.equal(presencaAberta(FIM_PRESENCA_MS - 1), true)
@@ -29,5 +29,11 @@ const cheia = planejarConvocacao([
 ], faseIds, 1)
 assert.equal(cheia.sobem.length, 0)
 assert.equal(cheia.faltam, 0)
+
+assert.equal(podeConfirmarPresenca({ convocacaoExtra: true }, INICIO_PRESENCA_EXTRA_MS - 1), false)
+assert.equal(podeConfirmarPresenca({ convocacaoExtra: true }, INICIO_PRESENCA_EXTRA_MS), true)
+assert.equal(podeConfirmarPresenca({ convocacaoExtra: true, presencaFinalConfirmada: true }, INICIO_PRESENCA_EXTRA_MS), false)
+assert.equal(podeConfirmarPresenca({}, INICIO_PRESENCA_EXTRA_MS), false)
+assert.equal(podeConfirmarPresenca({}, FIM_PRESENCA_MS - 1), true)
 
 console.log('prazoFinal ok')

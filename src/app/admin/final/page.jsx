@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react'
 import { Poppins } from 'next/font/google'
 import { useRouter } from 'next/navigation'
-import { collection, query, where, getDocs, doc, orderBy, updateDoc, writeBatch } from 'firebase/firestore'
+import { collection, query, where, getDocs, doc, orderBy, updateDoc, writeBatch, limit, deleteField } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { htmlTamanhos, indiceTamanhos } from '@/lib/tamanhosCamisa'
 import { planejarConvocacao, VAGAS_FINAL } from '@/lib/convocacaoFinal'
@@ -11,6 +11,18 @@ import Image from 'next/image'
 
 const poppins = Poppins({ subsets: ['latin'], weight: ['400', '500', '600', '700'] })
 const EQUIPE_EXCLUIDA_RANKING_ID = 'LhT2fV3JvyQhZU8PrSFl'
+
+function normalizarNomeEquipe(nome) {
+  const mapa = { '4': 'a', '3': 'e', '1': 'i', '0': 'o', '5': 's', '8': 'b', '7': 't', '2': 'z', '6': 'g', '9': 'q' }
+  const acentos = { 'á': 'a', 'à': 'a', 'â': 'a', 'ã': 'a', 'ä': 'a', 'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e', 'í': 'i', 'ì': 'i', 'î': 'i', 'ï': 'i', 'ó': 'o', 'ò': 'o', 'ô': 'o', 'õ': 'o', 'ö': 'o', 'ú': 'u', 'ù': 'u', 'û': 'u', 'ü': 'u', 'ç': 'c', 'ñ': 'n' }
+  let r = ''
+  for (const ch of String(nome || '').toLowerCase().trim()) {
+    if (acentos[ch]) r += acentos[ch]
+    else if (ch >= 'a' && ch <= 'z') r += ch
+    else if (ch >= '0' && ch <= '9') r += mapa[ch] || ''
+  }
+  return r
+}
 
 function arquivoPdf(file) {
   const nome = (file.name || '').toLowerCase()
@@ -38,6 +50,10 @@ function FinalContent() {
   const [plano, setPlano] = useState(null)
   const [preparando, setPreparando] = useState(false)
   const [gravando, setGravando] = useState(false)
+  const [busca, setBusca] = useState('')
+  const [achadas, setAchadas] = useState([])
+  const [buscandoEq, setBuscandoEq] = useState(false)
+  const [movendoId, setMovendoId] = useState('')
 
   useEffect(() => {
     const admin = localStorage.getItem('admin-authenticated')
@@ -158,11 +174,11 @@ function FinalContent() {
     try {
       const ops = [
         ...plano.saem.map((eq) => ({ id: eq.id, aprovadoAte: 'fase4' })),
-        ...plano.sobem.map((eq) => ({ id: eq.id, aprovadoAte: 'fase_final' })),
+        ...plano.sobem.map((eq) => ({ id: eq.id, aprovadoAte: 'fase_final', convocacaoExtra: true })),
       ]
       for (let i = 0; i < ops.length; i += 400) {
         const batch = writeBatch(db)
-        ops.slice(i, i + 400).forEach((op) => batch.update(doc(db, 'equipes', op.id), { aprovadoAte: op.aprovadoAte }))
+        ops.slice(i, i + 400).forEach((op) => batch.update(doc(db, 'equipes', op.id), op.convocacaoExtra ? { aprovadoAte: op.aprovadoAte, convocacaoExtra: true } : { aprovadoAte: op.aprovadoAte }))
         await batch.commit()
       }
       setMsg(`${plano.saem.length} saíram da final. ${plano.sobem.length} foram convocadas.`)
@@ -172,6 +188,70 @@ function FinalContent() {
       setMsg('Erro ao gravar a convocação: ' + e.message)
     } finally {
       setGravando(false)
+    }
+  }
+
+  const tirarDaFinal = async (eq) => {
+    if (movendoId) return
+    if (!window.confirm(`Tirar ${eq.nome} da final? A equipe deixa de aparecer como finalista.`)) return
+    setMovendoId(eq.id)
+    setMsg('')
+    try {
+      await updateDoc(doc(db, 'equipes', eq.id), { aprovadoAte: 'fase4' })
+      setMsg(`${eq.nome} saiu da final.`)
+      carregarDados(edicaoId)
+    } catch (e) {
+      setMsg('Erro ao tirar da final: ' + e.message)
+    } finally {
+      setMovendoId('')
+    }
+  }
+
+  const buscarParaAdicionar = async (e) => {
+    e.preventDefault()
+    const termo = normalizarNomeEquipe(busca)
+    if (!termo || !edicaoId) return
+    setBuscandoEq(true)
+    setMsg('')
+    try {
+      const snap = await getDocs(query(
+        collection(db, 'equipes'),
+        where('nomeNormalized', '>=', termo),
+        where('nomeNormalized', '<=', termo + '\uf8ff'),
+        limit(15)
+      ))
+      const lista = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((eq) => eq.edicaoId === edicaoId && eq.aprovadoAte !== 'fase_final' && eq.id !== EQUIPE_EXCLUIDA_RANKING_ID)
+      setAchadas(lista)
+      if (lista.length === 0) setMsg('Nenhuma equipe desta edição com esse nome fora da final.')
+    } catch (err) {
+      setMsg('Erro na busca: ' + err.message)
+    } finally {
+      setBuscandoEq(false)
+    }
+  }
+
+  const colocarNaFinal = async (eq) => {
+    if (movendoId) return
+    if (!window.confirm(`Colocar ${eq.nome} na final? A confirmação de presença abre em 13/11 às 8:00. O formulário de camisa só aparece depois que a equipe confirmar.`)) return
+    setMovendoId(eq.id)
+    setMsg('')
+    try {
+      await updateDoc(doc(db, 'equipes', eq.id), {
+        aprovadoAte: 'fase_final',
+        convocacaoExtra: true,
+        presencaFinalConfirmada: deleteField(),
+        presencaFinalConfirmadaEm: deleteField(),
+        presencaFinalConfirmadaPor: deleteField(),
+      })
+      setAchadas((prev) => prev.filter((item) => item.id !== eq.id))
+      setMsg(`${eq.nome} entrou na final. O botão de presença abre em 13/11 às 8:00.`)
+      carregarDados(edicaoId)
+    } catch (err) {
+      setMsg('Erro ao colocar na final: ' + err.message)
+    } finally {
+      setMovendoId('')
     }
   }
 
@@ -312,6 +392,28 @@ function FinalContent() {
                 </div>
               </div>
 
+              <div className='bg-white rounded-2xl shadow-sm border border-neutral-200 p-6 space-y-4'>
+                <h2 className='text-sm font-bold text-[#82181A] uppercase tracking-wide'>Adicionar equipe à final</h2>
+                <p className='text-sm text-neutral-600'>A confirmação de presença abre em 13/11 às 8:00. O formulário de camisa só aparece depois que a equipe confirmar.</p>
+                <form onSubmit={buscarParaAdicionar} className='flex flex-col sm:flex-row gap-3'>
+                  <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder='Nome da equipe' className='flex-1 rounded-xl border border-neutral-300 px-4 py-3 text-sm outline-none focus:border-[#82181A]' />
+                  <button type='submit' disabled={buscandoEq} className='px-6 py-3 rounded-xl text-sm font-semibold cursor-pointer bg-[#82181A] text-white hover:bg-[#631214] disabled:opacity-50'>{buscandoEq ? 'Buscando...' : 'Buscar'}</button>
+                </form>
+                {achadas.length > 0 && (
+                  <ul className='divide-y divide-neutral-100 border border-neutral-200 rounded-xl'>
+                    {achadas.map((eq) => (
+                      <li key={eq.id} className='flex items-center justify-between gap-3 px-4 py-3'>
+                        <div>
+                          <p className='font-semibold'>{eq.nome}</p>
+                          <p className='text-sm text-neutral-500'>{eq.escola}</p>
+                        </div>
+                        <button type='button' onClick={() => colocarNaFinal(eq)} disabled={!!movendoId} className='text-xs bg-[#82181A] text-white px-3 py-2 rounded-full font-semibold cursor-pointer hover:bg-[#631214] disabled:opacity-50'>Colocar na final</button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
               <div className='bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden'>
                 <div className='p-6 border-b border-neutral-100 flex items-center justify-between gap-3 flex-wrap'>
                   <h2 className='text-sm font-bold text-[#82181A] uppercase tracking-wide'>Finalistas ({equipes.length})</h2>
@@ -340,6 +442,9 @@ function FinalContent() {
                             ) : (
                               <span className='text-xs bg-neutral-100 text-neutral-400 px-3 py-1 rounded-full font-semibold whitespace-nowrap'>Pendente</span>
                             )}
+                            {eq.convocacaoExtra && !eq.presencaFinalConfirmada && (
+                              <span className='text-xs bg-amber-100 text-amber-700 px-3 py-1 rounded-full font-semibold whitespace-nowrap'>Presença abre 13/11 às 8:00</span>
+                            )}
                             {eq.presencaFinalConfirmada && (
                               eq.tamanhosCamisa
                                 ? <span className='text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-semibold whitespace-nowrap'>Tamanhos enviados</span>
@@ -358,6 +463,7 @@ function FinalContent() {
                             )
                           })}
                         </ul>
+                        <button type='button' onClick={() => tirarDaFinal(eq)} disabled={!!movendoId} className='mt-4 text-xs border border-red-300 text-red-700 px-3 py-2 rounded-full font-semibold cursor-pointer hover:bg-red-50 disabled:opacity-50'>Tirar da final</button>
                       </div>
                     ))}
                   </div>

@@ -110,6 +110,7 @@ Documento: `equipes/{equipeId}`
 | `presencaFinalConfirmada` | boolean (opcional) | Spec 050: equipe finalista confirmou presença na final (gravado por membro ativo na Sala de Equipe). Spec 055: o botão fecha em 11/11/2026 às 23:59, horário de Fortaleza |
 | `presencaFinalConfirmadaEm` | string (ISO) (opcional) | Spec 050: momento da confirmação de presença |
 | `presencaFinalConfirmadaPor` | string (opcional) | Spec 050: e-mail do membro que confirmou a presença |
+| `convocacaoExtra` | boolean (opcional) | Spec 056: equipe colocada na final pelo admin. O botão de presença abre em 13/11/2026 às 8:00 (Fortaleza). A camisa só aparece depois da confirmação |
 | `tamanhosCamisa` | object (opcional) | Spec 053: envio único após `presencaFinalConfirmada`, visível a partir de 12/11/2026 00:00 (Fortaleza). `{ membros: [{ uid, nome, papel, tamanho: 'P'\|'M'\|'G'\|'GG' }], respondidoPor, respondidoPorNome, respondidoEm }`. O professor orientador grava o tamanho só na primeira equipe (spec 055) |
 | `ultimoNomeEditadoEm` | string (ISO) | Timestamp da última alteração de nome (cooldown de 25 dias) |
 | `createdAt` | string (ISO) | Data de criação |
