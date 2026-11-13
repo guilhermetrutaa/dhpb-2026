@@ -26,7 +26,9 @@ Não altera: textos, carga horária, dados lidos, rota, Sala de Equipe, PDF do p
 | Regra | No código hoje | Depois desta spec |
 |---|---|---|
 | Fonte do certificado | `clamp(rem, vw, rem)` | `cqw` (proporcional à largura do certificado) |
-| PDF gerado no celular | Captura na largura da tela, textos sobrepostos | Captura em 1400px, igual ao desktop |
+| PDF gerado no celular | Captura na largura da tela, textos sobrepostos | Captura da tela com `scale = 2800 / largura`: PDF sempre com 2800px, igual à tela |
+
+Uma cópia forçada em 1400px (`windowWidth` + `onclone`) foi testada e quebrava no Chrome Android (fonte inflada na cópia larga). Por isso a captura usa o certificado da tela.
 
 ## Firestore
 
@@ -45,7 +47,7 @@ Não altera: textos, carga horária, dados lidos, rota, Sala de Equipe, PDF do p
 
 - [x] Em ~360px de largura, os textos do certificado não se sobrepõem
 - [x] No desktop, o layout fica praticamente igual ao anterior
-- [x] PDF baixado no celular sai em 1400px de largura (x2)
+- [x] PDF baixado no celular sai igual à tela, com 2800px de largura
 - [x] Cota Spark: nenhuma query nova
 - [x] `npm run build` código 0
 - [x] Docs em `/docs`: sem mudança (rota e schema iguais)

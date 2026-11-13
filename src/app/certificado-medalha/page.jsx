@@ -86,10 +86,8 @@ const CertificadoContent = () => {
         setBaixando(true)
         try {
             const canvas = await html2canvas(certificadoRef.current, {
-                scale: 2,
+                scale: 2800 / certificadoRef.current.offsetWidth,
                 useCORS: true,
-                windowWidth: 1400,
-                onclone: (_, el) => { el.style.width = '1400px'; el.style.maxWidth = 'none' },
             })
             const imgData = canvas.toDataURL('image/jpeg', 1.0)
 

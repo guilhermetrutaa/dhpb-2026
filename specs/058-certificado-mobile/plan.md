@@ -6,7 +6,7 @@ Traduz `spec.md` para o stack atual (Next.js 16 App Router, Tailwind v4).
 
 | Arquivo | Motivo |
 |---|---|
-| `src/app/certificado/page.jsx` | `@container` + fonte em `cqw`; `html2canvas` em 1400px |
+| `src/app/certificado/page.jsx` | `@container` + fonte em `cqw`; `html2canvas` com escala para 2800px |
 | `src/app/certificado-medalha/page.jsx` | Mesmo diff |
 
 ## Queries
