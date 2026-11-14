@@ -1,13 +1,12 @@
 'use client'
 
-import React, { useState, useEffect, useRef, Suspense } from "react"
+import React, { useState, useEffect, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Poppins } from 'next/font/google'
 import { doc, getDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { useAuth } from "@/context/AuthContext"
-import html2canvas from "html2canvas"
-import jsPDF from "jspdf"
+import { gerarCertificadoPdf } from "@/lib/certificadoPdf"
 
 const cargas = {
   '1': 8,
@@ -38,8 +37,6 @@ const CertificadoContent = () => {
   const [equipe, setEquipe] = useState(null)
   const [carregando, setCarregando] = useState(true)
   const [baixando, setBaixando] = useState(false)
-  const certificadoRef = useRef(null)
-
   useEffect(() => {
     if (!loading && !authUser) router.push('/login')
   }, [loading, authUser, router])
@@ -87,22 +84,22 @@ const CertificadoContent = () => {
   const dataExtenso = `${hoje.getDate()} de ${meses[hoje.getMonth()]} de ${hoje.getFullYear()}`
 
   const handleDownloadPDF = async () => {
-    if (!certificadoRef.current) return
     setBaixando(true)
     try {
-      const canvas = await html2canvas(certificadoRef.current, {
-        scale: 2800 / certificadoRef.current.offsetWidth,
-        useCORS: true,
+      const fundo = new Image()
+      fundo.src = '/certificado-fundo.jpg'
+      await fundo.decode()
+      const pdf = gerarCertificadoPdf({
+        fundo,
+        nome: nomeParticipante,
+        equipe: equipe.nome,
+        orientador: nomeOrientadora,
+        colegas: nomeColegas,
+        escola: equipe.escola,
+        modalidade,
+        conclusao: [[`Por seu desempenho, concluiu a ${fase === 'final' ? 'Fase Final' : `Fase ${fase}`} com carga horária de aproximadamente ${cargaHoraria} horas.`, false]],
+        data: dataExtenso,
       })
-      const imgData = canvas.toDataURL('image/jpeg', 1.0)
-
-      const pdf = new jsPDF({
-        orientation: 'landscape',
-        unit: 'px',
-        format: [canvas.width, canvas.height]
-      })
-
-      pdf.addImage(imgData, 'JPEG', 0, 0, canvas.width, canvas.height)
       pdf.save(`Certificado_DHPB_${nomeParticipante.replace(/\s+/g, '_')}.pdf`)
     } catch (e) {
       alert("Erro ao gerar PDF.")
@@ -126,7 +123,6 @@ const CertificadoContent = () => {
       </div>
 
       <section
-        ref={certificadoRef}
         className="@container relative aspect-[2000/1414] w-full max-w-[1400px] overflow-hidden bg-[#fff8eb] shadow-xl print:max-w-none print:shadow-none"
       >
         <img src="/certificado-fundo.svg" alt="" aria-hidden className="absolute inset-0 h-full w-full" />

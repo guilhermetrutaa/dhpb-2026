@@ -6,6 +6,8 @@
 | Status | implementada |
 | Firebase | nenhum |
 
+> A geração do PDF (linhas sobre `html2canvas` abaixo) foi substituída pela spec `059-certificado-pdf-jspdf`. Desta spec segue valendo a prévia em tela (`cqw` + `@container`).
+
 ## Problema / valor
 
 No celular, os textos de `/certificado` e `/certificado-medalha` se sobrepõem: o certificado encolhe com a tela, mas a fonte tem piso fixo em rem. O PDF baixado no celular sai com o mesmo defeito.
