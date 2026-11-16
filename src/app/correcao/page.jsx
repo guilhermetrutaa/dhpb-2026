@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import { Poppins } from 'next/font/google'
+import JSZip from 'jszip'
 import {
   browserLocalPersistence,
   createUserWithEmailAndPassword,
@@ -29,11 +30,12 @@ import {
   indiceEscolasPorId,
   zeradosDaCorrecao,
 } from '@/lib/correcao'
+import { EQUIPE_EXCLUIDA_RECALC_ID } from '@/lib/recalcularPontuacao'
 import { acrescentarTerceiro, carregarVeredito, gravarNota, ouvirDistribuicao, ouvirNotificacoesCorrecao, salvarCorrecao, salvarVeredito } from '@/lib/correcao-firestore'
 import { BLOCOS, CRITERIOS_DO_BLOCO, NIVEIS, PESO_TOTAL, RUBRICA, notaDe, pendentes, somar } from '@/lib/criterios'
 import { respostaTarefaDaFase } from '@/lib/bonificarRecorte13'
 import PortfolioWall from '@/app/tarefas/portfolio-artistico/PortfolioWall'
-import { FolhaPdf, baixarPortfolioPdf } from '@/app/tarefas/portfolio-artistico/portfolioPdf'
+import { FolhaPdf, baixarPortfolioPdf, gerarPortfolioPdfBlob } from '@/app/tarefas/portfolio-artistico/portfolioPdf'
 import { FUNDO_SRC } from '@/app/tarefas/viagem-no-tempo/config'
 
 const poppins = Poppins({ subsets: ['latin'], weight: ['400', '500', '600', '700'] })
@@ -384,6 +386,135 @@ function BotaoPdfPortfolio({ equipe }) {
       <div className="pointer-events-none fixed top-0 left-[-10000px]" aria-hidden>
         <FolhaPdf portfolio={equipe.portfolio} temaId={equipe.design} nomeEquipe={equipe.nome} folhaRef={folhaRef} />
       </div>
+    </>
+  )
+}
+
+function nomePdfPortfolio(nome) {
+  return `Portfolio_${String(nome || 'equipe').replace(/[^\w\-]+/g, '_').slice(0, 80)}.pdf`
+}
+
+/** Spec 062: só Glayds. Gera o PDF de cada finalista no navegador e empacota em ZIP. */
+function ExportZipFinalistas({ faseId }) {
+  const folhaRef = useRef(null)
+  const zipRef = useRef(null)
+  const indiceRef = useRef(0)
+  const [lista, setLista] = useState([])
+  const [atual, setAtual] = useState(null)
+  const [rodando, setRodando] = useState(false)
+  const [status, setStatus] = useState('')
+
+  async function comecar() {
+    if (rodando) return
+    setRodando(true)
+    setStatus('Buscando equipes finalistas…')
+    setAtual(null)
+    try {
+      const snap = await getDocs(
+        query(collection(db, 'equipes'), where('aprovadoAte', '==', 'fase_final'), limit(500))
+      )
+      const montada = []
+      for (const d of snap.docs) {
+        if (d.id === EQUIPE_EXCLUIDA_RECALC_ID) continue
+        const dados = d.data()
+        const resposta = respostaTarefaDaFase(dados, faseId || FASE_ALVO)
+        montada.push({
+          id: d.id,
+          nome: dados.nome || d.id,
+          portfolio: resposta?.portfolio || {},
+          design: resposta?.design || 'rosa',
+        })
+      }
+      montada.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+      if (!montada.length) {
+        setStatus('Nenhuma equipe com aprovadoAte = fase_final.')
+        setRodando(false)
+        return
+      }
+      zipRef.current = new JSZip()
+      indiceRef.current = 0
+      setLista(montada)
+      setAtual(montada[0])
+      setStatus(`Gerando 1/${montada.length}: ${montada[0].nome}`)
+    } catch (err) {
+      console.error('[zip-finalistas]', err)
+      setStatus(explicarErro(err))
+      setRodando(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!rodando || !atual) return
+    let cancelado = false
+    ;(async () => {
+      try {
+        for (let n = 0; n < 40 && !folhaRef.current; n += 1) {
+          await new Promise((r) => setTimeout(r, 25))
+        }
+        if (!folhaRef.current || cancelado) return
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+        const imgs = [...folhaRef.current.querySelectorAll('img')]
+        await Promise.all(imgs.map((img) => (img.complete ? null : new Promise((res) => { img.onload = img.onerror = res }))))
+        if (cancelado) return
+        const blob = await gerarPortfolioPdfBlob(folhaRef.current)
+        if (cancelado) return
+        zipRef.current.file(nomePdfPortfolio(atual.nome), blob)
+        const proximo = indiceRef.current + 1
+        if (proximo >= lista.length) {
+          setStatus('Compactando ZIP…')
+          const zipBlob = await zipRef.current.generateAsync({ type: 'blob' })
+          if (cancelado) return
+          const url = URL.createObjectURL(zipBlob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = 'Portfolios_Finalistas_DHPB.zip'
+          a.click()
+          URL.revokeObjectURL(url)
+          setStatus(`Pronto: ${lista.length} PDF(s) no ZIP.`)
+          setRodando(false)
+          setAtual(null)
+          return
+        }
+        indiceRef.current = proximo
+        setAtual(lista[proximo])
+        setStatus(`Gerando ${proximo + 1}/${lista.length}: ${lista[proximo].nome}`)
+      } catch (err) {
+        if (cancelado) return
+        console.error('[zip-finalistas]', err)
+        setStatus(`Falhou em “${atual.nome}”: ${err?.message || 'erro ao gerar PDF'}`)
+        setRodando(false)
+        setAtual(null)
+      }
+    })()
+    return () => {
+      cancelado = true
+    }
+  }, [atual, rodando, lista])
+
+  return (
+    <>
+      <div className="mx-5 sm:mx-7 mt-5 bg-[#332a00] border-2 border-[#ffc107] text-[#ffc107] px-4 py-4 rounded-none flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-black uppercase tracking-wide text-[#ffc107]">Portfólios da final</p>
+          <p className="mt-1 text-sm text-[#ffe08a] leading-snug">
+            Baixa o PDF de todas as equipes com <strong>aprovadoAte = fase_final</strong>, mesmo fora da sua fila, num único ZIP.
+          </p>
+          {status && <p className="mt-2 text-xs font-bold text-white">{status}</p>}
+        </div>
+        <button
+          type="button"
+          onClick={comecar}
+          disabled={rodando}
+          className="shrink-0 px-5 py-3 text-xs font-black uppercase rounded-none bg-[#ffc107] text-black hover:bg-[#e0a800] transition-none cursor-pointer disabled:opacity-60 disabled:cursor-wait"
+        >
+          {rodando ? 'Gerando ZIP…' : 'Baixar ZIP dos finalistas'}
+        </button>
+      </div>
+      {atual && (
+        <div className="pointer-events-none fixed top-0 left-[-10000px]" aria-hidden>
+          <FolhaPdf portfolio={atual.portfolio} temaId={atual.design} nomeEquipe={atual.nome} folhaRef={folhaRef} />
+        </div>
+      )}
     </>
   )
 }
@@ -892,6 +1023,10 @@ function Board({ sessao, corretor }) {
                   <div className="mx-5 sm:mx-7 mt-5 bg-[#00273f] border-l-4 border-[#007bff] text-sky-200 text-sm px-4 py-3 rounded-none">
                     {aviso}
                   </div>
+                )}
+
+                {corretor?.id === 'glayds' && (
+                  <ExportZipFinalistas faseId={distribuicao?.faseId || FASE_ALVO} />
                 )}
 
                 {!distribuicao && !carregando ? (

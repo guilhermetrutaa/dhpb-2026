@@ -250,7 +250,7 @@ function encaixarCorpo(corpo) {
   return { fonte, zoom }
 }
 
-export async function baixarPortfolioPdf(elemento, nomeArquivo) {
+export async function gerarPortfolioPdfBlob(elemento) {
   elemento.querySelectorAll('[data-pdf-corpo]').forEach(encaixarCorpo)
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: [A4_W, A4_H] })
   const largura = pdf.internal.pageSize.getWidth()
@@ -269,7 +269,17 @@ export async function baixarPortfolioPdf(elemento, nomeArquivo) {
     if (i > 0) pdf.addPage()
     pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, largura, altura)
   }
-  pdf.save(nomeArquivo)
+  return pdf.output('blob')
+}
+
+export async function baixarPortfolioPdf(elemento, nomeArquivo) {
+  const blob = await gerarPortfolioPdfBlob(elemento)
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = nomeArquivo
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 if (process.env.NODE_ENV !== 'production') {
