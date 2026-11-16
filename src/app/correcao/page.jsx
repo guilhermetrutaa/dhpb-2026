@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import { Poppins } from 'next/font/google'
 import {
@@ -27,7 +27,6 @@ import {
   explicarErro,
   identificarCorretor,
   indiceEscolasPorId,
-  mesclarCorrecao,
   zeradosDaCorrecao,
 } from '@/lib/correcao'
 import { acrescentarTerceiro, carregarVeredito, gravarNota, ouvirDistribuicao, ouvirNotificacoesCorrecao, salvarCorrecao, salvarVeredito } from '@/lib/correcao-firestore'
@@ -36,14 +35,6 @@ import { respostaTarefaDaFase } from '@/lib/bonificarRecorte13'
 import PortfolioWall from '@/app/tarefas/portfolio-artistico/PortfolioWall'
 import { FolhaPdf, baixarPortfolioPdf } from '@/app/tarefas/portfolio-artistico/portfolioPdf'
 import { FUNDO_SRC } from '@/app/tarefas/viagem-no-tempo/config'
-import {
-  MOCK_CORRECOES,
-  MOCK_DISTRIBUICAO,
-  MOCK_EQUIPES,
-  MOCK_USUARIO,
-  MOCK_VEREDITOS,
-  mockRespostaTarefa,
-} from './mock'
 
 const poppins = Poppins({ subsets: ['latin'], weight: ['400', '500', '600', '700'] })
 const CHAVE_SESSAO = 'correcao-authenticated'
@@ -80,12 +71,6 @@ function rascunhoIncompleto(equipeId, corretorId) {
   if (typeof window === 'undefined') return false
   const rascunho = lerRascunho(equipeId, corretorId)
   return !!rascunho && pendentes(rascunho.criterios || {}).length > 0
-}
-
-function isLocalDevHost() {
-  if (typeof window === 'undefined') return false
-  const host = window.location.hostname
-  return host === 'localhost' || host === '127.0.0.1' || host === '[::1]'
 }
 
 // ---------------------------------------------------------------------------
@@ -396,7 +381,7 @@ function BotaoPdfPortfolio({ equipe }) {
       >
         {baixando ? 'Gerando PDF...' : 'Baixar PDF'}
       </button>
-      <div className="pointer-events-none fixed top-0 left-[-10000px] w-[800px]" aria-hidden>
+      <div className="pointer-events-none fixed top-0 left-[-10000px]" aria-hidden>
         <FolhaPdf portfolio={equipe.portfolio} temaId={equipe.design} nomeEquipe={equipe.nome} folhaRef={folhaRef} />
       </div>
     </>
@@ -555,7 +540,7 @@ function Painel({ equipe, correcao, corretorId, aoSalvar, aoFechar }) {
  * editáveis por qualquer conta e o `autor` gravado era a string da aba, então uma nota
  * podia ser registrada em nome do colega.
  */
-function Board({ sessao, corretor, sim }) {
+function Board({ sessao, corretor }) {
   const [lista, setLista] = useState([])
   const [notasFs, setNotasFs] = useState({})
   const [distribuicao, setDistribuicao] = useState(null)
@@ -571,22 +556,17 @@ function Board({ sessao, corretor, sim }) {
 
   useEffect(() => {
     if (!aba) return
-    if (sim) {
-      setNotificacoes(Object.values(MOCK_VEREDITOS).filter((v) => docDaRubrica(v)).flatMap((v) => v.notificacoes || []))
-      return
-    }
     return ouvirNotificacoesCorrecao(
       aba,
       (docs) => setNotificacoes(docs.filter((v) => docDaRubrica(v)).flatMap((v) => v.notificacoes || [])),
       (err) => console.error('[correcao] falha ao carregar notificações:', err)
     )
-  }, [aba, sim])
+  }, [aba])
 
   // O campus é a fonte única da spec 044 (`escolas-pb.json` por `escolaId`). Antes a 3ª
   // correção comparava o município oficial com `equipe.cidade` do cadastro e o filtro de
   // campus valia para um lado só.
   useEffect(() => {
-    if (sim) return
     let vivo = true
     fetch('/escolas-pb.json')
       .then((r) => (r.ok ? r.json() : []))
@@ -597,34 +577,9 @@ function Board({ sessao, corretor, sim }) {
     return () => {
       vivo = false
     }
-  }, [sim])
+  }, [])
 
   useEffect(() => {
-    if (sim) {
-      let vivo = true
-      ;(async () => {
-        if (!vivo) return
-        setDistribuicao(MOCK_DISTRIBUICAO)
-        setLista(
-          MOCK_EQUIPES.filter((e) => (MOCK_DISTRIBUICAO.atribuido[e.id] || []).includes(aba))
-            .map((e) => ({
-              id: e.id,
-              nome: e.nome,
-              escola: e.escola,
-              cidade: e.cidade,
-              coluna: e.coluna,
-              notaFinal: docDaRubrica(MOCK_VEREDITOS[e.id])?.notaFinal || null,
-              portfolio: mockRespostaTarefa(e.id)?.portfolio || {},
-              design: mockRespostaTarefa(e.id)?.design || 'rosa',
-            }))
-            .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
-        )
-        setCarregando(false)
-      })()
-      return () => {
-        vivo = false
-      }
-    }
     // Assina o documento da distribuição: quando o sistema nomeia o 3º corretor, a fila
     // dele se atualiza sozinha — sem F5. Um doc, uma query: nada de listener de coleção.
     return ouvirDistribuicao(setDistribuicao, (err) => {
@@ -632,7 +587,7 @@ function Board({ sessao, corretor, sim }) {
       setErro(explicarErro(err))
       setCarregando(false)
     })
-  }, [aba, sim])
+  }, [aba])
 
   const equipes = useMemo(
     () => lista.map((e) => ({ ...e, campus: campusDaEquipe(e, escolasPorId) })),
@@ -640,7 +595,7 @@ function Board({ sessao, corretor, sim }) {
   )
 
   useEffect(() => {
-    if (sim || !aba) return
+    if (!aba) return
     let vivo = true
     async function carregar() {
       if (!distribuicao) {
@@ -696,10 +651,9 @@ function Board({ sessao, corretor, sim }) {
     return () => {
       vivo = false
     }
-  }, [aba, distribuicao, sim])
+  }, [aba, distribuicao])
 
   useEffect(() => {
-    if (sim) return
     if (!equipes.length) return
     let vivo = true
 
@@ -729,17 +683,9 @@ function Board({ sessao, corretor, sim }) {
     return () => {
       vivo = false
     }
-  }, [aba, equipes, sim])
+  }, [aba, equipes])
 
-  const notas = useMemo(() => {
-    if (!sim) return notasFs
-    const mapa = {}
-    for (const e of equipes) {
-      const c = docDaRubrica(MOCK_CORRECOES[e.id])
-      if (c && (c.enviados || []).includes(aba)) mapa[e.id] = c
-    }
-    return mapa
-  }, [notasFs, equipes, aba, sim])
+  const notas = notasFs
 
   const semNome = !!sessao && !corretor
 
@@ -756,7 +702,7 @@ function Board({ sessao, corretor, sim }) {
    */
   const fecharVeredito = useCallback(
     async (equipe, correcao) => {
-      const bruto = sim ? MOCK_VEREDITOS[equipe.id] : await carregarVeredito(equipe.id)
+      const bruto = await carregarVeredito(equipe.id)
       const veredito = docDaRubrica(bruto)
       const designados = Array.from(
         new Set([...(distribuicao?.atribuido?.[equipe.id] || []), ...(veredito?.atribuido || [])])
@@ -798,8 +744,7 @@ function Board({ sessao, corretor, sim }) {
 
       if (decisao.status !== 'fechado') {
         if (decisao.terceiraNome) await acrescentarTerceiro(equipe.id, decisao.terceira)
-        if (!sim) await salvarVeredito(equipe.id, { ...decisao, ...vereditoComNotificacoes })
-        else MOCK_VEREDITOS[equipe.id] = { ...decisao, ...vereditoComNotificacoes, equipeId: equipe.id, rubrica: RUBRICA }
+        await salvarVeredito(equipe.id, { ...decisao, ...vereditoComNotificacoes })
         setAviso(
           decisao.status === 'aguardando-par'
             ? `${equipe.nome}: sua nota foi enviada. O veredito fecha quando o outro corretor enviar a dele.`
@@ -811,41 +756,28 @@ function Board({ sessao, corretor, sim }) {
       }
 
       const autor = sessao?.email || sessao?.uid || 'corretor'
-      const r = sim ? { delta: decisao.notaFinal } : await gravarNota(equipe.id, distribuicao?.faseId || FASE_ALVO, decisao.notaFinal, autor)
+      const r = await gravarNota(equipe.id, distribuicao?.faseId || FASE_ALVO, decisao.notaFinal, autor)
       const registro = { ...decisao, delta: r?.delta ?? 0 }
-      if (!sim) await salvarVeredito(equipe.id, { ...registro, ...vereditoComNotificacoes })
-      else MOCK_VEREDITOS[equipe.id] = { ...registro, ...vereditoComNotificacoes, equipeId: equipe.id, rubrica: RUBRICA }
+      await salvarVeredito(equipe.id, { ...registro, ...vereditoComNotificacoes })
       setLista((atual) => atual.map((e) => (e.id === equipe.id ? { ...e, notaFinal: decisao.notaFinal } : e)))
       setAviso(`Nota final de ${equipe.nome}: ${decisao.notaFinal}.`)
     },
-    [aba, distribuicao, sessao, sim]
+    [aba, distribuicao, sessao]
   )
 
   const salvar = useCallback(
     async (equipe, dados) => {
-      const autorUid = sessao?.email || ''
-      const mesclado = sim
-        ? mesclarCorrecao(MOCK_CORRECOES[equipe.id], {
-            equipeId: equipe.id,
-            corretorId: aba,
-            nota: dados.nota,
-            criterios: dados.criterios,
-            zerados: dados.zerados,
-            autorUid,
-          })
-        : await salvarCorrecao(equipe.id, {
-            corretorId: aba,
-            nota: dados.nota,
-            criterios: dados.criterios,
-            zerados: dados.zerados,
-            autorUid,
-          })
-      if (sim) MOCK_CORRECOES[equipe.id] = mesclado
+      const mesclado = await salvarCorrecao(equipe.id, {
+        corretorId: aba,
+        nota: dados.nota,
+        criterios: dados.criterios,
+        zerados: dados.zerados,
+        autorUid: sessao?.email || '',
+      })
       setNotasFs((n) => ({ ...n, [equipe.id]: mesclado }))
-
       await fecharVeredito(equipe, mesclado)
     },
-    [aba, sessao, fecharVeredito, sim]
+    [aba, sessao, fecharVeredito]
   )
 
   const corrigir = useCallback(
@@ -897,13 +829,12 @@ function Board({ sessao, corretor, sim }) {
                 <button
                   type="button"
                   onClick={async () => {
-                    if (sim) return
                     localStorage.removeItem(CHAVE_SESSAO)
                     await signOut(auth)
                   }}
                   className="shrink-0 px-4 py-2 text-xs font-bold uppercase rounded-none bg-[#242424] hover:bg-[#333] border border-[#444] text-white transition-none cursor-pointer"
                 >
-                  {sim ? 'Simulação' : 'Sair'}
+                  Sair
                 </button>
               </div>
             </div>
@@ -926,21 +857,6 @@ function Board({ sessao, corretor, sim }) {
                   <p className="px-4 py-5 text-sm text-neutral-400">Nenhuma notificação por enquanto.</p>
                 )}
               </section>
-            )}
-
-            {sim && (
-              <div className="mx-5 sm:mx-7 mt-5 bg-[#332a00] border-l-4 border-[#ffc107] text-[#ffc107] text-sm px-4 py-3 rounded-none flex items-center justify-between gap-4">
-                <span>
-                  <strong>SIMULAÇÃO LOCAL.</strong> Dados fictícios, sem Firebase. Nada disso vai para o banco.
-                </span>
-                <button
-                  type="button"
-                  onClick={() => window.location.reload()}
-                  className="shrink-0 px-3 py-1.5 text-xs font-bold uppercase rounded-none bg-[#ffc107] text-black hover:bg-[#e0a800] transition-none cursor-pointer"
-                >
-                  Recarregar
-                </button>
-              </div>
             )}
 
             {semNome && (
@@ -1062,48 +978,33 @@ function Board({ sessao, corretor, sim }) {
 // Página
 // ---------------------------------------------------------------------------
 
-const semInscricao = () => () => {}
-
-function useEstaNoCliente() {
-  return useSyncExternalStore(
-    semInscricao,
-    () => true,
-    () => false
-  )
-}
-
 function AreaCorrecao() {
-  const montado = useEstaNoCliente()
-  const [sessaoReal, setSessaoReal] = useState(null)
+  const [sessao, setSessao] = useState(null)
   const [verificando, setVerificando] = useState(true)
-
-  const sim = montado && isLocalDevHost()
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         localStorage.removeItem(CHAVE_SESSAO)
-        setSessaoReal(null)
+        setSessao(null)
         setVerificando(false)
         return
       }
       try {
         const snap = await getDoc(doc(db, 'users', user.uid))
         const dados = snap.exists() ? snap.data() : {}
-        setSessaoReal({ uid: user.uid, email: user.email, nome: dados.nomeCompleto || dados.nome || user.email })
+        setSessao({ uid: user.uid, email: user.email, nome: dados.nomeCompleto || dados.nome || user.email })
       } catch {
-        setSessaoReal({ uid: user.uid, email: user.email, nome: user.email })
+        setSessao({ uid: user.uid, email: user.email, nome: user.email })
       }
       setVerificando(false)
     })
     return unsub
   }, [])
 
-  const sessao = sim ? MOCK_USUARIO : sessaoReal
-  const aguardando = sim ? false : verificando
   const corretor = useMemo(() => identificarCorretor(sessao?.nome, sessao?.email), [sessao])
 
-  if (aguardando) {
+  if (verificando) {
     return (
       <div className={`${poppins.className} min-h-screen flex items-center justify-center bg-[#f5f5f5]`}>
         <p className="text-[#82181A] font-bold text-lg uppercase tracking-wide">Carregando…</p>
@@ -1111,8 +1012,8 @@ function AreaCorrecao() {
     )
   }
 
-  if (!sessao) return <TelaAcesso aoEntrar={setSessaoReal} />
-  return <Board sessao={sessao} corretor={corretor} sim={sim} />
+  if (!sessao) return <TelaAcesso aoEntrar={setSessao} />
+  return <Board sessao={sessao} corretor={corretor} />
 }
 
 export default function Page() {

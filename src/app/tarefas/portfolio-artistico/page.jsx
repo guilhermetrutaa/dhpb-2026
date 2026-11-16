@@ -659,7 +659,7 @@ function TarefaContent() {
       </div>
 
       {podeBaixar && (
-        <div className="pointer-events-none fixed top-0 left-[-10000px] w-[800px]" aria-hidden>
+        <div className="pointer-events-none fixed top-0 left-[-10000px]" aria-hidden>
           <FolhaPdf portfolio={portfolio} temaId={design} nomeEquipe={nomeEquipe} folhaRef={folhaRef} />
         </div>
       )}
