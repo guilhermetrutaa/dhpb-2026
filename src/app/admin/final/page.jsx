@@ -34,6 +34,60 @@ function arquivoWord(file) {
   return nome.endsWith('.doc') || nome.endsWith('.docx')
 }
 
+const SEM_MUNICIPIO = 'Sem município no censo'
+
+function indiceEscolas(escolas) {
+  const porId = {}
+  for (const e of escolas || []) {
+    if (e?.id == null) continue
+    porId[String(e.id).trim()] = e
+  }
+  return porId
+}
+
+function resumoCidadesFinal(equipes, escolasPorId) {
+  const linhas = (equipes || []).map((eq) => {
+    const inep = String(eq?.escolaId ?? '').trim()
+    const municipio = inep ? String(escolasPorId?.[inep]?.municipio || '').trim() : ''
+    return { id: eq.id, inep, municipio }
+  })
+  const contagem = new Map()
+  for (const l of linhas) {
+    const chave = l.municipio || SEM_MUNICIPIO
+    contagem.set(chave, (contagem.get(chave) || 0) + 1)
+  }
+  const cidades = [...contagem.entries()].sort((a, b) => {
+    const aSem = a[0] === SEM_MUNICIPIO
+    const bSem = b[0] === SEM_MUNICIPIO
+    if (aSem !== bSem) return aSem ? 1 : -1
+    if (b[1] !== a[1]) return b[1] - a[1]
+    return a[0].localeCompare(b[0], 'pt')
+  })
+  return { linhas, cidades }
+}
+
+if (process.env.NODE_ENV !== 'production') {
+  const escolasCheck = indiceEscolas([
+    { id: '25000001', municipio: 'João Pessoa' },
+    { id: ' 25000002 ', municipio: ' Campina Grande ' },
+  ])
+  const check = resumoCidadesFinal([
+    { id: 'a', escolaId: '25000001', cidade: 'Recife' },
+    { id: 'b', escolaId: '25000001', cidade: 'Recife' },
+    { id: 'c', escolaId: '25000002' },
+    { id: 'd', escolaId: '99', cidade: 'Patos' },
+    { id: 'e', cidade: 'Patos' },
+  ], escolasCheck)
+  const jp = check.cidades.find(([c]) => c === 'João Pessoa')
+  if (!jp || jp[1] !== 2) throw new Error('Duas equipes na mesma cidade somam 2.')
+  if (check.linhas.find((l) => l.id === 'a').municipio !== 'João Pessoa') throw new Error('Grafia do JSON permanece.')
+  if (check.linhas.find((l) => l.id === 'c').municipio !== 'Campina Grande') throw new Error('INEP e município passam por trim.')
+  const fora = check.linhas.filter((l) => l.id === 'd' || l.id === 'e')
+  if (fora.length !== 2 || fora.some((l) => l.municipio)) throw new Error('INEP ausente ou fora do censo não herda cidade digitada.')
+  const ultima = check.cidades.at(-1)
+  if (!ultima || ultima[0] !== SEM_MUNICIPIO || ultima[1] !== 2) throw new Error('Sem município fica no fim.')
+}
+
 function FinalContent() {
   const router = useRouter()
   const [autenticado, setAutenticado] = useState(false)
@@ -45,6 +99,8 @@ function FinalContent() {
   const [enviando, setEnviando] = useState('')
   const [publicando, setPublicando] = useState(false)
   const [equipes, setEquipes] = useState([])
+  const [escolasPorId, setEscolasPorId] = useState(null)
+  const [erroCenso, setErroCenso] = useState('')
   const [carregando, setCarregando] = useState(false)
   const [msg, setMsg] = useState('')
   const [plano, setPlano] = useState(null)
@@ -70,6 +126,8 @@ function FinalContent() {
     if (!edId) return
     setCarregando(true)
     setMsg('')
+    setEscolasPorId(null)
+    setErroCenso('')
     try {
       const ed = edicoes.find(e => e.id === edId)
       setManualUrl(ed?.manualFinalistaUrl || '')
@@ -83,6 +141,13 @@ function FinalContent() {
       const equipesData = eSnap.docs.map(d => ({ id: d.id, ...d.data() }))
       equipesData.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''))
       setEquipes(equipesData)
+      try {
+        const res = await fetch('/escolas-pb.json')
+        if (!res.ok) throw new Error('censo ' + res.status)
+        setEscolasPorId(indiceEscolas(await res.json()))
+      } catch {
+        setErroCenso('Não foi possível carregar o censo das escolas. Cidade não exibida.')
+      }
     } catch (e) {
       setMsg('Erro ao carregar finalistas: ' + e.message)
     } finally {
@@ -139,6 +204,8 @@ function FinalContent() {
 
   const confirmadas = equipes.filter(eq => eq.presencaFinalConfirmada).length
   const tamanhosConhecidos = indiceTamanhos(equipes)
+  const resumoCidades = escolasPorId && !erroCenso ? resumoCidadesFinal(equipes, escolasPorId) : null
+  const linhaPorId = resumoCidades ? Object.fromEntries(resumoCidades.linhas.map((l) => [l.id, l])) : null
 
   const prepararConvocacao = async () => {
     if (!edicaoId || preparando) return
@@ -422,6 +489,14 @@ function FinalContent() {
                     <button type='button' onClick={baixarTamanhos} className='text-xs bg-[#82181A] text-white px-3 py-1 rounded-full font-semibold cursor-pointer hover:bg-[#631214]'>Baixar tamanhos</button>
                   </div>
                 </div>
+                {erroCenso && <p className='px-6 py-3 text-sm font-medium text-red-700'>{erroCenso}</p>}
+                {resumoCidades && resumoCidades.cidades.length > 0 && (
+                  <ul className='px-6 py-4 flex flex-wrap gap-2 border-b border-neutral-100'>
+                    {resumoCidades.cidades.map(([cidade, n]) => (
+                      <li key={cidade} className='text-xs bg-neutral-100 text-neutral-700 px-3 py-1 rounded-full font-semibold'>{cidade} — {n}</li>
+                    ))}
+                  </ul>
+                )}
                 {msg && <p className='px-6 py-3 text-sm font-medium text-neutral-700'>{msg}</p>}
                 {carregando ? (
                   <p className='text-center text-neutral-400 py-10'>Carregando...</p>
@@ -435,6 +510,7 @@ function FinalContent() {
                           <div>
                             <p className='font-bold text-base'>{eq.nome}</p>
                             <p className='text-sm text-neutral-500'>{eq.escola}</p>
+                            <p className='text-xs text-neutral-500 mt-1 break-all'>ID {eq.id} · INEP {String(eq.escolaId ?? '').trim() || '—'}{erroCenso ? ' · cidade indisponível' : linhaPorId ? ` · ${linhaPorId[eq.id]?.municipio || SEM_MUNICIPIO}` : ''}</p>
                           </div>
                           <div className='flex flex-wrap justify-end gap-2'>
                             {eq.presencaFinalConfirmada ? (
