@@ -70,6 +70,7 @@ Este documento consolida as regras de negócio identificadas no código-fonte, s
   * Fase 4 → final: até 120; 60 do ranking geral; completa mínimo de 60 públicas; resto na ordem geral.
   * Desempate: $N_3$, depois $N_2$, depois $N_1$. Empate persistente na linha de corte: todas avançam.
   * Rede pública: `municipal`, `estadual`, `federal`, `publica`.
+* **Final presencial (spec 064):** em `/admin/final`, o admin divide as finalistas em salas (médio e fundamental separados; pública e particular juntas; a mesma escola evita repetir sala) e baixa um CSV para o Even3. O QR de chegada não é gerado no site. Capas da prova levam só o ID e a sala. A correção anônima (`/correcao-final`) espera a planilha de critérios. Quando os vereditos `prova-final-2026` estiverem fechados e a soma dos pesos das fases online for 15, o admin soma `di = nota × 16` no `df` (`notaProvaFinal` / `diProvaFinal`). Se a soma não for 15, nada é gravado. Encerrar de novo não soma outra vez. O ZIP de certificados usa os cortes do edital (10 / 25 / 50), editáveis, e grava `premiacao`.
 
 ---
 

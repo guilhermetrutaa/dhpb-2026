@@ -51,6 +51,7 @@ Documento: `edicoes/{edicaoId}`
 | `manualFinalistaUrl` | string (opcional) | Spec 050: URL do PDF do manual do finalista (Cloudinary), enviado em `/admin/final` |
 | `autorizacaoViagemUrl` | string (opcional) | Spec 051: URL do Word de autorização de viagem (Cloudinary), enviado em `/admin/final`. A Sala de Equipe mostra o download só com `presencaFinalConfirmada` |
 | `resultadoFinalPublicado` | boolean (opcional) | Spec 050: só `true` libera o encaminhamento (FINALISTA / não classificado) na Sala de Equipe. Ausente ou `false` = ninguém vê, mesmo com a Fase 4 `finalizada` |
+| `salasFinalPlano` | object (opcional) | Spec 064: `{ medio, fundamental }`, quantas salas cada grupo usa. A soma é no máximo 12 |
 | `createdAt` | string (ISO) | Timestamp de criação |
 
 #### Subcoleção `edicoes/{edicaoId}/fases/{faseId}`
@@ -112,6 +113,10 @@ Documento: `equipes/{equipeId}`
 | `presencaFinalConfirmadaPor` | string (opcional) | Spec 050: e-mail do membro que confirmou a presença |
 | `convocacaoExtra` | boolean (opcional) | Spec 056: equipe colocada na final pelo admin. O botão de presença abre em 13/11/2026 às 8:00 (Fortaleza). A camisa só aparece depois da confirmação |
 | `tamanhosCamisa` | object (opcional) | Spec 053: envio único após `presencaFinalConfirmada`, visível a partir de 12/11/2026 00:00 (Fortaleza). `{ membros: [{ uid, nome, papel, tamanho: 'P'\|'M'\|'G'\|'GG' }], respondidoPor, respondidoPorNome, respondidoEm }`. O professor orientador grava o tamanho só na primeira equipe (spec 055) |
+| `salaFinal` | object (opcional) | Spec 064: `{ numero, grupo: 'medio'\|'fundamental', manual }`. Médio ocupa as salas 1..x; fundamental, x+1..x+y |
+| `notaProvaFinal` | number (opcional) | Spec 064: nota 0–100 da prova presencial, gravada só no encerramento |
+| `diProvaFinal` | number (opcional) | Spec 064: `notaProvaFinal × 16`, somado ao `df`. `calcularEquipe` preserva esse valor |
+| `premiacao` | string (opcional) | `'ouro'`, `'prata'`, `'bronze'` ou `'cristal'`. Spec 064 grava pela colocação; a tela de medalhas ainda pode alterar à mão |
 | `ultimoNomeEditadoEm` | string (ISO) | Timestamp da última alteração de nome (cooldown de 25 dias) |
 | `createdAt` | string (ISO) | Data de criação |
 

@@ -92,6 +92,8 @@ export function calcularEquipe(equipe, fases, questoesById) {
     }
   }
 
+  df = round2(df + round2(equipe?.diProvaFinal || 0))
+
   let mudouPont = false
   for (const fase of fases || []) {
     const atual = equipe.pontuacoes?.[fase.id] || {}
@@ -156,4 +158,18 @@ export function payloadGravacao(item, fases) {
     update[`respostas.${rid}.peso`] = peso
   }
   return update
+}
+
+if (process.env.NODE_ENV !== 'production') {
+  const base = {
+    id: 'e',
+    df: 170,
+    diProvaFinal: 160,
+    pontuacoes: { f1: { ni: 10, di: 10 } },
+    respostas: { tarefa_f1: { status: 'entregue', peso: 10, faseId: 'f1', tipo: 'tarefa' } },
+  }
+  const item = calcularEquipe(base, [{ id: 'f1', peso: 1 }], {})
+  if (item.dfNovo !== 170 || item.mudou) throw new Error('diProvaFinal permanece no df')
+  const sem = calcularEquipe({ ...base, df: 10, diProvaFinal: 0 }, [{ id: 'f1', peso: 1 }], {})
+  if (sem.dfNovo !== 10) throw new Error('sem prova final o df fica só nas fases')
 }

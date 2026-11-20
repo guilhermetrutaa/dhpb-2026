@@ -3,10 +3,14 @@
 import React, { useState, useEffect, Suspense } from 'react'
 import { Poppins } from 'next/font/google'
 import { useRouter } from 'next/navigation'
-import { collection, query, where, getDocs, doc, orderBy, updateDoc, writeBatch, limit, deleteField } from 'firebase/firestore'
+import { collection, query, where, getDocs, doc, orderBy, updateDoc, writeBatch, limit, deleteField, documentId, runTransaction } from 'firebase/firestore'
+import JSZip from 'jszip'
 import { db } from '@/lib/firebase'
 import { htmlTamanhos, indiceTamanhos } from '@/lib/tamanhosCamisa'
 import { planejarConvocacao, VAGAS_FINAL } from '@/lib/convocacaoFinal'
+import { agruparPorSala, colisoesSalas, csvCredencial, dividirSalas, grupoDe, numerosDoGrupo } from '@/lib/salasFinal'
+import { checarPesos, classificarFinal, notaDoVeredito, PESO_PROVA_FINAL, planoEncerrar, previaEncerrar } from '@/lib/encerrarFinal'
+import { pdfCapas, pdfCertificadoFinal } from '@/lib/finalPdf'
 import Image from 'next/image'
 
 const poppins = Poppins({ subsets: ['latin'], weight: ['400', '500', '600', '700'] })
@@ -110,6 +114,17 @@ function FinalContent() {
   const [achadas, setAchadas] = useState([])
   const [buscandoEq, setBuscandoEq] = useState(false)
   const [movendoId, setMovendoId] = useState('')
+  const [salasMedio, setSalasMedio] = useState('')
+  const [salasFund, setSalasFund] = useState('')
+  const [planoSalas, setPlanoSalas] = useState(null)
+  const [dividindo, setDividindo] = useState(false)
+  const [previaFinal, setPreviaFinal] = useState(null)
+  const [encerrando, setEncerrando] = useState(false)
+  const [corteOuro, setCorteOuro] = useState('10')
+  const [cortePrata, setCortePrata] = useState('25')
+  const [corteBronze, setCorteBronze] = useState('50')
+  const [gerandoZip, setGerandoZip] = useState(false)
+  const [agrupado, setAgrupado] = useState(true)
 
   useEffect(() => {
     const admin = localStorage.getItem('admin-authenticated')
@@ -133,6 +148,10 @@ function FinalContent() {
       setManualUrl(ed?.manualFinalistaUrl || '')
       setAutorizacaoUrl(ed?.autorizacaoViagemUrl || '')
       setPublicado(ed?.resultadoFinalPublicado === true)
+      setPlanoSalas(ed?.salasFinalPlano || null)
+      setSalasMedio(ed?.salasFinalPlano ? String(ed.salasFinalPlano.medio) : '')
+      setSalasFund(ed?.salasFinalPlano ? String(ed.salasFinalPlano.fundamental) : '')
+      setPreviaFinal(null)
       const eSnap = await getDocs(query(
         collection(db, 'equipes'),
         where('edicaoId', '==', edId),
@@ -203,6 +222,8 @@ function FinalContent() {
   }
 
   const confirmadas = equipes.filter(eq => eq.presencaFinalConfirmada).length
+  const colisoes = colisoesSalas(equipes)
+  const blocos = agrupado ? agruparPorSala(equipes) : [{ numero: 0, grupo: '', equipes }]
   const tamanhosConhecidos = indiceTamanhos(equipes)
   const resumoCidades = escolasPorId && !erroCenso ? resumoCidadesFinal(equipes, escolasPorId) : null
   const linhaPorId = resumoCidades ? Object.fromEntries(resumoCidades.linhas.map((l) => [l.id, l])) : null
@@ -322,6 +343,204 @@ function FinalContent() {
     }
   }
 
+  const baixarBlob = (blob, nome) => {
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = nome
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const baixarCsv = () => {
+    const { csv, semSala } = csvCredencial(equipes.filter((eq) => eq.id !== EQUIPE_EXCLUIDA_RANKING_ID))
+    baixarBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), 'credencial-final.csv')
+    setMsg(semSala ? 'CSV baixado. Algumas equipes ainda não têm sala; a coluna sala saiu vazia.' : 'CSV baixado. Importe no Even3.')
+  }
+
+  const baixarCapas = () => {
+    const linhas = equipes
+      .filter((eq) => eq.id !== EQUIPE_EXCLUIDA_RANKING_ID && eq.salaFinal?.numero)
+      .map((eq) => ({ id: eq.id, numero: eq.salaFinal.numero }))
+      .sort((a, b) => a.numero - b.numero || (a.id < b.id ? -1 : 1))
+    if (!linhas.length) { setMsg('Divida as salas antes de gerar as capas.'); return }
+    pdfCapas(linhas).save('capas-prova-final.pdf')
+    setMsg('Capas baixadas. Cada página tem só o ID e a sala.')
+  }
+
+  const dividir = async () => {
+    if (!edicaoId || dividindo) return
+    const resultado = dividirSalas(equipes, { salasMedio: Number(salasMedio), salasFund: Number(salasFund) })
+    if (resultado.erro) { setMsg(resultado.erro); return }
+    const jaTem = equipes.some((eq) => eq.salaFinal)
+    if (jaTem && !window.confirm('Refazer a divisão apaga os ajustes manuais de sala.')) return
+    setDividindo(true)
+    setMsg('')
+    try {
+      for (let i = 0; i < resultado.alocacao.length; i += 400) {
+        const batch = writeBatch(db)
+        resultado.alocacao.slice(i, i + 400).forEach((op) => {
+          batch.update(doc(db, 'equipes', op.id), { salaFinal: { numero: op.numero, grupo: op.grupo, manual: false } })
+        })
+        await batch.commit()
+      }
+      await updateDoc(doc(db, 'edicoes', edicaoId), { salasFinalPlano: resultado.plano })
+      setPlanoSalas(resultado.plano)
+      setEdicoes((prev) => prev.map((ed) => ed.id === edicaoId ? { ...ed, salasFinalPlano: resultado.plano } : ed))
+      const porId = Object.fromEntries(resultado.alocacao.map((op) => [op.id, op]))
+      setEquipes((prev) => prev.map((eq) => porId[eq.id] ? { ...eq, salaFinal: { numero: porId[eq.id].numero, grupo: porId[eq.id].grupo, manual: false } } : eq))
+      setMsg('Salas gravadas.')
+    } catch (e) {
+      setMsg('Erro ao gravar as salas: ' + e.message)
+    } finally {
+      setDividindo(false)
+    }
+  }
+
+  const trocarSala = async (eq, numero) => {
+    if (movendoId) return
+    const salaFinal = { numero: Number(numero), grupo: grupoDe(eq.modalidade), manual: true }
+    setMovendoId(eq.id)
+    setMsg('')
+    try {
+      await updateDoc(doc(db, 'equipes', eq.id), { salaFinal })
+      setEquipes((prev) => prev.map((item) => item.id === eq.id ? { ...item, salaFinal } : item))
+    } catch (e) {
+      setMsg('Erro ao trocar a sala: ' + e.message)
+    } finally {
+      setMovendoId('')
+    }
+  }
+
+  const lerFases = async () => {
+    const snap = await getDocs(query(collection(db, 'edicoes', edicaoId, 'fases'), orderBy('dataInicio', 'asc'), limit(20)))
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+  }
+
+  const lerVereditos = async (ids) => {
+    const mapa = {}
+    for (let i = 0; i < ids.length; i += 30) {
+      const slice = ids.slice(i, i + 30)
+      if (!slice.length) continue
+      const snap = await getDocs(query(
+        collection(db, 'correcoes', 'final', 'vereditos'),
+        where(documentId(), 'in', slice),
+        limit(slice.length)
+      ))
+      snap.docs.forEach((d) => { mapa[d.id] = d.data() })
+    }
+    return mapa
+  }
+
+  const prepararEncerrar = async () => {
+    if (!edicaoId || encerrando) return
+    setEncerrando(true)
+    setPreviaFinal(null)
+    setMsg('')
+    try {
+      const fases = await lerFases()
+      const gate = checarPesos(fases)
+      if (!gate.ok) {
+        setMsg(`A soma dos pesos das fases online é ${gate.soma}, não 15. Nada foi gravado.`)
+        return
+      }
+      const ids = equipes.map((eq) => eq.id).filter((id) => id !== EQUIPE_EXCLUIDA_RANKING_ID)
+      const vereditos = await lerVereditos(ids)
+      const previa = previaEncerrar(equipes, vereditos, gate.pesoProva)
+      if (previa.abertos.length) {
+        setMsg(`Correção aberta ou ausente em ${previa.abertos.length} equipe(s). Nada foi gravado.`)
+        return
+      }
+      if (!previa.itens.length) {
+        setMsg('Nenhuma equipe para encerrar.')
+        return
+      }
+      setPreviaFinal(previa)
+    } catch (e) {
+      setMsg('Erro ao preparar o encerramento: ' + e.message)
+    } finally {
+      setEncerrando(false)
+    }
+  }
+
+  const gravarEncerrar = async () => {
+    if (!previaFinal || encerrando) return
+    const mudam = previaFinal.itens.filter((item) => item.mudou).length
+    if (!window.confirm(mudam ? `Somar a prova de ${previaFinal.itens.length} equipes no desempenho? ${mudam} vão mudar de nota.` : 'As notas já estão no desempenho. Gravar de novo não soma outra vez.')) return
+    setEncerrando(true)
+    setMsg('')
+    try {
+      const gate = checarPesos(await lerFases())
+      if (!gate.ok) {
+        setPreviaFinal(null)
+        setMsg(`A soma dos pesos das fases online é ${gate.soma}, não 15. Nada foi gravado.`)
+        return
+      }
+      for (const item of previaFinal.itens) {
+        await runTransaction(db, async (tx) => {
+          const ref = doc(db, 'equipes', item.id)
+          const vRef = doc(db, 'correcoes', 'final', 'vereditos', item.id)
+          const snap = await tx.get(ref)
+          const vSnap = await tx.get(vRef)
+          if (!snap.exists()) return
+          const nota = notaDoVeredito(vSnap.exists() ? vSnap.data() : null)
+          if (nota == null) throw new Error(`Veredito aberto em ${item.id}`)
+          const plano = planoEncerrar({ id: snap.id, ...snap.data() }, nota, PESO_PROVA_FINAL)
+          if (!plano?.mudou) return
+          tx.update(ref, { notaProvaFinal: plano.notaProvaFinal, diProvaFinal: plano.diProvaFinal, df: plano.dfNovo })
+        })
+      }
+      setPreviaFinal(null)
+      setMsg('Prova somada ao desempenho. Rodar de novo não soma outra vez.')
+      carregarDados(edicaoId)
+    } catch (e) {
+      setMsg('Erro ao encerrar: ' + e.message + ' Pode preparar de novo: o que já foi gravado não soma duas vezes.')
+    } finally {
+      setEncerrando(false)
+    }
+  }
+
+  const baixarCertificados = async () => {
+    if (!edicaoId || gerandoZip) return
+    const finalistas = equipes.filter((eq) => eq.id !== EQUIPE_EXCLUIDA_RANKING_ID)
+    if (finalistas.some((eq) => typeof eq.notaProvaFinal !== 'number')) {
+      setMsg('Encerre a correção antes de gerar os certificados.')
+      return
+    }
+    setGerandoZip(true)
+    setMsg('')
+    try {
+      const fases = await lerFases()
+      const ranking = classificarFinal(finalistas, fases.map((f) => f.id), {
+        ouro: Number(corteOuro),
+        prata: Number(cortePrata),
+        bronze: Number(corteBronze),
+      })
+      for (let i = 0; i < ranking.length; i += 400) {
+        const batch = writeBatch(db)
+        ranking.slice(i, i + 400).forEach((item) => batch.update(doc(db, 'equipes', item.id), { premiacao: item.premiacao }))
+        await batch.commit()
+      }
+      const porId = Object.fromEntries(ranking.map((item) => [item.id, item]))
+      setEquipes((prev) => prev.map((eq) => porId[eq.id] ? { ...eq, premiacao: porId[eq.id].premiacao } : eq))
+      const zip = new JSZip()
+      for (const eq of finalistas) {
+        const lugar = porId[eq.id]
+        if (!lugar) continue
+        for (const m of (eq.membros || []).filter((membro) => membro.status === 'ativo')) {
+          const nomeArq = `${lugar.premiacao}-${String(lugar.colocacao).padStart(3, '0')}-${String(m.nome || 'membro').replace(/[^\w]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'membro'}-${String(m.uid || '').slice(0, 6)}.pdf`
+          zip.file(nomeArq, pdfCertificadoFinal({ nome: m.nome, equipe: eq.nome, colocacao: lugar.colocacao, premiacao: lugar.premiacao }).output('arraybuffer'))
+        }
+      }
+      baixarBlob(await zip.generateAsync({ type: 'blob' }), 'certificados-final.zip')
+      setMsg('Certificados baixados. A premiação foi gravada nas equipes.')
+    } catch (e) {
+      setMsg('Erro ao gerar os certificados: ' + e.message)
+    } finally {
+      setGerandoZip(false)
+    }
+  }
+
   const baixarTamanhos = () => {
     const blob = new Blob([htmlTamanhos(equipes)], { type: 'text/html;charset=utf-8' })
     const url = URL.createObjectURL(blob)
@@ -372,6 +591,64 @@ function FinalContent() {
                 >
                   {publicando ? 'Salvando...' : publicado ? 'Ocultar resultado' : 'Publicar resultado da final'}
                 </button>
+              </div>
+
+              <div className='bg-white rounded-2xl shadow-sm border border-neutral-200 p-6 space-y-4'>
+                <h2 className='text-sm font-bold text-[#82181A] uppercase tracking-wide'>Salas, credencial e premiação</h2>
+                <p className='text-sm text-neutral-600'>Médio e fundamental ficam em salas diferentes. Pública e particular se misturam. A mesma escola só repete sala quando não há outra vaga.</p>
+                {msg && <p className='text-sm font-medium text-neutral-700'>{msg}</p>}
+                <div className='flex flex-wrap gap-3 items-end'>
+                  <label className='text-sm text-neutral-600'>Salas do médio
+                    <input type='number' min='0' max='12' value={salasMedio} onChange={(e) => setSalasMedio(e.target.value)} className='mt-1 block w-28 rounded-xl border border-neutral-300 px-3 py-2 text-sm' />
+                  </label>
+                  <label className='text-sm text-neutral-600'>Salas do fundamental
+                    <input type='number' min='0' max='12' value={salasFund} onChange={(e) => setSalasFund(e.target.value)} className='mt-1 block w-28 rounded-xl border border-neutral-300 px-3 py-2 text-sm' />
+                  </label>
+                  <button type='button' onClick={dividir} disabled={dividindo} className='px-6 py-3 rounded-xl text-sm font-semibold cursor-pointer bg-[#82181A] text-white hover:bg-[#631214] disabled:opacity-50'>
+                    {dividindo ? 'Gravando...' : equipes.some((eq) => eq.salaFinal) ? 'Refazer divisão' : 'Dividir salas'}
+                  </button>
+                  <button type='button' onClick={baixarCsv} className='px-6 py-3 rounded-xl text-sm font-semibold cursor-pointer border border-[#82181A] text-[#82181A] hover:bg-red-50'>CSV para o Even3</button>
+                  <button type='button' onClick={baixarCapas} className='px-6 py-3 rounded-xl text-sm font-semibold cursor-pointer border border-[#82181A] text-[#82181A] hover:bg-red-50'>Capas da prova</button>
+                </div>
+                {colisoes.length > 0 && (
+                  <ul className='text-sm text-amber-800 bg-amber-50 rounded-xl p-4 space-y-1'>
+                    {colisoes.map((c) => (
+                      <li key={`${c.numero}-${c.escolaId}`}>Sala {c.numero}: {c.escola} tem {c.ids.length} equipes ({c.ids.map((id) => equipes.find((eq) => eq.id === id)?.nome || id).join(', ')})</li>
+                    ))}
+                  </ul>
+                )}
+                <div className='border-t border-neutral-100 pt-4 space-y-3'>
+                  <p className='text-sm text-neutral-600'>Encerrar só grava quando todo veredito da prova está fechado e a soma dos pesos das fases online é 15. A nota entra com peso 16. A correção em si espera a planilha de critérios.</p>
+                  <button type='button' onClick={prepararEncerrar} disabled={encerrando} className='px-6 py-3 rounded-xl text-sm font-semibold cursor-pointer bg-[#82181A] text-white hover:bg-[#631214] disabled:opacity-50'>
+                    {encerrando && !previaFinal ? 'Preparando...' : 'Preparar encerramento'}
+                  </button>
+                  {previaFinal && (
+                    <div className='space-y-3 text-sm'>
+                      <ul className='max-h-60 overflow-y-auto text-neutral-600'>
+                        {previaFinal.itens.map((item) => (
+                          <li key={item.id}>{item.nome}: nota {item.notaProvaFinal} · di {item.diProvaFinal} · df {item.dfAntigo} → {item.dfNovo}{item.mudou ? '' : ' (já gravado)'}</li>
+                        ))}
+                      </ul>
+                      <button type='button' onClick={gravarEncerrar} disabled={encerrando} className='px-6 py-3 rounded-xl text-sm font-semibold cursor-pointer border border-[#82181A] text-[#82181A] hover:bg-red-50 disabled:opacity-50'>
+                        {encerrando ? 'Gravando...' : 'Gravar no desempenho'}
+                      </button>
+                    </div>
+                  )}
+                  <div className='flex flex-wrap gap-3 items-end'>
+                    <label className='text-sm text-neutral-600'>Ouro até
+                      <input type='number' min='1' value={corteOuro} onChange={(e) => setCorteOuro(e.target.value)} className='mt-1 block w-24 rounded-xl border border-neutral-300 px-3 py-2 text-sm' />
+                    </label>
+                    <label className='text-sm text-neutral-600'>Prata até
+                      <input type='number' min='1' value={cortePrata} onChange={(e) => setCortePrata(e.target.value)} className='mt-1 block w-24 rounded-xl border border-neutral-300 px-3 py-2 text-sm' />
+                    </label>
+                    <label className='text-sm text-neutral-600'>Bronze até
+                      <input type='number' min='1' value={corteBronze} onChange={(e) => setCorteBronze(e.target.value)} className='mt-1 block w-24 rounded-xl border border-neutral-300 px-3 py-2 text-sm' />
+                    </label>
+                    <button type='button' onClick={baixarCertificados} disabled={gerandoZip} className='px-6 py-3 rounded-xl text-sm font-semibold cursor-pointer border border-[#82181A] text-[#82181A] hover:bg-red-50 disabled:opacity-50'>
+                      {gerandoZip ? 'Gerando...' : 'ZIP dos certificados'}
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div className='bg-white rounded-2xl shadow-sm border border-neutral-200 p-6 space-y-4'>
@@ -486,6 +763,7 @@ function FinalContent() {
                   <h2 className='text-sm font-bold text-[#82181A] uppercase tracking-wide'>Finalistas ({equipes.length})</h2>
                   <div className='flex items-center gap-2 flex-wrap'>
                     <span className='text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-semibold'>{confirmadas} com presença confirmada</span>
+                    <button type='button' onClick={() => setAgrupado((v) => !v)} className='text-xs border border-[#82181A] text-[#82181A] px-3 py-1 rounded-full font-semibold cursor-pointer hover:bg-red-50'>{agrupado ? 'Lista alfabética' : 'Agrupar por sala'}</button>
                     <button type='button' onClick={baixarTamanhos} className='text-xs bg-[#82181A] text-white px-3 py-1 rounded-full font-semibold cursor-pointer hover:bg-[#631214]'>Baixar tamanhos</button>
                   </div>
                 </div>
@@ -503,14 +781,31 @@ function FinalContent() {
                 ) : equipes.length === 0 ? (
                   <p className='text-center text-neutral-400 py-10'>Nenhuma equipe finalista nesta edição.</p>
                 ) : (
-                  <div className='divide-y divide-neutral-100'>
-                    {equipes.map((eq) => (
+                  <div>
+                    {blocos.map((bloco) => (
+                      <div key={bloco.numero || 'lista'}>
+                        {agrupado && (
+                          <h3 className='sticky top-0 z-10 bg-[#82181A] text-white px-6 py-3 text-sm font-bold uppercase tracking-wide'>
+                            {bloco.numero ? `Sala ${bloco.numero}` : 'Sem sala'}
+                            {bloco.grupo === 'medio' ? ' · Ensino médio' : bloco.grupo === 'fundamental' ? ' · Ensino fundamental' : ''}
+                            {' · '}{bloco.equipes.length} {bloco.equipes.length === 1 ? 'equipe' : 'equipes'}
+                          </h3>
+                        )}
+                        <div className='divide-y divide-neutral-100'>
+                    {bloco.equipes.map((eq) => (
                       <div key={eq.id} className='p-6'>
                         <div className='flex items-start justify-between gap-4'>
                           <div>
                             <p className='font-bold text-base'>{eq.nome}</p>
                             <p className='text-sm text-neutral-500'>{eq.escola}</p>
                             <p className='text-xs text-neutral-500 mt-1 break-all'>ID {eq.id} · INEP {String(eq.escolaId ?? '').trim() || '—'}{erroCenso ? ' · cidade indisponível' : linhaPorId ? ` · ${linhaPorId[eq.id]?.municipio || SEM_MUNICIPIO}` : ''}</p>
+                            <p className='text-xs font-semibold text-[#82181A] mt-1'>{eq.salaFinal?.numero ? `Sala ${eq.salaFinal.numero}${eq.salaFinal.manual ? ' · ajuste manual' : ''}` : 'Sem sala'}</p>
+                            {numerosDoGrupo(planoSalas, grupoDe(eq.modalidade)).length > 0 && (
+                              <select value={eq.salaFinal?.numero || ''} onChange={(e) => { if (e.target.value) trocarSala(eq, e.target.value) }} disabled={!!movendoId} className='mt-2 rounded-lg border border-neutral-300 px-3 py-2 text-xs'>
+                                {!eq.salaFinal?.numero && <option value=''>Sala</option>}
+                                {numerosDoGrupo(planoSalas, grupoDe(eq.modalidade)).map((n) => <option key={n} value={n}>Sala {n}</option>)}
+                              </select>
+                            )}
                           </div>
                           <div className='flex flex-wrap justify-end gap-2'>
                             {eq.presencaFinalConfirmada ? (
@@ -540,6 +835,9 @@ function FinalContent() {
                           })}
                         </ul>
                         <button type='button' onClick={() => tirarDaFinal(eq)} disabled={!!movendoId} className='mt-4 text-xs border border-red-300 text-red-700 px-3 py-2 rounded-full font-semibold cursor-pointer hover:bg-red-50 disabled:opacity-50'>Tirar da final</button>
+                      </div>
+                    ))}
+                        </div>
                       </div>
                     ))}
                   </div>
